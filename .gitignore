@@ -44,6 +44,12 @@
 
 # CMake
 cmake-build-*/
+build/
+dist/
+_build/
+_generate/
+*.so
+*.py[cod]
 
 # Mongo Explorer plugin
 .idea/**/mongoSettings.xml
