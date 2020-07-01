@@ -9,5 +9,6 @@
 /.eggs/
 /.idea/
 /input/*
+!/input/.gitkeep
 
 
