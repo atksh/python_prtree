@@ -39,8 +39,8 @@ class BoundingBox{
     }
 
     inline bool operator ()(const BoundingBox& target) const{ // whether this and target has any intersect
-      bool c1 = std::max(xmin, target.xmin) <= std::min(xmax, target.xmax);
-      bool c2 = std::max(ymin, target.ymin) <= std::min(ymax, target.ymax);
+      const bool c1 = std::max(xmin, target.xmin) <= std::min(xmax, target.xmax);
+      const bool c2 = std::max(ymin, target.ymin) <= std::min(ymax, target.ymax);
       return c1 && c2;
     }
 
@@ -66,7 +66,7 @@ class Leaf{
     // T is type of keys(ids) which will be returned when you post a query.
     Leaf(){}
     Leaf(int _axis){
-      mbb = BoundingBox(0.0, 0.0, 0.0, 0.0);
+      mbb = BoundingBox(1e100, -1e100, 1e100, -1e100);
       axis = _axis;
       data.reserve(B);
     }
@@ -76,15 +76,15 @@ class Leaf{
       update_mbb();
     }
 
-    inline void update_mbb(){
-      BoundingBox bb(0.0, 0.0, 0.0, 0.0);
+    void update_mbb(){
+      BoundingBox bb(1e100, -1e100, 1e100, -1e100);
       auto init = std::make_pair<T, BoundingBox>(std::forward<T>(data[0].first), std::forward<BoundingBox>(bb));
       mbb = std::reduce(data.begin(), data.end(), init, [&](std::pair<T, BoundingBox>& lhs, std::pair<T, BoundingBox>& rhs) {
             return std::make_pair<T, BoundingBox>(std::forward<T>(lhs.first), std::forward<BoundingBox>(lhs.second + rhs.second));
           }).second;
     }
 
-    inline bool filter(std::pair<T, BoundingBox>& value){// nullopt or lower priority one
+    bool filter(std::pair<T, BoundingBox>& value){// nullopt or lower priority one
       if (unlikely(data.size() < B)){ // if there is room, just push the candidate
         data.push_back(value);
         update_mbb();
@@ -102,16 +102,14 @@ class Leaf{
       }
     }
 
-    inline std::vector<T> operator ()(const BoundingBox& target)const{
-      std::vector<T> out;
+    inline void operator ()(const BoundingBox& target, std::vector<T>& out)const{
       if (unlikely(mbb(target))){
-        for (auto& x : data){
+        for (const auto& x : data){
           if (unlikely(x.second(target))){
             out.emplace_back(x.first);
           }
         }
       }
-      return out;
     }
 
 };
@@ -131,7 +129,7 @@ class PseudoPRTreeNode{
     }
 
     template<class iterator>
-    inline auto filter (const iterator& b, const iterator& e){
+    auto filter (const iterator& b, const iterator& e){
       using U = std::pair<T, BoundingBox>;
       std::vector<U> out;
       const int length = e - b;
@@ -288,38 +286,61 @@ class PRTree{
             }
             idx = leaf.data[0].first;
             p->head = std::move(prev_nodes[idx]);
+            if (!p->head){throw std::runtime_error("ppp");}
+            tmp_nodes.push_back(std::move(p));
+          } else {
+            throw std::runtime_error("what????");
           }
-          tmp_nodes.push_back(std::move(p));
         }
         as_X = tree.as_X();
+        int c = 0;
+        int cc = 0;
+        for (auto& n : prev_nodes){
+          if (unlikely(n)){
+            std::cout << cc << std::endl;
+            c+=1;
+          }
+          cc++;
+        }
+        if (unlikely(c > 0)){
+          std::cout << c << std::endl;
+          throw std::runtime_error("eee");
+        }
         prev_nodes.swap(tmp_nodes);
       }
-      std::cout << prev_nodes.size() << std::endl;
+      if (unlikely(prev_nodes.size() != 1)){
+        throw std::runtime_error("#roots is not 1.");
+      }
       root = std::move(prev_nodes[0]);
     }
 
     std::vector<T> operator ()(BoundingBox& target){
-      std::vector<T> out, o;
-      std::queue<PRTreeNode<T, B>*> que;
-      PRTreeNode<T, B>* p;
-      if (unlikely(!root || !(*root)(target))){return out;}
+      std::vector<T> out;
+      std::queue<PRTreeNode<T, B>*, std::deque<PRTreeNode<T, B>*>> que;
+      PRTreeNode<T, B>* p, * q;
+      auto qpush = [&](PRTreeNode<T, B>* r){
+        if (unlikely((*r)(target))){
+          que.emplace(r);
+        }
+      };
+
       p = root.get();
-      que.emplace(p);
+      qpush(p);
       while (likely(!que.empty())){
         p = que.front();
         que.pop();
 
-        if (unlikely(p->head && (*p->head)(target))){
-          que.emplace(p->head.get());
-        }
-        if (likely(p->next)){
-          que.emplace(p->next.get());
-        }
         if (unlikely(p->leaf)){
-          o = (*p->leaf)(target); 
-          out.insert(out.end(),
-              std::make_move_iterator(o.begin()),
-              std::make_move_iterator(o.end()));
+          (*p->leaf)(target, out); 
+        } else {
+          if (likely(p->head)){
+            q = p->head.get();
+            qpush(q);
+            while (likely(q->next)){
+              q = q->next.get();
+              qpush(q);
+            }
+          }
         }
       }
       return out;
