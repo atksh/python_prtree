@@ -13,5 +13,5 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 
 
 add_subdirectory(pybind11)
-set(CMAKE_CXX_FLAGS "-O3 -Ofast -ffast-math -Wall -fopenmp -lpthread -fPIC -shared -march=native -flto -static-libgcc -static-libstdc++")
 pybind11_add_module(_math src/main.cpp)
+set(CMAKE_CXX_FLAGS "-O3 -Ofast -ffast-math -Wall -fopenmp -lpthread -fPIC -shared -mtune=native -march=native -flto -static-libgcc -static-libstdc++")
