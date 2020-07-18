@@ -326,7 +326,7 @@ class PRTree{
       build(X);
     }
 
-    auto insert(const T& idx, const py::array_t<double>& x){
+    void insert(const T& idx, const py::array_t<double>& x){
       std::vector<Leaf<T, B>*> cands;
       std::queue<PRTreeNode<T, B>*, std::deque<PRTreeNode<T, B>*>> que;
       BoundingBox bb;
@@ -401,7 +401,6 @@ class PRTree{
           p->mbb = mbb;
         }
       }
-      return cands.size();
     }
 
 
