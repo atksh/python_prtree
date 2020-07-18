@@ -1,22 +1,37 @@
 #pragma once
 #include <array>
+#include <random>
 #include <vector>
+#include <unordered_map>
 #include <queue>
 #include <stack>
 #include <algorithm>
 #include <numeric>
 #include <memory>
-#include <mutex>
 #include <iterator>
 #include <iostream>
+#include <omp.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
-#include <omp.h>
 
 namespace py = pybind11;
 
 #define likely(x)   __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
+
+template<typename Iter, typename RandomGenerator>
+Iter select_randomly(Iter start, Iter end, RandomGenerator& g) {
+    std::uniform_int_distribution<> dis(0, std::distance(start, end) - 1);
+    std::advance(start, dis(g));
+    return start;
+}
+
+template<typename Iter>
+Iter select_randomly(Iter start, Iter end) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    return select_randomly(start, end, gen);
+}
 
 
 class BoundingBox{
@@ -97,9 +112,9 @@ class Leaf{
           }).second;
     }
 
-    bool filter(std::pair<T, BoundingBox>& value){// nullopt or lower priority one
+    bool filter(std::pair<T, BoundingBox>& value){// false means given value is ignored
       if (unlikely(data.size() < B)){ // if there is room, just push the candidate
-        data.push_back(value);
+        data.emplace_back(value);
         update_mbb();
         return true;
       } else { // if there is no room, check the priority and swap if needed
@@ -115,15 +130,29 @@ class Leaf{
       }
     }
 
-    inline void operator ()(const BoundingBox& target, std::vector<T>& out)const{
+    void operator ()(const BoundingBox& target, std::vector<T>& out)const{
       if (unlikely(mbb(target))){
         for (const auto& x : data){
           if (unlikely(x.second(target))){
-            out.push_back(x.first);
+            out.emplace_back(x.first);
           }
         }
       }
     }
+
+    void del(const T key, const BoundingBox& target){
+      if (unlikely(mbb(target))){
+        for (auto it = data.begin(); it != data.end();){
+          if (unlikely(it->second(target) && it->first == key)){
+            it = data.erase(it);
+            break;
+          } else {
+            ++it;
+          }
+        }
+      }
+    }
+
 
 };
 
@@ -131,9 +160,8 @@ class Leaf{
 template<class T, int B=6>
 class PseudoPRTreeNode{
   public:
-
     std::array<Leaf<T, B>, 4> leaves;
-    std::shared_ptr<PseudoPRTreeNode> left, right;
+    std::unique_ptr<PseudoPRTreeNode> left, right;
 
     PseudoPRTreeNode(){
       for (int i = 0; i < 4; i++){
@@ -141,21 +169,16 @@ class PseudoPRTreeNode{
       }
     }
 
-    template<class iterator>
-    auto filter (const iterator& b, const iterator& e){
-      using U = std::pair<T, BoundingBox>;
-      std::vector<U> out;
-      const int length = e - b;
-      out.reserve(length);
-      std::for_each(b, e, [&](U x) mutable{
-          out.emplace_back(x);
+    inline auto filter (std::vector<std::pair<T, BoundingBox>>& X){
+      auto out = std::remove_if(X.begin(), X.end(), [&](auto& x) {
           for (auto& l : leaves){
-            if (unlikely(l.filter(out.back()))){
-              out.pop_back();
-              break;
+            if (unlikely(l.filter(x))){
+              return true;
             }
           }
+          return false;
       });
+      X.erase(out, X.end());
       return out;
     }
     
@@ -165,49 +188,60 @@ class PseudoPRTreeNode{
 template<class T, int B=6>
 class PseudoPRTree{
   public:
-    std::shared_ptr<PseudoPRTreeNode<T, B>> root;
+    std::unique_ptr<PseudoPRTreeNode<T, B>> root;
 
     PseudoPRTree(){
-      root = std::make_shared<PseudoPRTreeNode<T, B>>();
+      root = std::make_unique<PseudoPRTreeNode<T, B>>();
     }
-    PseudoPRTree(std::vector<std::pair<T, BoundingBox>> X){
+    PseudoPRTree(std::vector<std::pair<T, BoundingBox>>& X){
       if (likely(!root)){
-        root = std::make_shared<PseudoPRTreeNode<T, B>>();
+        root = std::make_unique<PseudoPRTreeNode<T, B>>();
       }
-      construct(root, X.begin(), X.end(), 0);
-      auto tmp = get_all_leaves();
+      #pragma omp parallel
+      {
+        #pragma omp single
+        construct(root.get(), X, 0);
+      }
     }
 
-    template<class iterator>
-    void construct(std::shared_ptr<PseudoPRTreeNode<T, B>>& node, iterator b, iterator e, int depth){
-      if (likely(e - b > 0 && node)) {
+    void construct(PseudoPRTreeNode<T, B>* node, std::vector<std::pair<T, BoundingBox>>& X, int depth){
+      if (likely(X.size() > 0 && node != nullptr)) {
         int axis = depth % 4;
-        auto X_r = node->filter(b, e);
         auto comp = [&](const std::pair<T, BoundingBox>& lhs, const std::pair<T, BoundingBox>& rhs){
           return lhs.second[axis] < rhs.second[axis];
         };
-        auto b = X_r.begin();
-        auto e = X_r.end();
+        auto e = node->filter(X);
+        auto b = X.begin();
         auto m = b;
-        std::advance(m, X_r.size() / 2);
+        std::advance(m, (e - b) / 2);
         std::nth_element(b, m, e, comp);
+        node->left = std::make_unique<PseudoPRTreeNode<T, B>>();
+        node->right = std::make_unique<PseudoPRTreeNode<T, B>>();
         if (likely(m - b > 0)){
-          node->left = std::make_shared<PseudoPRTreeNode<T, B>>();
-          construct(node->left, b, m, depth + 1);
+          #pragma omp task
+          {
+            std::vector<std::pair<T, BoundingBox>> X_left(b, m);
+            construct(node->left.get(), X_left, depth + 1);
+            std::vector<std::pair<T, BoundingBox>>().swap(X_left);
+          }
         }
         if (likely(e - m > 0)){
-          node->right = std::make_shared<PseudoPRTreeNode<T, B>>();
-          construct(node->right, m, e, depth + 1);
+          #pragma omp task
+          {
+            std::vector<std::pair<T, BoundingBox>> X_right(m, e);
+            construct(node->right.get(), X_right, depth + 1);
+            std::vector<std::pair<T, BoundingBox>>().swap(X_right);
+          }
         }
+        #pragma omp taskwait
       }
-      return;
     }
 
     auto get_all_leaves(){
       using U = PseudoPRTreeNode<T, B>;
       std::vector<Leaf<T, B>> out;
-      auto node = std::shared_ptr<U>(root);
-      std::queue<std::shared_ptr<U>> que;
+      auto node = root.get();
+      std::queue<U*> que;
       que.emplace(node);
       while (likely(!que.empty())){
         node = que.front();
@@ -217,10 +251,8 @@ class PseudoPRTree{
             out.emplace_back(l);
           }
         }
-        std::shared_ptr<U> left = node->left;
-        std::shared_ptr<U> right = node->right;
-        if (likely(left)) que.emplace(left);
-        if (likely(right)) que.emplace(right);
+        if (likely(node->left)) que.emplace(node->left.get());
+        if (likely(node->right)) que.emplace(node->right.get());
       }
       return out;
     }
@@ -267,11 +299,13 @@ class PRTreeNode{
 
 template<class T, int B=6>
 class PRTree{
-  public:
+  private:
     std::unique_ptr<PRTreeNode<T, B>> root;
+    std::unordered_map<T, BoundingBox> umap;
 
+  public:
     PRTree(const py::array_t<T>& idx, const py::array_t<double>& x){
-      const auto &buff_info_idx = x.request();
+      const auto &buff_info_idx = idx.request();
       const auto &shape_idx = buff_info_idx.shape;
       const auto &buff_info_x = x.request();
       const auto &shape_x = buff_info_x.shape;
@@ -280,16 +314,96 @@ class PRTree{
       } else if (shape_x[1] != 4){
         throw std::runtime_error("Bounding box must have the shape (length, 4)");
       }
-      size_t length = shape_idx[0];
+      std::size_t length = shape_idx[0];
       std::vector<std::pair<T, BoundingBox>> X;
       BoundingBox bb;
       X.reserve(length);
-      for (size_t i = 0; i < length; i++){
+      for (std::size_t i = 0; i < length; i++){
         bb = BoundingBox(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
         X.emplace_back(*idx.data(i), bb);
+        umap[*idx.data(i)] = bb;
       }
       build(X);
     }
+
+    auto insert(const T& idx, const py::array_t<double>& x){
+      std::vector<Leaf<T, B>*> cands;
+      std::queue<PRTreeNode<T, B>*, std::deque<PRTreeNode<T, B>*>> que;
+      BoundingBox bb;
+      PRTreeNode<T, B>* p, * q;
+
+      const auto &buff_info_x = x.request();
+      const auto &shape_x = buff_info_x.shape;
+      const auto &ndim = buff_info_x.ndim;
+      if (shape_x[0] != 4 or ndim != 1){
+        throw std::runtime_error("invalid shape.");
+      }
+      auto it = umap.find(idx);
+      if (unlikely(it != umap.end())){
+        throw std::runtime_error("Given index is already included.");
+      }
+
+      bb = BoundingBox(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
+      double dx = bb.xmax - bb.xmin + 0.000000001;
+      double dy = bb.ymax - bb.ymin + 0.000000001;
+      double c = 0.0;
+      std::stack<PRTreeNode<T, B>*> sta;
+      while (likely(cands.size() == 0)){
+        while (likely(!sta.empty())){
+          sta.pop();
+        }
+        bb = BoundingBox(*x.data(0) - dx * c, bb.xmax + dx * c, *x.data(2) - dy * c, *x.data(3) + dy * c);
+        c = (c + 1) * 2;
+        auto qpush = [&](PRTreeNode<T, B>* r){
+          if (unlikely((*r)(bb))){
+            que.emplace(r);
+            sta.push(r);
+          }
+        };
+
+        p = root.get();
+        qpush(p);
+        while (likely(!que.empty())){
+          p = que.front();
+          que.pop();
+
+          if (unlikely(p->leaf)){
+            cands.emplace_back(p->leaf.get());
+          } else {
+            if (likely(p->head)){
+              q = p->head.get();
+              qpush(q);
+              while (likely(q->next)){
+                q = q->next.get();
+                qpush(q);
+              }
+            }
+          }
+        }
+      }
+      auto tg = *select_randomly(cands.begin(), cands.end());
+      bb = BoundingBox(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
+      tg->push(idx, bb);
+      umap[idx] = bb;
+      while (likely(!sta.empty())){
+        p = sta.top();
+        sta.pop();
+        if (unlikely(p->leaf)){
+          p->mbb = p->leaf->mbb;
+        } else if (likely(p->head)) {
+          BoundingBox mbb;
+          q = p->head.get();
+          mbb = mbb + q->mbb;
+          while (likely(q->next)){
+            q = q->next.get();
+            mbb = mbb + q->mbb;
+          }
+          p->mbb = mbb;
+        }
+      }
+      return cands.size();
+    }
+
 
     void build(std::vector<std::pair<T, BoundingBox>>& X){
       PseudoPRTree<int, B> tree;
@@ -301,7 +415,7 @@ class PRTree{
       auto first_tree = PseudoPRTree<T, B>(X);
       for (auto& leaf : first_tree.get_all_leaves()){
         p = std::make_unique<PRTreeNode<T, B>>(leaf);
-        prev_nodes.push_back(std::move(p));
+        prev_nodes.emplace_back(std::move(p));
       }
       auto as_X = first_tree.as_X();
       while (likely(prev_nodes.size() > 1)){
@@ -321,7 +435,7 @@ class PRTree{
             idx = leaf.data[0].first;
             p->head = std::move(prev_nodes[idx]);
             if (!p->head){throw std::runtime_error("ppp");}
-            tmp_nodes.push_back(std::move(p));
+            tmp_nodes.emplace_back(std::move(p));
           } else {
             throw std::runtime_error("what????");
           }
@@ -347,6 +461,7 @@ class PRTree{
       }
       root = std::move(prev_nodes[0]);
     }
+    
 
     auto find_all(const py::array_t<double> x){
       const auto &buff_info_x = x.request();
@@ -359,23 +474,48 @@ class PRTree{
       } else if (ndim > 3){
         throw std::runtime_error("invalid shape");
       }
-      std::vector<std::vector<T>> out;
       std::vector<BoundingBox> X;
       BoundingBox bb;
       if (ndim == 1){
         bb = BoundingBox(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
-        X.push_back(bb);
+        X.emplace_back(bb);
       } else {
+        X.reserve(shape_x[0]);
         for (long int i = 0; i < shape_x[0]; i++){
           bb = BoundingBox(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
-          X.push_back(bb);
+          X.emplace_back(bb);
         }
       }
-      for (auto& tg : X){
-        out.push_back(find(tg));
+      py::gil_scoped_release release;
+      std::vector<std::vector<T>> out;
+      std::size_t length = X.size();
+      #pragma omp parallel
+      {
+        std::vector<std::vector<T>> out_private;
+        #pragma omp for nowait schedule(static)
+        for(std::size_t i=0; i<length; i++){
+          out_private.emplace_back(find(X[i]));
+        }
+        #pragma omp for schedule(static) ordered
+        for(int i=0; i<omp_get_num_threads(); i++) {
+          #pragma omp ordered
+          out.insert(out.end(),
+                        std::make_move_iterator(out_private.begin()),
+                        std::make_move_iterator(out_private.end()));
+        }
       }
       return out;
     }
+    auto find_one(const py::array_t<double> x){
+      const auto &buff_info_x = x.request();
+      const auto &ndim= buff_info_x.ndim;
+      const auto &shape_x = buff_info_x.shape;
+      if (ndim != 1 or shape_x[0] != 4){
+        throw std::runtime_error("invalid shape");
+      } 
+      auto bb = BoundingBox(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
+      return find(bb);
+    } 
 
     std::vector<T> find(BoundingBox& target){
       std::vector<T> out;
@@ -407,6 +547,42 @@ class PRTree{
         }
       }
       return out;
+    }
+
+    void erase(const T idx){
+      auto it = umap.find(idx);
+      if (unlikely(it== umap.end())){
+        throw std::runtime_error("Given index is not found.");
+      }
+      BoundingBox target = it->second;
+      std::queue<PRTreeNode<T, B>*, std::deque<PRTreeNode<T, B>*>> que;
+      PRTreeNode<T, B>* p, * q;
+      auto qpush = [&](PRTreeNode<T, B>* r){
+        if (unlikely((*r)(target))){
+          que.emplace(r);
+        }
+      };
+
+      p = root.get();
+      qpush(p);
+      while (likely(!que.empty())){
+        p = que.front();
+        que.pop();
+
+        if (unlikely(p->leaf)){
+          p->leaf->del(idx, target); 
+        } else {
+          if (likely(p->head)){
+            q = p->head.get();
+            qpush(q);
+            while (likely(q->next)){
+              q = q->next.get();
+              qpush(q);
+            }
+          }
+        }
+      }
+      umap.erase(idx);
     }
 
 };

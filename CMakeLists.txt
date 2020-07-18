@@ -2,10 +2,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(PYBIND11_CPP_STANDARD -std=c++1z)
 cmake_minimum_required(VERSION 3.8)
 
-set(CMAKE_C_COMPILER /usr/bin/gcc-10)
-set(CMAKE_CXX_COMPILER /usr/bin/g++-10)
-
-
 project(PRTree)
 
 find_package(OpenMP REQUIRED)
