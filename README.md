@@ -41,9 +41,9 @@ print(result)
 
 You can also erase(delete) by index and insert new one.
 ```python
-prtree.erase(0)  # method is not `delete` but `erase`
+prtree.erase(1)  # method is not `delete` but `erase`
 
-prtree.insert(2, np.array([0.3, 0.5, 0.1, 0.2]))
+prtree.insert(3, np.array([0.3, 0.5, 0.1, 0.2]))
 ```
 
 # Installation
