@@ -5,7 +5,7 @@ Supported futures are as follows:
 
 - Construct Priority R-Tree(PRTree) from rectangles
 - query and batch query with rectangle(s)
-- insert and delete (but not optimized yet)
+- insert and erase(delete) (but not optimized yet)
 
 
 # Usage 
