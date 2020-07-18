@@ -38,6 +38,14 @@ print(result)
 # [[1]]
 ```
 
+
+You can also erase(delete) by index and insert new one.
+```python
+prtree.erase(0)  # method is not `delete` but `erase`
+
+prtree.insert(2, np.array([0.3, 0.5, 0.1, 0.2]))
+```
+
 # Installation
 Install python_prtree with pip command.
 ```bash
