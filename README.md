@@ -50,7 +50,7 @@ prtree.insert(2, np.array([0.3, 0.5, 0.1, 0.2]))
 # Installation
 Install python_prtree with pip command.
 ```bash
-pip install git@https://github.com/atksh/python_prtree.git
+pip install git+https://github.com/atksh/python_prtree
 ```
 
 Or, you can clone and pip just like
