@@ -27,7 +27,7 @@ print(result)
 # [[1], [1, 2]]
 ```
 
-1d-array query will be implicitly treated as batch with size = 1.
+1d-array batch query will be implicitly treated as batch with size = 1.
 If you want 1d result, please use `query` method.
 ```python
 result = prtree.query(q[0])
