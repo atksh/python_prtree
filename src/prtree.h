@@ -366,7 +366,7 @@ class PRTree{
         bb = BoundingBox(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
         X.push_back(bb);
       } else {
-        for (size_t i = 0; i < shape_x[0]; i++){
+        for (long int i = 0; i < shape_x[0]; i++){
           bb = BoundingBox(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
           X.push_back(bb);
         }
