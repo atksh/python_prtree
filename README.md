@@ -77,8 +77,8 @@ pip install .
 # NOTE
 
 - This PRTree is implemented by C++ with Pybind11, and much faster than numba implementation of PRTree.
-- Methods exposed to python are `init` and `find_all`. No other methods are avaiable from python.
 - If you can use C++, you should use boost::geometry (I didn't know it and sadly made this package).
+- Please note that insert / erase operation is not optimized compared to ordinary r-tree.
 
 
 # Reference
