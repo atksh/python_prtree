@@ -9,7 +9,11 @@
 #include <mutex>
 #include <iterator>
 #include <iostream>
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
 #include <omp.h>
+
+namespace py = pybind11;
 
 #define likely(x)   __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
@@ -18,8 +22,18 @@
 class BoundingBox{
   public:
     double xmin, xmax, ymin, ymax;
-    BoundingBox() {}
+    BoundingBox() {
+      xmin = 1e100;
+      xmax = -1e100;
+      ymin = 1e100;
+      ymax= -1e100;
+    }
+
     BoundingBox(double _xmin, double _xmax, double _ymin, double _ymax){
+      if (_xmin > _xmax || _ymin > _ymax){
+        std::cout << _xmin << " : " << _xmin << " : " << _ymin << " : " << _ymax << " : " << std::endl;
+        throw std::runtime_error("Impossible rectange was given. xmin < xmax and ymin < ymax must be satisfied.");
+      }
       xmin = _xmin;
       xmax = _xmax;
       ymin = _ymin;
@@ -39,9 +53,9 @@ class BoundingBox{
     }
 
     inline bool operator ()(const BoundingBox& target) const{ // whether this and target has any intersect
-      const bool c1 = std::max(xmin, target.xmin) <= std::min(xmax, target.xmax);
-      const bool c2 = std::max(ymin, target.ymin) <= std::min(ymax, target.ymax);
-      return c1 && c2;
+      const bool c1 = unlikely(std::max(xmin, target.xmin) <= std::min(xmax, target.xmax));
+      const bool c2 = unlikely(std::max(ymin, target.ymin) <= std::min(ymax, target.ymax));
+      return unlikely(c1 && c2);
     }
 
     inline double operator [](int i)const{
@@ -66,7 +80,7 @@ class Leaf{
     // T is type of keys(ids) which will be returned when you post a query.
     Leaf(){}
     Leaf(int _axis){
-      mbb = BoundingBox(1e100, -1e100, 1e100, -1e100);
+      mbb = BoundingBox();
       axis = _axis;
       data.reserve(B);
     }
@@ -77,8 +91,7 @@ class Leaf{
     }
 
     void update_mbb(){
-      BoundingBox bb(1e100, -1e100, 1e100, -1e100);
-      auto init = std::make_pair<T, BoundingBox>(std::forward<T>(data[0].first), std::forward<BoundingBox>(bb));
+      auto init = std::make_pair<T, BoundingBox>(std::forward<T>(data[0].first), BoundingBox());
       mbb = std::reduce(data.begin(), data.end(), init, [&](std::pair<T, BoundingBox>& lhs, std::pair<T, BoundingBox>& rhs) {
             return std::make_pair<T, BoundingBox>(std::forward<T>(lhs.first), std::forward<BoundingBox>(lhs.second + rhs.second));
           }).second;
@@ -106,7 +119,7 @@ class Leaf{
       if (unlikely(mbb(target))){
         for (const auto& x : data){
           if (unlikely(x.second(target))){
-            out.emplace_back(x.first);
+            out.push_back(x.first);
           }
         }
       }
@@ -257,7 +270,28 @@ class PRTree{
   public:
     std::unique_ptr<PRTreeNode<T, B>> root;
 
-    PRTree(std::vector<std::pair<T, BoundingBox>>& X){
+    PRTree(const py::array_t<T>& idx, const py::array_t<double>& x){
+      const auto &buff_info_idx = x.request();
+      const auto &shape_idx = buff_info_idx.shape;
+      const auto &buff_info_x = x.request();
+      const auto &shape_x = buff_info_x.shape;
+      if (shape_idx[0] != shape_x[0]){
+        throw std::runtime_error("Both index and boudning box must have the same length");
+      } else if (shape_x[1] != 4){
+        throw std::runtime_error("Bounding box must have the shape (length, 4)");
+      }
+      size_t length = shape_idx[0];
+      std::vector<std::pair<T, BoundingBox>> X;
+      BoundingBox bb;
+      X.reserve(length);
+      for (size_t i = 0; i < length; i++){
+        bb = BoundingBox(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
+        X.emplace_back(*idx.data(i), bb);
+      }
+      build(X);
+    }
+
+    void build(std::vector<std::pair<T, BoundingBox>>& X){
       PseudoPRTree<int, B> tree;
       std::vector<Leaf<int, B>> leaves;
       std::vector<std::unique_ptr<PRTreeNode<T, B>>> tmp_nodes, prev_nodes;
@@ -314,7 +348,36 @@ class PRTree{
       root = std::move(prev_nodes[0]);
     }
 
-    std::vector<T> operator ()(BoundingBox& target){
+    auto find_all(const py::array_t<double> x){
+      const auto &buff_info_x = x.request();
+      const auto &ndim= buff_info_x.ndim;
+      const auto &shape_x = buff_info_x.shape;
+      if (ndim == 1 && shape_x[0] != 4){
+        throw std::runtime_error("Bounding box must have the shape 4 with (xmin, xmax, ymin, ymax)");
+      } else if (ndim == 2 && shape_x[1] != 4){
+        throw std::runtime_error("Bounding box must have the shape (length, 4)");
+      } else if (ndim > 3){
+        throw std::runtime_error("invalid shape");
+      }
+      std::vector<std::vector<T>> out;
+      std::vector<BoundingBox> X;
+      BoundingBox bb;
+      if (ndim == 1){
+        bb = BoundingBox(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
+        X.push_back(bb);
+      } else {
+        for (size_t i = 0; i < shape_x[0]; i++){
+          bb = BoundingBox(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
+          X.push_back(bb);
+        }
+      }
+      for (auto& tg : X){
+        out.push_back(find(tg));
+      }
+      return out;
+    }
+
+    std::vector<T> find(BoundingBox& target){
       std::vector<T> out;
       std::queue<PRTreeNode<T, B>*, std::deque<PRTreeNode<T, B>*>> que;
       PRTreeNode<T, B>* p, * q;
@@ -345,5 +408,6 @@ class PRTree{
       }
       return out;
     }
+
 };
 
