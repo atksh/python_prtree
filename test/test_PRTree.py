@@ -1,5 +1,5 @@
 import unittest
-from PRTree import PRTree
+from python_prtree import PRTree
 import numpy as np
 
 class TestPRTree(unittest.TestCase):
