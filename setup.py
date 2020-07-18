@@ -5,10 +5,11 @@ import platform
 import subprocess
 
 from setuptools import setup, Extension
+from setuptools import find_packages
 from setuptools.command.build_ext import build_ext
 from distutils.version import LooseVersion
 
-sys.path.append('./PRTree')
+sys.path.append('./python_PRTree')
 sys.path.append('./test')
 
 
@@ -75,16 +76,17 @@ class CMakeBuild(build_ext):
 
 
 setup(
-    name='PRTree',
+    name='python_prtree',
     version='0.0.1',
     license='MIT',
     description='',
     author='atksh',
-    url='https://github.com/atksh/PRTree',
-    ext_modules=[CMakeExtension('PRTree.PRTree')],
+    url='https://github.com/atksh/python_prtree',
+    ext_modules=[CMakeExtension('python_prtree.PRTree')],
     cmdclass=dict(build_ext=CMakeBuild),
     zip_safe=False,
     install_requires=_requires_from_file('requirements.txt'),
-    packages=['PRTree'],
+    package_dir={"": "src"},
+    packages=find_packages('src'),
     test_suite='test_PRTree.suite',
 )
