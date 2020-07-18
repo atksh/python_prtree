@@ -5,8 +5,9 @@ Supported futures are as follows:
 
 - Construct Priority R-Tree(PRTree) from rectangles
 - query and batch query with rectangle(s)
-- insert and delete (but not optimized yet)
+- insert and erase(delete) (but not optimized yet)
 
+This package is mainly for nearly static situation, which means few insert/delete events happen.
 
 # Usage 
 ```python
@@ -49,7 +50,7 @@ prtree.insert(3, np.array([0.3, 0.5, 0.1, 0.2]))
 # Installation
 Install python_prtree with pip command.
 ```bash
-pip install git@github.com:atksh/python_prtree.git
+pip install git+https://github.com/atksh/python_prtree
 ```
 
 Or, you can clone and pip just like
