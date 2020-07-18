@@ -67,15 +67,17 @@ class CMakeBuild(build_ext):
 
 
 setup(
-    name='mapmatching',
+    name='PRTree',
     version='0.0.1',
     license='MIT',
     description='',
     author='atksh',
-    url='https://github.com/atksh/mapmatching',
-    ext_modules=[CMakeExtension('mapmatching._math')],
+    url='https://github.com/atksh/PRTree',
+    ext_modules=[CMakeExtension('PRTree.PRTree')],
     cmdclass=dict(build_ext=CMakeBuild),
     zip_safe=False,
     install_requires=_requires_from_file('requirements.txt'),
-    packages=['mapmatching'],
+    packages=['PRTree'],
+    setup_requires=["pytest-runner"],
+    tests_require=["pytest", "pytest-cov"],
 )
