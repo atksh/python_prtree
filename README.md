@@ -7,7 +7,7 @@ Supported futures are as follows:
 - query and batch query with rectangle(s)
 - insert and erase(delete) (but not optimized yet)
 
-This package is mainly for nearly static situation, which means few insert/delete events happen.
+**This package is mainly for nearly static situation, which means few insert/delete events happen.**
 
 # Usage 
 ```python
