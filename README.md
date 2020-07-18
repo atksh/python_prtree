@@ -1,6 +1,6 @@
 # python_prtree
 
-"python_prtree" is an implementation of Priority R-Tree (see reference below).
+"python_prtree" is a python implementation of Priority R-Tree (see reference below).
 Supported futures are as follows:
 
 - Construct Priority R-Tree(PRTree) from rectangles
