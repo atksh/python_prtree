@@ -10,5 +10,4 @@
 /.idea/
 /input/*
 !/input/.gitkeep
-
-
+__pycache__/
