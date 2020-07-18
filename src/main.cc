@@ -4,7 +4,9 @@
 #include "prtree.h"
 
 namespace py = pybind11;
+
 using T = int64_t; // is a temporary type of template. You can change it and recompile this.
+const int B =  6;  // the number of children of tree.
 
 
 PYBIND11_MODULE(PRTree, m) {
@@ -14,13 +16,23 @@ PYBIND11_MODULE(PRTree, m) {
         insert and delete are not supported.
     )pbdoc";
 
-    py::class_<PRTree<T>>(m, "PRTree")
+    py::class_<PRTree<T, B>>(m, "PRTree")
     .def(py::init<py::array_t<T>, py::array_t<double>>(), R"pbdoc(
           Construct PRTree with init.
         )pbdoc")
-        .def("find_all", &PRTree<T>::find_all, R"pbdoc(
+        .def("query", &PRTree<T, B>::find_one, R"pbdoc(
           Find all indexes which has intersect with given bounding box.
-        )pbdoc");
+        )pbdoc")
+        .def("batch_query", &PRTree<T, B>::find_all, R"pbdoc(
+          parallel query with openmp
+        )pbdoc")
+        .def("erase", &PRTree<T, B>::erase, R"pbdoc(
+          Delete from prtree
+        )pbdoc")
+        .def("insert", &PRTree<T, B>::insert, R"pbdoc(
+          Insert one to prtree
+        )pbdoc")
+    ;
 
 #ifdef VERSION_INFO
     m.attr("__version__") = VERSION_INFO;
