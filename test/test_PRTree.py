@@ -21,7 +21,7 @@ class TestPRTree(unittest.TestCase):
             self.assertEqual(set(out[i]), set(tmp))
 
 
-        N= 10000
+        N= 100000
         idx = np.arange(N)
         x = np.random.rand(N, 4)
         x[:, 1] = x[:, 0] + x[:, 1] / 100
