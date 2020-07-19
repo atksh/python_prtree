@@ -10,10 +10,13 @@
 #include <memory>
 #include <iterator>
 #include <iostream>
+#include <mutex>
+#include <cstdlib>
 #include <omp.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
+
 
 #define MAX_PARALLEL_RECURSIVE_LEVEL 5
 
@@ -245,6 +248,14 @@ class PseudoPRTreeNode : Uncopyable{
       }
     }
 
+    void address_of_leaves(vec<Leaf<T, B>*>& out) {
+      for (auto& leaf : leaves){
+        if (likely(leaf.data.size() > 0)){
+          out.push_back(&leaf);
+        }
+      }
+    }
+
     auto filter (vec<DataType<T>>& X, int axis){
       auto comp = [&](const DataType<T>& lhs, const DataType<T>& rhs){
         return lhs.second[axis] < rhs.second[axis];
@@ -341,16 +352,13 @@ class PseudoPRTree : Uncopyable{
       auto node = root.get();
       std::queue<U*> que;
       que.emplace(node);
+
       while (likely(!que.empty())){
         node = que.front();
         que.pop();
-        for (auto& l : node->leaves){
-          if (likely(l.data.size() > 0)){
-            out.emplace_back(&l);
-          }
-        }
-        if (likely(node->left)) que.emplace(node->left.get());
-        if (likely(node->right)) que.emplace(node->right.get());
+        node->address_of_leaves(out);
+        if (node->left) que.emplace(node->left.get());
+        if (node->right) que.emplace(node->right.get());
       }
       return out;
     }
@@ -657,7 +665,7 @@ class PRTree : Uncopyable{
         throw std::runtime_error("Given index is not found.");
       }
       BB target = it->second;
-      std::queue<PRTreeNode<T, B>*, std::deque<PRTreeNode<T, B>*>> que;
+      std::queue<PRTreeNode<T, B>*> que;
       PRTreeNode<T, B>* p, * q;
       auto qpush = [&](PRTreeNode<T, B>* r){
         if (unlikely((*r)(target))){
