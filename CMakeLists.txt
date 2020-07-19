@@ -11,5 +11,5 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 
 add_subdirectory(pybind11)
 pybind11_add_module(PRTree src/main.cc)
-set(CMAKE_CXX_FLAGS "-O3 -Ofast -ffast-math -Wall -fopenmp -lpthread -fPIC -shared -mtune=native -march=native -flto -static-libgcc -static-libstdc++")
+set(CMAKE_CXX_FLAGS "-O3 -Ofast -ffast-math -Wall -fopenmp -lpthread -fPIC -shared -mtune=native -march=native -flto -static-libgcc -static-libstdc++ -ftemplate-backtrace-limit=0 ")
 
