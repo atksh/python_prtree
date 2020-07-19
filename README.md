@@ -7,7 +7,7 @@ Supported futures are as follows:
 - query and batch query with rectangle(s)
 - insert and erase(delete) (but not optimized yet)
 
-**This package is mainly for nearly static situations, which mean few insert/delete events happen.**
+**This package is mainly for nearly static situations, which mean few insert/delete events happen (e.g., mapmatching).**
 
 # Usage 
 ```python
@@ -79,7 +79,7 @@ pip install .
 
 - This PRTree is implemented by C++ with Pybind11, and much faster than numba implementation of PRTree.
 - If you can use C++, you should use boost::geometry (I didn't know it and sadly made this package).
-- Please note that insert / erase operations are not optimized compared to ordinary r-tree.
+- Please note that insert / erase operations are not optimized compared to ordinary r-tree. Plus, this implementation does not exactly follow that of the paper due to my technical skills.
 
 
 # Reference
