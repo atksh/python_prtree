@@ -15,7 +15,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
-#define MAX_PARALLEL_RECURSIVE_LEVEL 4
+#define MAX_PARALLEL_RECURSIVE_LEVEL 5
 
 namespace py = pybind11;
 using std::swap;
