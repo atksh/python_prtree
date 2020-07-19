@@ -18,7 +18,7 @@ idxes = np.array([1, 2])
 rects = np.array([[0.0, 1.0, 0.0, 0.5],
                   [1.0, 1.2, 2.5, 3.0]])  # (xmin, xmax, ymin, ymax)
 
-prtree = PRTree(idxes, rects)
+prtree = PRTree(idxes, rects)  # initial construction
 
 q = np.array([[0.5, 0.6, 0.2, 0.3],
               [0.8, 1.5, 0.5, 3.5]])
@@ -42,9 +42,9 @@ print(result)
 
 You can also erase(delete) by index and insert new one.
 ```python
-prtree.erase(1)  # method is not `delete` but `erase`
+prtree.erase(1)  # delete the rectangle with idx=1 from the initail PRTree
 
-prtree.insert(3, np.array([0.3, 0.5, 0.1, 0.2]))
+prtree.insert(3, np.array([0.3, 0.5, 0.1, 0.2]))  # add a new rectangle to the PRTree
 ```
 
 # Installation
@@ -57,7 +57,7 @@ Or, you can clone and pip just like
 ```bash
 git clone --recursive git@github.com:atksh/python_prtree.git
 cd python_prtree
-python setup.py test; rm -rf build  #(optional)
+python setup.py test; rm -rf build  #(this line is optional. build dir disturbs pip installing)
 pip install .
 ```
 
