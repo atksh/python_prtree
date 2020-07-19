@@ -15,6 +15,10 @@
 #include <pybind11/numpy.h>
 
 namespace py = pybind11;
+template<class T, class U>
+using pair = std::pair<T, U>;
+template<class T>
+using vec = std::vector<T>;
 
 #define likely(x)   __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
@@ -24,27 +28,34 @@ Iter select_randomly(Iter start, Iter end, RandomGenerator& g) {
     std::uniform_int_distribution<> dis(0, std::distance(start, end) - 1);
     std::advance(start, dis(g));
     return start;
-}
+};
 
 template<typename Iter>
 Iter select_randomly(Iter start, Iter end) {
     static std::random_device rd;
     static std::mt19937 gen(rd());
     return select_randomly(start, end, gen);
-}
+};
 
+class Uncopyable {
+  protected:
+    Uncopyable() = default;
+    ~Uncopyable() = default;
+    Uncopyable(const Uncopyable&) = delete;
+    Uncopyable& operator=(const Uncopyable&) = delete;
+};
 
-class BoundingBox{
+class BB{
   public:
     double xmin, xmax, ymin, ymax;
-    BoundingBox() {
+    BB() {
       xmin = 1e100;
       xmax = -1e100;
       ymin = 1e100;
       ymax= -1e100;
     }
 
-    BoundingBox(double _xmin, double _xmax, double _ymin, double _ymax){
+    BB(const double _xmin, const double _xmax, const double _ymin, const double _ymax){
       if (_xmin > _xmax || _ymin > _ymax){
         std::cout << _xmin << " : " << _xmin << " : " << _ymin << " : " << _ymax << " : " << std::endl;
         throw std::runtime_error("Impossible rectange was given. xmin < xmax and ymin < ymax must be satisfied.");
@@ -55,11 +66,11 @@ class BoundingBox{
       ymax = _ymax;
     }
 
-    BoundingBox operator +(const BoundingBox& rhs) const{
-      return BoundingBox(std::min(xmin, rhs.xmin), std::max(xmax, rhs.xmax), std::min(ymin, rhs.ymin), std::max(ymax, rhs.ymax));
+    BB operator +(const BB& rhs) const{
+      return BB(std::min(xmin, rhs.xmin), std::max(xmax, rhs.xmax), std::min(ymin, rhs.ymin), std::max(ymax, rhs.ymax));
     }
 
-    BoundingBox operator +=(const BoundingBox& rhs){
+    BB operator +=(const BB& rhs){
       xmin = std::min(xmin, rhs.xmin);
       xmax = std::max(xmax, rhs.xmax);
       ymin = std::min(ymin, rhs.ymin);
@@ -67,7 +78,14 @@ class BoundingBox{
       return *this;
     }
 
-    inline bool operator ()(const BoundingBox& target) const{ // whether this and target has any intersect
+    inline void expand(double dx, double dy){
+      xmin -= dx;
+      xmax += dx;
+      ymin -= dy;
+      ymax += dy;
+    }
+
+    inline bool operator ()(const BB& target) const{ // whether this and target has any intersect
       const bool c1 = unlikely(std::max(xmin, target.xmin) <= std::min(xmax, target.xmax));
       const bool c2 = unlikely(std::max(ymin, target.ymin) <= std::min(ymax, target.ymax));
       return unlikely(c1 && c2);
@@ -87,40 +105,44 @@ class BoundingBox{
 };
 
 template <class T, int B=6>
-class Leaf{
+class Leaf : Uncopyable{
   public:
     int axis = 0;
-    BoundingBox mbb;
-    std::vector<std::pair<T, BoundingBox>> data; // You can swap when filtering
+    BB mbb;
+    vec<pair<T, BB>> data; // You can swap when filtering
     // T is type of keys(ids) which will be returned when you post a query.
-    Leaf(){}
+    Leaf(){
+      mbb = BB();
+      data.reserve(B);
+    }
     Leaf(int _axis){
-      mbb = BoundingBox();
       axis = _axis;
+      mbb = BB();
       data.reserve(B);
     }
 
-    inline void push(T key, BoundingBox target){
+    inline void set_axis(const int _axis){
+      axis = _axis;
+    }
+
+    inline void push(T key, BB target){
       data.emplace_back(key, target);
       update_mbb();
     }
 
     void update_mbb(){
-      auto init = std::make_pair<T, BoundingBox>(std::forward<T>(data[0].first), BoundingBox());
-      mbb = std::reduce(data.begin(), data.end(), init, [&](std::pair<T, BoundingBox>& lhs, std::pair<T, BoundingBox>& rhs) {
-            return std::make_pair<T, BoundingBox>(std::forward<T>(lhs.first), std::forward<BoundingBox>(lhs.second + rhs.second));
+      auto init = std::make_pair<T, BB>(std::forward<T>(data[0].first), BB());
+      mbb = std::reduce(data.begin(), data.end(), init, [&](pair<T, BB>& lhs, pair<T, BB>& rhs) {
+            return std::make_pair<T, BB>(std::forward<T>(lhs.first), std::forward<BB>(lhs.second + rhs.second));
           }).second;
     }
 
-    bool filter(std::pair<T, BoundingBox>& value){// false means given value is ignored
+    bool filter(pair<T, BB>& value, const std::function<bool(const pair<T, BB>&, const pair<T, BB>&)>& comp){// false means given value is ignored
       if (unlikely(data.size() < B)){ // if there is room, just push the candidate
         data.emplace_back(value);
         update_mbb();
         return true;
       } else { // if there is no room, check the priority and swap if needed
-        auto comp = [&](const std::pair<T, BoundingBox>& lhs, const std::pair<T, BoundingBox>& rhs){
-          return lhs.second[axis] < rhs.second[axis];
-        };
         auto iter = upper_bound(data.begin(), data.end(), value, comp);
         if (unlikely(iter != data.end())){
           iter->swap(value);
@@ -130,7 +152,7 @@ class Leaf{
       }
     }
 
-    void operator ()(const BoundingBox& target, std::vector<T>& out)const{
+    void operator ()(const BB& target, vec<T>& out)const{
       if (unlikely(mbb(target))){
         for (const auto& x : data){
           if (unlikely(x.second(target))){
@@ -140,7 +162,7 @@ class Leaf{
       }
     }
 
-    void del(const T key, const BoundingBox& target){
+    void del(const T key, const BB& target){
       if (unlikely(mbb(target))){
         for (auto it = data.begin(); it != data.end();){
           if (unlikely(it->second(target) && it->first == key)){
@@ -158,21 +180,24 @@ class Leaf{
 
 
 template<class T, int B=6>
-class PseudoPRTreeNode{
+class PseudoPRTreeNode : Uncopyable{
   public:
     std::array<Leaf<T, B>, 4> leaves;
     std::unique_ptr<PseudoPRTreeNode> left, right;
 
     PseudoPRTreeNode(){
       for (int i = 0; i < 4; i++){
-        leaves[i] = Leaf<T, B>(i);
+        leaves[i].set_axis(i);
       }
     }
 
-    inline auto filter (std::vector<std::pair<T, BoundingBox>>& X){
+    inline auto filter (vec<pair<T, BB>>& X, int axis){
+      auto comp = [&](const pair<T, BB>& lhs, const pair<T, BB>& rhs){
+        return lhs.second[axis] < rhs.second[axis];
+      };
       auto out = std::remove_if(X.begin(), X.end(), [&](auto& x) {
           for (auto& l : leaves){
-            if (unlikely(l.filter(x))){
+            if (unlikely(l.filter(x, comp))){
               return true;
             }
           }
@@ -186,14 +211,14 @@ class PseudoPRTreeNode{
 
 
 template<class T, int B=6>
-class PseudoPRTree{
+class PseudoPRTree : Uncopyable{
   public:
     std::unique_ptr<PseudoPRTreeNode<T, B>> root;
 
     PseudoPRTree(){
       root = std::make_unique<PseudoPRTreeNode<T, B>>();
     }
-    PseudoPRTree(std::vector<std::pair<T, BoundingBox>>& X){
+    PseudoPRTree(vec<pair<T, BB>>& X){
       if (likely(!root)){
         root = std::make_unique<PseudoPRTreeNode<T, B>>();
       }
@@ -204,13 +229,13 @@ class PseudoPRTree{
       }
     }
 
-    void construct(PseudoPRTreeNode<T, B>* node, std::vector<std::pair<T, BoundingBox>>& X, int depth){
+    void construct(PseudoPRTreeNode<T, B>* node, vec<pair<T, BB>>& X, int depth){
       if (likely(X.size() > 0 && node != nullptr)) {
         int axis = depth % 4;
-        auto comp = [&](const std::pair<T, BoundingBox>& lhs, const std::pair<T, BoundingBox>& rhs){
+        auto comp = [&](const pair<T, BB>& lhs, const pair<T, BB>& rhs){
           return lhs.second[axis] < rhs.second[axis];
         };
-        auto e = node->filter(X);
+        auto e = node->filter(X, axis);
         auto b = X.begin();
         auto m = b;
         std::advance(m, (e - b) / 2);
@@ -220,17 +245,17 @@ class PseudoPRTree{
         if (likely(m - b > 0)){
           #pragma omp task
           {
-            std::vector<std::pair<T, BoundingBox>> X_left(b, m);
+            vec<pair<T, BB>> X_left(b, m);
             construct(node->left.get(), X_left, depth + 1);
-            std::vector<std::pair<T, BoundingBox>>().swap(X_left);
+            vec<pair<T, BB>>().swap(X_left);
           }
         }
         if (likely(e - m > 0)){
           #pragma omp task
           {
-            std::vector<std::pair<T, BoundingBox>> X_right(m, e);
+            vec<pair<T, BB>> X_right(m, e);
             construct(node->right.get(), X_right, depth + 1);
-            std::vector<std::pair<T, BoundingBox>>().swap(X_right);
+            vec<pair<T, BB>>().swap(X_right);
           }
         }
         #pragma omp taskwait
@@ -239,7 +264,7 @@ class PseudoPRTree{
 
     auto get_all_leaves(){
       using U = PseudoPRTreeNode<T, B>;
-      std::vector<Leaf<T, B>> out;
+      vec<Leaf<T, B>*> out;
       auto node = root.get();
       std::queue<U*> que;
       que.emplace(node);
@@ -248,7 +273,7 @@ class PseudoPRTree{
         que.pop();
         for (auto& l : node->leaves){
           if (likely(l.data.size() > 0)){
-            out.emplace_back(l);
+            out.emplace_back(&l);
           }
         }
         if (likely(node->left)) que.emplace(node->left.get());
@@ -258,11 +283,11 @@ class PseudoPRTree{
     }
 
     auto as_X(){
-      std::vector<std::pair<int, BoundingBox>> out;
+      vec<pair<int, BB>> out;
       auto children = get_all_leaves();
       int i = 0;
-      for (auto c : children){
-        out.emplace_back(i, c.mbb);
+      for (const auto& c : children){
+        out.emplace_back(i, c->mbb);
         i++;
       }
       return out;
@@ -271,26 +296,29 @@ class PseudoPRTree{
 
 
 template<class T, int B=6>
-class PRTreeNode{
+class PRTreeNode : Uncopyable{
   public:
-    BoundingBox mbb;
+    BB mbb;
     std::unique_ptr<Leaf<T, B>> leaf;
     std::unique_ptr<PRTreeNode<T, B>> head, next;
 
     PRTreeNode(){}
-    PRTreeNode(const BoundingBox& _mbb){
+    PRTreeNode(const BB& _mbb){
       mbb = _mbb;
     }
-    PRTreeNode(Leaf<T, B>& l){
+    PRTreeNode(BB&& _mbb){
+      mbb = std::move(_mbb);
+    }
+    PRTreeNode(Leaf<T, B>* l){
       leaf = std::make_unique<Leaf<T, B>>();
-      leaf->mbb = l.mbb;
-      mbb = l.mbb;
-      for (auto& d : l.data){
+      leaf->mbb = l->mbb;
+      mbb = l->mbb;
+      for (const auto& d : l->data){
         leaf->push(d.first, d.second);
       }
     }
 
-    inline bool operator ()(BoundingBox& target){
+    inline bool operator ()(const BB& target){
       return mbb(target);
     }
 
@@ -298,10 +326,10 @@ class PRTreeNode{
 
 
 template<class T, int B=6>
-class PRTree{
+class PRTree : Uncopyable{
   private:
     std::unique_ptr<PRTreeNode<T, B>> root;
-    std::unordered_map<T, BoundingBox> umap;
+    std::unordered_map<T, BB> umap;
 
   public:
     PRTree(const py::array_t<T>& idx, const py::array_t<double>& x){
@@ -315,21 +343,21 @@ class PRTree{
         throw std::runtime_error("Bounding box must have the shape (length, 4)");
       }
       std::size_t length = shape_idx[0];
-      std::vector<std::pair<T, BoundingBox>> X;
-      BoundingBox bb;
+      vec<pair<T, BB>> X;
+      BB bb;
       X.reserve(length);
       for (std::size_t i = 0; i < length; i++){
-        bb = BoundingBox(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
+        bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
         X.emplace_back(*idx.data(i), bb);
-        umap[*idx.data(i)] = bb;
+        umap[*idx.data(i)] = std::move(bb);
       }
       build(X);
     }
 
     void insert(const T& idx, const py::array_t<double>& x){
-      std::vector<Leaf<T, B>*> cands;
+      vec<Leaf<T, B>*> cands;
       std::queue<PRTreeNode<T, B>*, std::deque<PRTreeNode<T, B>*>> que;
-      BoundingBox bb;
+      BB bb;
       PRTreeNode<T, B>* p, * q;
 
       const auto &buff_info_x = x.request();
@@ -343,7 +371,7 @@ class PRTree{
         throw std::runtime_error("Given index is already included.");
       }
 
-      bb = BoundingBox(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
+      bb = BB(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
       double dx = bb.xmax - bb.xmin + 0.000000001;
       double dy = bb.ymax - bb.ymin + 0.000000001;
       double c = 0.0;
@@ -352,7 +380,7 @@ class PRTree{
         while (likely(!sta.empty())){
           sta.pop();
         }
-        bb = BoundingBox(*x.data(0) - dx * c, bb.xmax + dx * c, *x.data(2) - dy * c, *x.data(3) + dy * c);
+        bb.expand(dx * c, dy * c);
         c = (c + 1) * 2;
         auto qpush = [&](PRTreeNode<T, B>* r){
           if (unlikely((*r)(bb))){
@@ -382,7 +410,7 @@ class PRTree{
         }
       }
       auto tg = *select_randomly(cands.begin(), cands.end());
-      bb = BoundingBox(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
+      bb = BB(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
       tg->push(idx, bb);
       umap[idx] = bb;
       while (likely(!sta.empty())){
@@ -391,12 +419,12 @@ class PRTree{
         if (unlikely(p->leaf)){
           p->mbb = p->leaf->mbb;
         } else if (likely(p->head)) {
-          BoundingBox mbb;
+          BB mbb;
           q = p->head.get();
-          mbb = mbb + q->mbb;
+          mbb += q->mbb;
           while (likely(q->next)){
             q = q->next.get();
-            mbb = mbb + q->mbb;
+            mbb += q->mbb;
           }
           p->mbb = mbb;
         }
@@ -404,10 +432,9 @@ class PRTree{
     }
 
 
-    void build(std::vector<std::pair<T, BoundingBox>>& X){
-      PseudoPRTree<int, B> tree;
-      std::vector<Leaf<int, B>> leaves;
-      std::vector<std::unique_ptr<PRTreeNode<T, B>>> tmp_nodes, prev_nodes;
+    void build(vec<pair<T, BB>>& X){
+      vec<Leaf<int, B>*> leaves;
+      vec<std::unique_ptr<PRTreeNode<T, B>>> tmp_nodes, prev_nodes;
       std::unique_ptr<PRTreeNode<T, B>> p, q, r;
       int i, len, idx, jdx;
 
@@ -418,20 +445,20 @@ class PRTree{
       }
       auto as_X = first_tree.as_X();
       while (likely(prev_nodes.size() > 1)){
-        tree = PseudoPRTree<int, B>(as_X);
+        auto tree = PseudoPRTree<int, B>(as_X);
         leaves = tree.get_all_leaves();
         tmp_nodes.clear();
         tmp_nodes.reserve(leaves.size());
         for (auto& leaf : leaves){
-          len = leaf.data.size();
-          p = std::make_unique<PRTreeNode<T, B>>(leaf.mbb);
-          if (likely(!leaf.data.empty())){
+          len = leaf->data.size();
+          p = std::make_unique<PRTreeNode<T, B>>(leaf->mbb);
+          if (likely(!leaf->data.empty())){
             for (i = 1; i < len; i++){
-              idx = leaf.data[len - i - 1].first; // reversed way
-              jdx = leaf.data[len - i].first;
+              idx = leaf->data[len - i - 1].first; // reversed way
+              jdx = leaf->data[len - i].first;
               prev_nodes[idx]->next = std::move(prev_nodes[jdx]);
             }
-            idx = leaf.data[0].first;
+            idx = leaf->data[0].first;
             p->head = std::move(prev_nodes[idx]);
             if (!p->head){throw std::runtime_error("ppp");}
             tmp_nodes.emplace_back(std::move(p));
@@ -473,27 +500,27 @@ class PRTree{
       } else if (ndim > 3){
         throw std::runtime_error("invalid shape");
       }
-      std::vector<BoundingBox> X;
-      BoundingBox bb;
+      vec<BB> X;
+      BB bb;
       if (ndim == 1){
-        bb = BoundingBox(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
-        X.emplace_back(bb);
+        bb = BB(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
+        X.emplace_back(std::move(bb));
       } else {
         X.reserve(shape_x[0]);
         for (long int i = 0; i < shape_x[0]; i++){
-          bb = BoundingBox(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
-          X.emplace_back(bb);
+          bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
+          X.emplace_back(std::move(bb));
         }
       }
       py::gil_scoped_release release;
-      std::vector<std::vector<T>> out;
+      vec<vec<T>> out;
       std::size_t length = X.size();
       #pragma omp parallel
       {
-        std::vector<std::vector<T>> out_private;
+        vec<vec<T>> out_private;
         #pragma omp for nowait schedule(static)
         for(std::size_t i=0; i<length; i++){
-          out_private.emplace_back(find(X[i]));
+          out_private.emplace_back(std::move(find(X[i])));
         }
         #pragma omp for schedule(static) ordered
         for(int i=0; i<omp_get_num_threads(); i++) {
@@ -505,19 +532,20 @@ class PRTree{
       }
       return out;
     }
-    auto find_one(const py::array_t<double> x){
+
+    vec<T> find_one(const py::array_t<double> x){
       const auto &buff_info_x = x.request();
       const auto &ndim= buff_info_x.ndim;
       const auto &shape_x = buff_info_x.shape;
       if (ndim != 1 or shape_x[0] != 4){
         throw std::runtime_error("invalid shape");
       } 
-      auto bb = BoundingBox(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
+      const BB bb = BB(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
       return find(bb);
     } 
 
-    std::vector<T> find(BoundingBox& target){
-      std::vector<T> out;
+    vec<T> find(const BB& target){
+      vec<T> out;
       std::queue<PRTreeNode<T, B>*, std::deque<PRTreeNode<T, B>*>> que;
       PRTreeNode<T, B>* p, * q;
       auto qpush = [&](PRTreeNode<T, B>* r){
@@ -553,7 +581,7 @@ class PRTree{
       if (unlikely(it== umap.end())){
         throw std::runtime_error("Given index is not found.");
       }
-      BoundingBox target = it->second;
+      BB target = it->second;
       std::queue<PRTreeNode<T, B>*, std::deque<PRTreeNode<T, B>*>> que;
       PRTreeNode<T, B>* p, * q;
       auto qpush = [&](PRTreeNode<T, B>* r){
