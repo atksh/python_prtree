@@ -73,6 +73,8 @@ pip install .
 
 # Requirement
 - numpy
+- openmp
+- gcc
 
 
 # NOTE
