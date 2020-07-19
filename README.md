@@ -14,7 +14,7 @@ Supported futures are as follows:
 import numpy as np
 from python_prtree import PRTree
 
-idxes = np.array([1, 2])
+idxes = np.array([1, 2])  # must be unique because using idx as key for hash map
 rects = np.array([[0.0, 1.0, 0.0, 0.5],
                   [1.0, 1.2, 2.5, 3.0]])  # (xmin, xmax, ymin, ymax)
 
