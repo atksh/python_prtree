@@ -4,6 +4,7 @@
 /_build/
 /_generate/
 *.so
+*.so.*
 *.py[cod]
 *.egg-info
 /.eggs/
