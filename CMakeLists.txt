@@ -10,8 +10,26 @@ endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-set(CMAKE_CXX_FLAGS "-O3 -Ofast -ffast-math -fPIC -shared -Wall -fopenmp -mtune=native -march=native -flto -static-libgcc -static-libstdc++")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Ofast -ffast-math -fPIC -shared -Wall -fopenmp -mtune=native -march=native -flto -static-libgcc -static-libstdc++")
+if(APPLE)
+    set(CMAKE_C_COMPILER clang)
+    set(CMAKE_CXX_COMPILER clang++)
+
+    if(CMAKE_C_COMPILER_ID MATCHES "Clang\$")
+        set(OpenMP_C_FLAGS "-Xpreprocessor -fopenmp")
+        set(OpenMP_C_LIB_NAMES "omp")
+        set(OpenMP_omp_LIBRARY omp)
+    endif()
+
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang\$")
+        set(OpenMP_CXX_FLAGS "-Xpreprocessor -fopenmp")
+        set(OpenMP_CXX_LIB_NAMES "omp")
+        set(OpenMP_omp_LIBRARY omp)
+    endif()
+
+endif()
+
+set(CMAKE_CXX_FLAGS "-O3 -Ofast -ffast-math -fPIC -Wall -mtune=native -march=native -flto")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Ofast -ffast-math -fPIC -Wall -mtune=native -march=native -flto")
 
 project(PRTree)
 find_package(OpenMP REQUIRED)
