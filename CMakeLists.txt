@@ -42,5 +42,5 @@ endif()
 add_subdirectory(pybind11)
 add_subdirectory(mimalloc)
 pybind11_add_module(PRTree cpp/main.cc cpp/prtree.h mimalloc/include/mimalloc.h)
-target_link_libraries(PRTree PRIVATE OpenMP::OpenMP_CXX mimalloc)
+target_link_libraries(PRTree PRIVATE OpenMP::OpenMP_CXX mimalloc-static)
 
