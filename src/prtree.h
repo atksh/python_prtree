@@ -18,7 +18,6 @@
 #include <pybind11/stl.h>
 
 #include <mimalloc.h>
-#include <mimalloc-new-delete.h>
 
 //#include <gperftools/profiler.h>
 
