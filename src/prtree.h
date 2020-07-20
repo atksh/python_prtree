@@ -380,14 +380,14 @@ class PseudoPRTree : Uncopyable{
         #pragma omp for nowait schedule(static)
         for (int i = 0; i<total; i++){
           auto tmp = cands[i]->address_of_leaves();
-          out_private.insert(out_private.begin(),
+          out_private.insert(out_private.end(),
                         std::make_move_iterator(tmp.begin()),
                         std::make_move_iterator(tmp.end()));
         }
         #pragma omp for schedule(static) ordered
         for (int i = 0; i < omp_get_num_threads(); i++){
           #pragma omp ordered
-          out.insert(out.begin(),
+          out.insert(out.end(),
                         std::make_move_iterator(out_private.begin()),
                         std::make_move_iterator(out_private.end()));
         }
@@ -411,7 +411,7 @@ class PseudoPRTree : Uncopyable{
         #pragma omp for schedule(static) ordered
         for (int i = 0; i < omp_get_num_threads(); i++){
           #pragma omp ordered
-          out.insert(out.begin(),
+          out.insert(out.end(),
                         std::make_move_iterator(out_private.begin()),
                         std::make_move_iterator(out_private.end()));
         }
