@@ -21,7 +21,6 @@ find_package(OpenMP REQUIRED)
 add_subdirectory(pybind11)
 add_subdirectory(mimalloc)
 pybind11_add_module(PRTree src/main.cc)
-target_link_libraries(PRTree PRIVATE profiler OpenMP::OpenMP_CXX mimalloc-static)
-
-target_link_libraries(PRTree PUBLIC)
+target_link_libraries(PRTree PRIVATE profiler OpenMP::OpenMP_CXX)
+target_link_libraries(PRTree PUBLIC mimalloc-static)
 
