@@ -55,7 +55,7 @@ pip install git+https://github.com/atksh/python_prtree
 
 Or, you can clone and install just like
 ```bash
-git clone --recursive git@github.com:atksh/python_prtree.git
+git clone --recursive https://github.com/atksh/python_prtree
 cd python_prtree
 python setup.py install
 ```
