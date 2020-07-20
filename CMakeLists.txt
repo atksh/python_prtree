@@ -8,8 +8,8 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(CMAKE_C_COMPILER "gcc")
-set(CMAKE_CXX_COMPILER "g++")
+set(CMAKE_C_COMPILER "gcc-9")
+set(CMAKE_CXX_COMPILER "g++-9")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(CMAKE_CXX_FLAGS "-O3 -Ofast -ffast-math -fPIC -shared -Wall -fopenmp -mtune=native -march=native -flto -static-libgcc -static-libstdc++")
