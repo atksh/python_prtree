@@ -81,6 +81,7 @@ pip install .
 # NOTE
 
 - This PRTree is implemented by C++ with Pybind11, and much faster than numba implementation of PRTree.
+- mimalloc allows us to get better performance (1.5x ~ 2.0x).
 - If you can use C++, you should use boost::geometry (I didn't know it and sadly made this package).
 - Please note that insert / erase operations are not optimized compared to ordinary r-tree. Plus, this implementation does not exactly follow that of the paper due to my technical skills.
 
