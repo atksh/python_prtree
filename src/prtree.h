@@ -1,6 +1,5 @@
 #pragma once
 #include <mimalloc.h>
-#include <mimalloc-new-delete.h>
 #include <array>
 #include <random>
 #include <vector>
