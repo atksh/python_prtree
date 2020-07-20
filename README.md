@@ -42,7 +42,7 @@ print(result)
 
 You can also erase(delete) by index and insert new one.
 ```python
-prtree.erase(1)  # delete the rectangle with idx=1 from the initail PRTree
+prtree.erase(1)  # delete the rectangle with idx=1 from the PRTree
 
 prtree.insert(3, np.array([0.3, 0.5, 0.1, 0.2]))  # add a new rectangle to the PRTree
 ```
