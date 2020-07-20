@@ -53,7 +53,7 @@ To install python_prtree with pip command
 pip install git+https://github.com/atksh/python_prtree
 ```
 
-Or, you can clone and pip just like
+Or, you can clone and install just like
 ```bash
 git clone --recursive git@github.com:atksh/python_prtree.git
 cd python_prtree
