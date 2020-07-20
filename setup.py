@@ -3,6 +3,7 @@ import re
 import sys
 import platform
 import subprocess
+from multiprocessing import cpu_count
 
 from setuptools import setup, Extension
 from setuptools import find_packages
@@ -61,7 +62,7 @@ class CMakeBuild(build_ext):
             build_args += ['--', '/m']
         else:
             cmake_args += ['-DCMAKE_BUILD_TYPE=' + cfg]
-            build_args += ['--', '-j33']
+            build_args += ['--', '-j' + str(cpu_count())]
 
         env = os.environ.copy()
         env['CXXFLAGS'] = '{} -DVERSION_INFO=\\"{}\\"'.format(env.get('CXXFLAGS', ''),
