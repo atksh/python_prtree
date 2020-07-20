@@ -1,5 +1,5 @@
 #pragma once
-#include <mimalloc.h>
+#include "../mimalloc/include/mimalloc.h"
 #include <array>
 #include <random>
 #include <vector>
