@@ -77,7 +77,7 @@ class CMakeBuild(build_ext):
 
 setup(
     name='python_prtree',
-    version='0.0.2',
+    version='0.1',
     license='MIT',
     description='',
     author='atksh',
