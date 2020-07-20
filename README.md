@@ -57,7 +57,6 @@ Or, you can clone and pip just like
 ```bash
 git clone --recursive git@github.com:atksh/python_prtree.git
 cd python_prtree
-python setup.py test
 python setup.py install
 ```
 
