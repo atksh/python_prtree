@@ -10,9 +10,11 @@ from setuptools import find_packages
 from setuptools.command.build_ext import build_ext
 from distutils.version import LooseVersion
 
-sys.path.append('./python_PRTree')
 sys.path.append('./test')
 
+here = os.path.abspath(os.path.dirname(__file__))
+with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
+    long_description = f.read()
 
 def _requires_from_file(filename):
     return open(filename).read().splitlines()
@@ -80,7 +82,7 @@ setup(
     name='python_prtree',
     version='0.1',
     license='MIT',
-    description='',
+    description='Python implementation of Priority R-Tree',
     author='atksh',
     url='https://github.com/atksh/python_prtree',
     ext_modules=[CMakeExtension('python_prtree.PRTree')],
@@ -90,4 +92,11 @@ setup(
     package_dir={"": "src"},
     packages=find_packages('src'),
     test_suite='test_PRTree.suite',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
+    keywords='priority rtree prtree',
+    classifiers=[
+        'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 3.7',
+    ]
 )
