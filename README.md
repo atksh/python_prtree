@@ -81,7 +81,6 @@ then, you can install by pip.
 # Requirement
 - numpy
 - openmp
-- gcc
 - cmake
 
 
