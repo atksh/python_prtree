@@ -29,8 +29,8 @@ if(APPLE)
 
 endif()
 
-set(CMAKE_CXX_FLAGS "-O3 -Ofast -ffast-math -shared -fPIC -Wall -mtune=native -march=native -flto")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Ofast -ffast-math -shared -fPIC -Wall -mtune=native -march=native -flto")
+set(CMAKE_CXX_FLAGS "-O3 -Ofast -ffast-math -fPIC -Wall -mtune=native -march=native -flto")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Ofast -ffast-math -fPIC -Wall -mtune=native -march=native -flto")
 
 project(PRTree)
 find_package(OpenMP REQUIRED)
