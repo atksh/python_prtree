@@ -1,5 +1,4 @@
 #pragma once
-#include <mimalloc.h>
 #include <array>
 #include <random>
 #include <vector>
@@ -29,7 +28,7 @@ using std::swap;
 template<class T, class U>
 using pair = std::pair<T, U>;
 template<class T>
-using vec = std::vector<T, mi_stl_allocator<T>>;
+using vec = std::vector<T>;
 static std::mt19937 rand_src(42);
 
 
