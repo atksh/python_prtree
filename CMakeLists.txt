@@ -8,9 +8,6 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-if (APPLE)
-  set(CMAKE_C_COMPILER "gcc-9")
-  set(CMAKE_CXX_COMPILER "g++-9")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(CMAKE_CXX_FLAGS "-O3 -Ofast -ffast-math -fPIC -shared -Wall -fopenmp -mtune=native -march=native -flto -static-libgcc -static-libstdc++")
@@ -26,6 +23,6 @@ endif()
 
 add_subdirectory(pybind11)
 add_subdirectory(mimalloc)
-pybind11_add_module(PRTree src/main.cc)
+pybind11_add_module(PRTree cpp/main.cc cpp/prtree.h)
 target_link_libraries(PRTree PRIVATE OpenMP::OpenMP_CXX mimalloc)
 
