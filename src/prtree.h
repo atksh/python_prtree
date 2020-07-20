@@ -248,6 +248,16 @@ class PseudoPRTreeNode : Uncopyable{
       }
     }
 
+    auto address_of_leaves() {
+      vec<Leaf<T, B>*> out;
+      for (auto& leaf : leaves){
+        if (likely(leaf.data.size() > 0)){
+          out.emplace_back(&leaf);
+        }
+      }
+      return out;
+    }
+
     void address_of_leaves(vec<Leaf<T, B>*>& out) {
       for (auto& leaf : leaves){
         if (likely(leaf.data.size() > 0)){
@@ -351,14 +361,36 @@ class PseudoPRTree : Uncopyable{
       vec<Leaf<T, B>*> out;
       auto node = root.get();
       std::queue<U*> que;
+      vec<U*> cands;
       que.emplace(node);
 
       while (likely(!que.empty())){
         node = que.front();
         que.pop();
-        node->address_of_leaves(out);
+        //node->address_of_leaves(out);
         if (node->left) que.emplace(node->left.get());
         if (node->right) que.emplace(node->right.get());
+        cands.emplace_back(std::move(node));
+      }
+
+      int total = cands.size();
+      #pragma omp parallel
+      {
+        vec<Leaf<T, B>*> out_private;
+        #pragma omp for nowait schedule(static)
+        for (int i = 0; i<total; i++){
+          auto tmp = cands[i]->address_of_leaves();
+          out_private.insert(out_private.begin(),
+                        std::make_move_iterator(tmp.begin()),
+                        std::make_move_iterator(tmp.end()));
+        }
+        #pragma omp for schedule(static) ordered
+        for (int i = 0; i < omp_get_num_threads(); i++){
+          #pragma omp ordered
+          out.insert(out.begin(),
+                        std::make_move_iterator(out_private.begin()),
+                        std::make_move_iterator(out_private.end()));
+        }
       }
       return out;
     }
@@ -366,11 +398,23 @@ class PseudoPRTree : Uncopyable{
     vec<DataType<int>> as_X(){
       vec<DataType<int>> out;
       auto children = get_all_leaves();
-      out.reserve(children.size());
-      int i = 0;
-      for (const auto& c : children){
-        out.emplace_back(i, c->mbb);
-        i++;
+      int total = children.size();
+      out.reserve(total);
+
+      #pragma omp parallel
+      {
+        vec<DataType<int>> out_private;
+        #pragma omp for nowait schedule(static)
+        for (int i = 0; i<total; i++){
+          out_private.emplace_back(i, children[i]->mbb);
+        }
+        #pragma omp for schedule(static) ordered
+        for (int i = 0; i < omp_get_num_threads(); i++){
+          #pragma omp ordered
+          out.insert(out.begin(),
+                        std::make_move_iterator(out_private.begin()),
+                        std::make_move_iterator(out_private.end()));
+        }
       }
       return out;
     }
