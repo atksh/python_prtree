@@ -17,6 +17,11 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
+#include <mimalloc.h>
+#include <mimalloc-new-delete.h>
+
+//#include <gperftools/profiler.h>
+
 
 #define MAX_PARALLEL_RECURSIVE_LEVEL 5
 
@@ -25,24 +30,18 @@ using std::swap;
 template<class T, class U>
 using pair = std::pair<T, U>;
 template<class T>
-using vec = std::vector<T>;
+using vec = std::vector<T, mi_stl_allocator<T>>;
+static std::mt19937 rand_src(42);
 
 
 #define likely(x)   __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
-template<typename Iter, typename RandomGenerator>
-Iter select_randomly(Iter start, Iter end, RandomGenerator& g) {
-    std::uniform_int_distribution<> dis(0, std::distance(start, end) - 1);
-    std::advance(start, dis(g));
-    return start;
-};
-
 template<typename Iter>
-Iter select_randomly(Iter start, Iter end) {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    return select_randomly(start, end, gen);
+inline Iter select_randomly(Iter start, Iter end) {
+    std::uniform_int_distribution<> dis(0, std::distance(start, end) - 1);
+    std::advance(start, dis(rand_src));
+    return start;
 };
 
 class Uncopyable {
@@ -57,15 +56,11 @@ class BB{
   public:
     float xmin, xmax, ymin, ymax;
     BB() {
-      xmin = 1e100;
-      xmax = -1e100;
-      ymin = 1e100;
-      ymax= -1e100;
+      clear();
     }
 
-    BB(const float _xmin, const float _xmax, const float _ymin, const float _ymax){
-      if (_xmin > _xmax || _ymin > _ymax){
-        std::cout << _xmin << " : " << _xmin << " : " << _ymin << " : " << _ymax << " : " << std::endl;
+    BB(const float& _xmin, const float& _xmax, const float& _ymin, const float& _ymax){
+      if (unlikely(_xmin > _xmax || _ymin > _ymax)){
         throw std::runtime_error("Impossible rectange was given. xmin < xmax and ymin < ymax must be satisfied.");
       }
       xmin = _xmin;
@@ -81,11 +76,11 @@ class BB{
       ymax= -1e100;
     }
 
-    BB operator +(const BB& rhs) const{
+    inline BB operator +(const BB& rhs) const{
       return BB(std::min(xmin, rhs.xmin), std::max(xmax, rhs.xmax), std::min(ymin, rhs.ymin), std::max(ymax, rhs.ymax));
     }
 
-    BB operator +=(const BB& rhs){
+    inline BB operator +=(const BB& rhs){
       xmin = std::min(xmin, rhs.xmin);
       xmax = std::max(xmax, rhs.xmax);
       ymin = std::min(ymin, rhs.ymin);
@@ -93,7 +88,7 @@ class BB{
       return *this;
     }
 
-    inline void expand(float dx, float dy){
+    inline void expand(const float& dx, const float& dy){
       xmin -= dx;
       xmax += dx;
       ymin -= dy;
@@ -106,7 +101,7 @@ class BB{
       return unlikely(c1 && c2);
     }
 
-    inline float operator [](int i)const{
+    inline float operator [](const int& i)const{
       if (i == 0){
         return xmin;
       } else if (i == 1){
@@ -142,7 +137,7 @@ class DataType{
     }
 
     DataType& operator=(DataType&& obj) noexcept{
-      if (this != &obj){
+      if (likely(this != &obj)){
         first = obj.first;
         second.xmin = obj.second.xmin;
         second.xmax = obj.second.xmax;
@@ -166,13 +161,13 @@ class Leaf : Uncopyable{
       mbb = BB();
       data.reserve(B);
     }
-    Leaf(int _axis){
+    Leaf(int& _axis){
       axis = _axis;
       mbb = BB();
       data.reserve(B);
     }
 
-    inline void set_axis(const int _axis){
+    inline void set_axis(const int& _axis){
       axis = _axis;
     }
 
@@ -192,7 +187,8 @@ class Leaf : Uncopyable{
       //    }).second;
     }
 
-    bool filter(DataType<T>& value, const std::function<bool(const DataType<T>&, const DataType<T>&)>& comp){// false means given value is ignored
+    template <typename F>
+    bool filter(DataType<T>& value, const F &comp){// false means given value is ignored
       if (unlikely(data.size() < B)){ // if there is room, just push the candidate
         data.emplace_back(std::move(value));
         update_mbb();
@@ -219,14 +215,12 @@ class Leaf : Uncopyable{
       }
     }
 
-    void del(const T key, const BB& target){
+    void del(const T& key, const BB& target){
       if (unlikely(mbb(target))){
-        for (auto it = data.begin(); it != data.end();){
+        for (auto it = data.begin(); it != data.end();++it){
           if (unlikely(it->second(target) && it->first == key)){
             it = data.erase(it);
             break;
-          } else {
-            ++it;
           }
         }
       }
@@ -248,7 +242,7 @@ class PseudoPRTreeNode : Uncopyable{
       }
     }
 
-    auto address_of_leaves() {
+    inline auto address_of_leaves() {
       vec<Leaf<T, B>*> out;
       for (auto& leaf : leaves){
         if (likely(leaf.data.size() > 0)){
@@ -258,7 +252,7 @@ class PseudoPRTreeNode : Uncopyable{
       return out;
     }
 
-    void address_of_leaves(vec<Leaf<T, B>*>& out) {
+    inline void address_of_leaves(vec<Leaf<T, B>*>& out) {
       for (auto& leaf : leaves){
         if (likely(leaf.data.size() > 0)){
           out.emplace_back(&leaf);
@@ -267,9 +261,10 @@ class PseudoPRTreeNode : Uncopyable{
     }
 
     auto filter (vec<DataType<T>>& X, int axis){
-      auto comp = [&](const DataType<T>& lhs, const DataType<T>& rhs){
+      auto _comp = [&](const DataType<T>& lhs, const DataType<T>& rhs){
         return lhs.second[axis] < rhs.second[axis];
       };
+      auto comp = std::ref(_comp);
       auto out = std::remove_if(X.begin(), X.end(), [&](auto& x) {
           for (auto& l : leaves){
             if (unlikely(l.filter(x, comp))){
@@ -306,7 +301,7 @@ class PseudoPRTree : Uncopyable{
       }
     }
 
-    void construct(PseudoPRTreeNode<T, B>* node, vec<DataType<T>>& X, unsigned depth){
+    void construct(PseudoPRTreeNode<T, B>* node, vec<DataType<T>>& X, const unsigned int& depth){
       if (likely(X.size() > 0 && node != nullptr)) {
         int axis = depth % 4;
         auto comp = [&](const DataType<T>& lhs, const DataType<T>& rhs){
@@ -356,7 +351,7 @@ class PseudoPRTree : Uncopyable{
       }
     }
 
-    auto get_all_leaves(){
+    inline auto get_all_leaves(){
       using U = PseudoPRTreeNode<T, B>;
       vec<Leaf<T, B>*> out;
       auto node = root.get();
@@ -392,10 +387,11 @@ class PseudoPRTree : Uncopyable{
                         std::make_move_iterator(out_private.end()));
         }
       }
+      vec<U*>().swap(cands);
       return out;
     }
 
-    vec<DataType<int>> as_X(){
+    inline vec<DataType<int>> as_X(){
       vec<DataType<int>> out;
       auto children = get_all_leaves();
       int total = children.size();
@@ -468,19 +464,19 @@ class PRTree : Uncopyable{
       } else if (shape_x[1] != 4){
         throw std::runtime_error("Bounding box must have the shape (length, 4)");
       }
-      std::size_t length = shape_idx[0];
+      unsigned int length = shape_idx[0];
       vec<DataType<T>> X;
       X.reserve(length);
       #pragma omp parallel
       {
         vec<DataType<T>> X_private;
         #pragma omp single
-        for (std::size_t i = 0; i < length; i++){
+        for (unsigned int i = 0; i < length; i++){
           auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
           umap[*idx.data(i)] = bb;
         }
         #pragma omp for nowait schedule(static)
-        for (std::size_t i = 0; i < length; i++){
+        for (unsigned int i = 0; i < length; i++){
           auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
           X_private.emplace_back(*idx.data(i), bb);
         }
@@ -492,8 +488,12 @@ class PRTree : Uncopyable{
                         std::make_move_iterator(X_private.begin()),
                         std::make_move_iterator(X_private.end()));
         }
+        vec<DataType<T>>().swap(X_private);
       }
+      //ProfilerStart("construct.prof");
       build(X);
+      //ProfilerStop();
+      vec<DataType<T>>().swap(X);
     }
 
     void insert(const T& idx, const py::array_t<float>& x){
@@ -595,7 +595,7 @@ class PRTree : Uncopyable{
         {
           vec<std::unique_ptr<PRTreeNode<T, B>>> tmp_nodes_private;
           #pragma omp for nowait schedule(static)
-          for (std::size_t k=0; k<leaves_size; k++){
+          for (unsigned int k=0; k<leaves_size; k++){
             int idx, jdx;
             auto& leaf = leaves[k];
             int len = leaf->data.size();
@@ -623,17 +623,13 @@ class PRTree : Uncopyable{
           }
         }
         as_X = tree.as_X();
-        int c = 0;
-        int cc = 0;
+        unsigned int c = 0;
         for (const auto& n : prev_nodes){
           if (unlikely(n)){
-            std::cout << cc << std::endl;
-            c+=1;
+            c++;
           }
-          cc++;
         }
         if (unlikely(c > 0)){
-          std::cout << c << std::endl;
           throw std::runtime_error("eee");
         }
         prev_nodes.swap(tmp_nodes);
@@ -642,6 +638,11 @@ class PRTree : Uncopyable{
         throw std::runtime_error("#roots is not 1.");
       }
       root = std::move(prev_nodes[0]);
+
+      vec<Leaf<int, B>*>().swap(leaves);
+      vec<std::unique_ptr<PRTreeNode<T, B>>>().swap(tmp_nodes);
+      vec<std::unique_ptr<PRTreeNode<T, B>>>().swap(prev_nodes);
+      vec<DataType<int>>().swap(as_X);
     }
     
 
@@ -670,13 +671,13 @@ class PRTree : Uncopyable{
       }
       py::gil_scoped_release release;
       vec<vec<T>> out;
-      std::size_t length = X.size();
+      unsigned int length = X.size();
       out.reserve(length);
       #pragma omp parallel
       {
         vec<vec<T>> out_private;
         #pragma omp for nowait schedule(static)
-        for(std::size_t i=0; i<length; i++){
+        for(unsigned int i=0; i<length; i++){
           out_private.emplace_back(std::move(find(X[i])));
         }
         #pragma omp for schedule(static) ordered
@@ -687,6 +688,7 @@ class PRTree : Uncopyable{
                         std::make_move_iterator(out_private.end()));
         }
       }
+      vec<BB>().swap(X);
       return out;
     }
 

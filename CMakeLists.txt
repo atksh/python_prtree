@@ -1,18 +1,27 @@
+cmake_minimum_required(VERSION 3.1)
+
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(PYBIND11_CPP_STANDARD -std=c++1z)
-cmake_minimum_required(VERSION 3.8)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
 
 set(CMAKE_C_COMPILER /usr/bin/gcc)
 set(CMAKE_CXX_COMPILER /usr/bin/g++)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+set(CMAKE_CXX_FLAGS "-O3 -Ofast -ffast-math -fPIC -Wall -mtune=native -march=native -flto -ggdb3")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Ofast -ffast-math -fPIC -Wall -mtune=native -march=native -flto -ggdb3")
 
 project(PRTree)
-
 find_package(OpenMP REQUIRED)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-set(CMAKE_CXX_FLAGS "-O3 -Ofast -ffast-math -Wall -fopenmp -lpthread -fPIC -shared -mtune=native -march=native -flto -static-libgcc -static-libstdc++")
 
 add_subdirectory(pybind11)
+add_subdirectory(mimalloc)
 pybind11_add_module(PRTree src/main.cc)
+target_link_libraries(PRTree PRIVATE profiler OpenMP::OpenMP_CXX mimalloc)
+
+target_link_libraries(PRTree PUBLIC)
 

@@ -21,7 +21,7 @@ class TestPRTree(unittest.TestCase):
             self.assertEqual(set(out[i]), set(tmp))
 
 
-        N= 100000
+        N= 10000
         idx = np.arange(N)
         x = np.random.rand(N, 4)
         x[:, 1] = x[:, 0] + x[:, 1] / 100
@@ -42,6 +42,14 @@ class TestPRTree(unittest.TestCase):
         for i in range(N):
             prtree1.erase(i)
             prtree2.erase(i)
+
+        # for profile
+        N= 10000000
+        idx = np.arange(N)
+        x = np.random.rand(N, 4)
+        x[:, 1] = x[:, 0] + x[:, 1] / 100 / np.sqrt(N)
+        x[:, 3] = x[:, 2] + x[:, 3] / 100 / np.sqrt(N)
+        prtree = PRTree(idx, x)
 
 
 def suite():
