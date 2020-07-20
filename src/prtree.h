@@ -17,7 +17,6 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
-#include <mimalloc.h>
 
 //#include <gperftools/profiler.h>
 
@@ -29,7 +28,7 @@ using std::swap;
 template<class T, class U>
 using pair = std::pair<T, U>;
 template<class T>
-using vec = std::vector<T, mi_stl_allocator<T>>;
+using vec = std::vector<T>;
 static std::mt19937 rand_src(42);
 
 
