@@ -578,7 +578,6 @@ class PRTree : Uncopyable{
       vec<Leaf<int, B>*> leaves;
       vec<std::unique_ptr<PRTreeNode<T, B>>> tmp_nodes, prev_nodes;
       std::unique_ptr<PRTreeNode<T, B>> p, q, r;
-      int i, len, idx, jdx;
 
       auto first_tree = PseudoPRTree<T, B>(X);
       for (auto& leaf : first_tree.get_all_leaves()){
@@ -589,29 +588,44 @@ class PRTree : Uncopyable{
       while (likely(prev_nodes.size() > 1)){
         auto tree = PseudoPRTree<int, B>(as_X);
         leaves = tree.get_all_leaves();
+        auto leaves_size = leaves.size();
         tmp_nodes.clear();
-        tmp_nodes.reserve(leaves.size());
-        for (auto& leaf : leaves){
-          len = leaf->data.size();
-          p = std::make_unique<PRTreeNode<T, B>>(leaf->mbb);
-          if (likely(!leaf->data.empty())){
-            for (i = 1; i < len; i++){
-              idx = leaf->data[len - i - 1].first; // reversed way
-              jdx = leaf->data[len - i].first;
-              prev_nodes[idx]->next = std::move(prev_nodes[jdx]);
+        tmp_nodes.reserve(leaves_size);
+        #pragma omp parallel
+        {
+          vec<std::unique_ptr<PRTreeNode<T, B>>> tmp_nodes_private;
+          #pragma omp for nowait schedule(static)
+          for (std::size_t k=0; k<leaves_size; k++){
+            int idx, jdx;
+            auto& leaf = leaves[k];
+            int len = leaf->data.size();
+            auto pp = std::make_unique<PRTreeNode<T, B>>(leaf->mbb);
+            if (likely(!leaf->data.empty())){
+              for (int i = 1; i < len; i++){
+                idx = leaf->data[len - i - 1].first; // reversed way
+                jdx = leaf->data[len - i].first;
+                prev_nodes[idx]->next = std::move(prev_nodes[jdx]);
+              }
+              idx = leaf->data[0].first;
+              pp->head = std::move(prev_nodes[idx]);
+              if (!pp->head){throw std::runtime_error("ppp");}
+              tmp_nodes_private.emplace_back(std::move(pp));
+            } else {
+              throw std::runtime_error("what????");
             }
-            idx = leaf->data[0].first;
-            p->head = std::move(prev_nodes[idx]);
-            if (!p->head){throw std::runtime_error("ppp");}
-            tmp_nodes.emplace_back(std::move(p));
-          } else {
-            throw std::runtime_error("what????");
+          }
+          #pragma omp for schedule(static) ordered
+          for(int i=0; i<omp_get_num_threads(); i++) {
+              #pragma omp ordered
+              tmp_nodes.insert(tmp_nodes.end(),
+                            std::make_move_iterator(tmp_nodes_private.begin()),
+                            std::make_move_iterator(tmp_nodes_private.end()));
           }
         }
         as_X = tree.as_X();
         int c = 0;
         int cc = 0;
-        for (auto& n : prev_nodes){
+        for (const auto& n : prev_nodes){
           if (unlikely(n)){
             std::cout << cc << std::endl;
             c+=1;
