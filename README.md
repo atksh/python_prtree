@@ -3,7 +3,7 @@
 "python_prtree" is a python implementation of Priority R-Tree (see reference below).
 Supported futures are as follows:
 
-- Construct Priority R-Tree(PRTree) from rectangles
+- Construct Priority R-Tree(PRTree) from rectangles; array of (xmin, xmax, ymin, ymax)
 - query and batch query with rectangle(s)
 - insert and erase(delete) (but not optimized yet)
 
