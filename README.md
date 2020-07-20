@@ -60,6 +60,14 @@ cd python_prtree
 python setup.py install
 ```
 
+## For APPLE USERS
+Please, make sure that cmake and openmp are installed, or copy and paste this command
+```bash
+brew install cmake libomp
+```
+then, you can install by pip.
+
+
 # Performance
 ## Construction
 ![fig1](./docs/images/fig1.png)
