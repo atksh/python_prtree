@@ -1,4 +1,5 @@
 /cmake-build-*/
+/docker/
 /build/
 /dist/
 /_build/
