@@ -75,6 +75,7 @@ pip install .
 - numpy
 - openmp
 - gcc
+- cmake
 
 
 # NOTE
