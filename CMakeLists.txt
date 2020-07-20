@@ -29,8 +29,8 @@ if(APPLE)
 
 endif()
 
-set(CMAKE_CXX_FLAGS "-Xpreprocessor -O3 -Ofast -ffast-math -fPIC -shared -Wall -mtune=native -march=native -flto")
-set(CMAKE_CXX_FLAGS_RELEASE "-Xpreprocessor -O3 -Ofast -ffast-math -fPIC -shared -Wall -mtune=native -march=native -flto")
+set(CMAKE_CXX_FLAGS "-Xpreprocessor -O3 -Ofast -ffast-math -fPIC -Wall -mtune=native -march=native -flto")
+set(CMAKE_CXX_FLAGS_RELEASE "-Xpreprocessor -O3 -Ofast -ffast-math -fPIC -Wall -mtune=native -march=native -flto")
 
 project(PRTree)
 find_package(OpenMP REQUIRED)
@@ -47,4 +47,5 @@ add_subdirectory(pybind11)
 add_subdirectory(mimalloc)
 pybind11_add_module(PRTree src/main.cc)
 target_link_libraries(PRTree PRIVATE OpenMP::OpenMP_CXX mimalloc-static)
+target_link_libraries(PRTree PUBLIC)
 
