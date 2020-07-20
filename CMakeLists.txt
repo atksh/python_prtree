@@ -43,9 +43,10 @@ if(OpenMP_FOUND)
 endif()
 
 
+include_directories(${SOURCE_DIR}/src)
 add_subdirectory(pybind11)
 add_subdirectory(mimalloc)
-pybind11_add_module(PRTree src/main.cc src/prtree.h)
+pybind11_add_module(PRTree src/main.cc)
 target_link_libraries(PRTree PRIVATE OpenMP::OpenMP_CXX mimalloc-static)
 target_link_libraries(PRTree PUBLIC)
 
