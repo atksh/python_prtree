@@ -29,8 +29,8 @@ if(APPLE)
 
 endif()
 
-set(CMAKE_CXX_FLAGS "-Xpreprocessor -O3 -Ofast -ffast-math -fPIC -shared -Wall -mtune=native -march=native -flto -static-libgcc -static-libstdc++")
-set(CMAKE_CXX_FLAGS_RELEASE "-Xpreprocessor -O3 -Ofast -ffast-math -fPIC -shared -Wall -mtune=native -march=native -flto -static-libgcc -static-libstdc++")
+set(CMAKE_CXX_FLAGS "-Xpreprocessor -O3 -Ofast -ffast-math -fPIC -shared -Wall -mtune=native -march=native -flto")
+set(CMAKE_CXX_FLAGS_RELEASE "-Xpreprocessor -O3 -Ofast -ffast-math -fPIC -shared -Wall -mtune=native -march=native -flto")
 
 project(PRTree)
 find_package(OpenMP REQUIRED)
