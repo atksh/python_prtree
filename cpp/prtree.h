@@ -12,16 +12,10 @@
 #include <iostream>
 #include <mutex>
 #include <cstdlib>
-#include <omp.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
-
-//#include <gperftools/profiler.h>
-
-
-#define MAX_PARALLEL_RECURSIVE_LEVEL 5
 
 namespace py = pybind11;
 using std::swap;
@@ -290,13 +284,7 @@ class PseudoPRTree : Uncopyable{
       if (likely(!root)){
         root = std::make_unique<PseudoPRTreeNode<T, B>>();
       }
-      #pragma omp parallel
-      {
-        #pragma omp single nowait
-        {
-          construct(root.get(), X, 0);
-        }
-      }
+      construct(root.get(), X, 0);
     }
 
     void construct(PseudoPRTreeNode<T, B>* node, vec<DataType<T>>& X, const unsigned int& depth){
@@ -310,41 +298,19 @@ class PseudoPRTree : Uncopyable{
         auto m = b;
         std::advance(m, (e - b) / 2);
         std::nth_element(b, m, e, comp);
-        if (depth < MAX_PARALLEL_RECURSIVE_LEVEL) {
-          if (likely(m - b > 0)){
-            node->left = std::make_unique<PseudoPRTreeNode<T, B>>();
-            auto node_left = node->left.get();
-            #pragma omp task default(none) firstprivate(node_left, depth) shared(b, m) 
-            {
-              vec<DataType<T>> X_left(std::make_move_iterator(b), std::make_move_iterator(m));
-              construct(node_left, X_left, depth + 1);
-            }
-          }
-          if (likely(e - m > 0)){
-            node->right = std::make_unique<PseudoPRTreeNode<T, B>>();
-            auto node_right = node->right.get();
-            #pragma omp task default(none) firstprivate(node_right, depth) shared(m, e)
-            {
-              vec<DataType<T>> X_right(std::make_move_iterator(m), std::make_move_iterator(e));
-              construct(node_right, X_right, depth + 1);
-            }
-          }
-          #pragma omp taskwait
-        } else {
-          if (likely(m - b > 0)){
-            node->left = std::make_unique<PseudoPRTreeNode<T, B>>();
-            auto node_left = node->left.get();
-            vec<DataType<T>> X_left(std::make_move_iterator(b), std::make_move_iterator(m));
-            construct(node_left, X_left, depth + 1);
-            vec<DataType<T>>().swap(X_left);
-          }
-          if (likely(e - m > 0)){
-            node->right = std::make_unique<PseudoPRTreeNode<T, B>>();
-            auto node_right = node->right.get();
-            vec<DataType<T>> X_right(std::make_move_iterator(m), std::make_move_iterator(e));
-            construct(node_right, X_right, depth + 1);
-            vec<DataType<T>>().swap(X_right);
-          }
+        if (likely(m - b > 0)){
+          node->left = std::make_unique<PseudoPRTreeNode<T, B>>();
+          auto node_left = node->left.get();
+          vec<DataType<T>> X_left(std::make_move_iterator(b), std::make_move_iterator(m));
+          construct(node_left, X_left, depth + 1);
+          vec<DataType<T>>().swap(X_left);
+        }
+        if (likely(e - m > 0)){
+          node->right = std::make_unique<PseudoPRTreeNode<T, B>>();
+          auto node_right = node->right.get();
+          vec<DataType<T>> X_right(std::make_move_iterator(m), std::make_move_iterator(e));
+          construct(node_right, X_right, depth + 1);
+          vec<DataType<T>>().swap(X_right);
         }
       }
     }
@@ -367,23 +333,11 @@ class PseudoPRTree : Uncopyable{
       }
 
       int total = cands.size();
-      #pragma omp parallel
-      {
-        vec<Leaf<T, B>*> out_private;
-        #pragma omp for nowait schedule(static)
-        for (int i = 0; i<total; i++){
-          auto tmp = cands[i]->address_of_leaves();
-          out_private.insert(out_private.end(),
-                        std::make_move_iterator(tmp.begin()),
-                        std::make_move_iterator(tmp.end()));
-        }
-        #pragma omp for schedule(static) ordered
-        for (int i = 0; i < omp_get_num_threads(); i++){
-          #pragma omp ordered
-          out.insert(out.end(),
-                        std::make_move_iterator(out_private.begin()),
-                        std::make_move_iterator(out_private.end()));
-        }
+      for (int i = 0; i<total; i++){
+        auto tmp = cands[i]->address_of_leaves();
+        out.insert(out.end(),
+                      std::make_move_iterator(tmp.begin()),
+                      std::make_move_iterator(tmp.end()));
       }
       vec<U*>().swap(cands);
       return out;
@@ -394,21 +348,8 @@ class PseudoPRTree : Uncopyable{
       auto children = get_all_leaves();
       int total = children.size();
       out.reserve(total);
-
-      #pragma omp parallel
-      {
-        vec<DataType<int>> out_private;
-        #pragma omp for nowait schedule(static)
-        for (int i = 0; i<total; i++){
-          out_private.emplace_back(i, children[i]->mbb);
-        }
-        #pragma omp for schedule(static) ordered
-        for (int i = 0; i < omp_get_num_threads(); i++){
-          #pragma omp ordered
-          out.insert(out.end(),
-                        std::make_move_iterator(out_private.begin()),
-                        std::make_move_iterator(out_private.end()));
-        }
+      for (int i = 0; i<total; i++){
+        out.emplace_back(i, children[i]->mbb);
       }
       return out;
     }
@@ -465,28 +406,13 @@ class PRTree : Uncopyable{
       unsigned int length = shape_idx[0];
       vec<DataType<T>> X;
       X.reserve(length);
-      #pragma omp parallel
-      {
-        vec<DataType<T>> X_private;
-        #pragma omp single
-        for (unsigned int i = 0; i < length; i++){
-          auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
-          umap[*idx.data(i)] = bb;
-        }
-        #pragma omp for nowait schedule(static)
-        for (unsigned int i = 0; i < length; i++){
-          auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
-          X_private.emplace_back(*idx.data(i), bb);
-        }
-
-        #pragma omp for schedule(static) ordered
-        for(int i=0; i<omp_get_num_threads(); i++) {
-          #pragma omp ordered
-          X.insert(X.end(),
-                        std::make_move_iterator(X_private.begin()),
-                        std::make_move_iterator(X_private.end()));
-        }
-        vec<DataType<T>>().swap(X_private);
+      for (unsigned int i = 0; i < length; i++){
+        auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
+        umap[*idx.data(i)] = bb;
+      }
+      for (unsigned int i = 0; i < length; i++){
+        auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
+        X.emplace_back(*idx.data(i), bb);
       }
       //ProfilerStart("construct.prof");
       build(X);
@@ -589,35 +515,23 @@ class PRTree : Uncopyable{
         auto leaves_size = leaves.size();
         tmp_nodes.clear();
         tmp_nodes.reserve(leaves_size);
-        #pragma omp parallel
-        {
-          vec<std::unique_ptr<PRTreeNode<T, B>>> tmp_nodes_private;
-          #pragma omp for nowait schedule(static)
-          for (unsigned int k=0; k<leaves_size; k++){
-            int idx, jdx;
-            auto& leaf = leaves[k];
-            int len = leaf->data.size();
-            auto pp = std::make_unique<PRTreeNode<T, B>>(leaf->mbb);
-            if (likely(!leaf->data.empty())){
-              for (int i = 1; i < len; i++){
-                idx = leaf->data[len - i - 1].first; // reversed way
-                jdx = leaf->data[len - i].first;
-                prev_nodes[idx]->next = std::move(prev_nodes[jdx]);
-              }
-              idx = leaf->data[0].first;
-              pp->head = std::move(prev_nodes[idx]);
-              if (!pp->head){throw std::runtime_error("ppp");}
-              tmp_nodes_private.emplace_back(std::move(pp));
-            } else {
-              throw std::runtime_error("what????");
+        for (unsigned int k=0; k<leaves_size; k++){
+          int idx, jdx;
+          auto& leaf = leaves[k];
+          int len = leaf->data.size();
+          auto pp = std::make_unique<PRTreeNode<T, B>>(leaf->mbb);
+          if (likely(!leaf->data.empty())){
+            for (int i = 1; i < len; i++){
+              idx = leaf->data[len - i - 1].first; // reversed way
+              jdx = leaf->data[len - i].first;
+              prev_nodes[idx]->next = std::move(prev_nodes[jdx]);
             }
-          }
-          #pragma omp for schedule(static) ordered
-          for(int i=0; i<omp_get_num_threads(); i++) {
-              #pragma omp ordered
-              tmp_nodes.insert(tmp_nodes.end(),
-                            std::make_move_iterator(tmp_nodes_private.begin()),
-                            std::make_move_iterator(tmp_nodes_private.end()));
+            idx = leaf->data[0].first;
+            pp->head = std::move(prev_nodes[idx]);
+            if (!pp->head){throw std::runtime_error("ppp");}
+            tmp_nodes.emplace_back(std::move(pp));
+          } else {
+            throw std::runtime_error("what????");
           }
         }
         as_X = tree.as_X();
@@ -671,20 +585,8 @@ class PRTree : Uncopyable{
       vec<vec<T>> out;
       unsigned int length = X.size();
       out.reserve(length);
-      #pragma omp parallel
-      {
-        vec<vec<T>> out_private;
-        #pragma omp for nowait schedule(static)
-        for(unsigned int i=0; i<length; i++){
-          out_private.emplace_back(std::move(find(X[i])));
-        }
-        #pragma omp for schedule(static) ordered
-        for(int i=0; i<omp_get_num_threads(); i++) {
-          #pragma omp ordered
-          out.insert(out.end(),
-                        std::make_move_iterator(out_private.begin()),
-                        std::make_move_iterator(out_private.end()));
-        }
+      for(unsigned int i=0; i<length; i++){
+        out.emplace_back(std::move(find(X[i])));
       }
       vec<BB>().swap(X);
       return out;
