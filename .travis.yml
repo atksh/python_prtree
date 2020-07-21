@@ -1,7 +1,7 @@
 language: python
 dist: bionic
 compiler:
-  - gcc
+- gcc
 jobs:
   include:
   - services: docker
@@ -10,13 +10,13 @@ jobs:
 env:
   global:
   - OMP_NUM_THREADS=4
-  - TWINE_USERNAME=__token__
-  - secure: TbILDBDKUSg2o1wVFxgpCKXD/T38yn9QASalhYK5wPavoQaB9AMFst/Dg+UhSW3PS1Sm+R5CN907tt8ApELrKC9IuSGmCJDgo8KU59/acMLt/2nRHrtq2DtvNaxvPFIq3ydkOy0cVxD7qaakJgGmoQtH8wU9t+D4dlacnrDLtY3iz32e4IozzcmpwXS7SfZ7V0u851zNGQpe4U0QnpP8X3TPBbglIZb6KJJkf+oPxe3Cg+IdvOCKKHwy0s7jK9j04Nd6Imkk8cFisSEeNFQpGmTGgWNjYdiMQ2CfEe0zaBpsg8mBKP00xM2dz4MThbq+mHs29kYCoGdzVYJ+5B40xF/i8QsGEM3S814ky4Fs6U2Ura+a06l44sI0a/RpHc72kO01lGvUNfQ0pnGpYdahl5cIpik4RorrJgENa/W3b0fXAVJF6/UBBCTbDZbTM/dds6BQOb3pK8uk6IDYsY1I94xVBHmwUK9iyu9gDk/nN/JRAsuvaU1PEYqlDnQEdFbPKx+MkjXojYDPnXyN1xa5xhNW1Yt4A3copCxm5TJ6aKddQxgO3QE2ipD+fqwRfkLwZbBL/sBEKeh7no8HcF5JgOPAyUs5jwI+INQsY/NppJGc3wT9tCIMH62x8u6DuJwNNHUtqRgurp8X4Rf+Q9fsm3g8/Yu9Tzzpbs5nKfJjFs0=
   - CIBW_BUILD="cp3?-*"
   - CIBW_SKIP="cp27-* *-win *-manylinux_i686"
   - CIBW_BEFORE_BUILD="pip install pybind11"
+  - TWINE_USERNAME=__token__
+  - secure: epbwbr8ddhZLfvXzovgSH49yR99wpmjJUkAG/xRauugxuxzyzbA3/TTS2c21G46AXGRqnWVXovy5abqyuvFWRCAsfQshIuK6LiuW03WDrdw2V6A/0HZL1X7wEOytBTF26plVzsOBZp8KridRjedATI//1Wrs+Iuupoerf+tHe9SZ4nSkNSRUb2QE1isJPM2tVqy0hFxzUgMF4A/HfsSA8dqQ4MtNL3g1VhGW/Gj0LNtbpRU1rMV0+PxRmj2XO+FuzRMK3SybP87fnnzlluV16Cj1X76nzA9D9vEAkVwij+kWYFKkVJAUrwlkO4BS3Vsf3Hqbf0EwG5VGMUNUov6r+XmuCVLQBh5beauEEOQWNG6U1HWluD+XOw8gfPiVVRQAy1NCaGyR9pQ/Tpv/MptQh6b+nQgUg6x53JetSBUFJ+ktJqm2sCZ2PmtF8IIv8R7G2xnShSzEjPStt1BDsrghU1FfuqpaLc3pJLTQf9BzDIsejqPQgKWWspaRs6EMVGwa18+wA8MEtFPH3LjGksMVxFpP0Eoot9vJc5yd8beEdT7uxxj3Kt2XJfwOCf0rxWC8MxXWpsl+LFbmx9EYJj38eELA/G+wqgrNcctPQXMNfqAft3yOuAgTqQ0LRStS0Irw25O+vHytoMPCvy99QjQzI8XZozIJUeNFSHP1iz1iI+A=
 install:
-  - python3 -m pip install cibuildwheel
+- python3 -m pip install cibuildwheel
 script:
 - python3 -m cibuildwheel --output-dir wheelhouse
 after_success:
