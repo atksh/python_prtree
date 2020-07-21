@@ -26,8 +26,14 @@ using vec = std::vector<T>;
 static std::mt19937 rand_src(42);
 
 
-#define likely(x)   __builtin_expect(!!(x), 1)
-#define unlikely(x) __builtin_expect(!!(x), 0)
+#   if defined __GNUC__
+#      define likely(x)       __builtin_expect(!!(x),1)
+#      define unlikely(x)     __builtin_expect(!!(x),0)
+#   else
+#      define likely(x) (x)
+#      define unlikely(x) (x)
+#   endif
+
 
 template<typename Iter>
 inline Iter select_randomly(Iter start, Iter end) {
