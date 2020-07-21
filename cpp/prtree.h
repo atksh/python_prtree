@@ -602,7 +602,7 @@ class PRTree : Uncopyable{
       const auto &buff_info_x = x.request();
       const auto &ndim= buff_info_x.ndim;
       const auto &shape_x = buff_info_x.shape;
-      if (ndim != 1 or shape_x[0] != 4){
+      if (ndim != 1 || shape_x[0] != 4){
         throw std::runtime_error("invalid shape");
       } 
       const BB bb = BB(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
