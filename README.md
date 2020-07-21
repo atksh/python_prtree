@@ -51,6 +51,8 @@ prtree.insert(3, np.array([0.3, 0.5, 0.1, 0.2]))  # add a new rectangle to the P
 To install python_prtree with pip command
 ```bash
 pip install git+https://github.com/atksh/python_prtree
+# or
+pip install python-prtree
 ```
 
 Or, you can clone and install just like
