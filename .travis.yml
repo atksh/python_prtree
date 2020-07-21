@@ -13,8 +13,7 @@ env:
   - CIBW_BUILD="cp3?-*"
   - CIBW_SKIP="cp27-* *-win *-manylinux_i686"
   - CIBW_BEFORE_BUILD="pip install pybind11"
-  - TWINE_USERNAME="__token__"
-  - secure: fKBqoBnCwkXTZNCAZ04ZJapEgzeV7u2KDznGkPvpMQi+jCvF9eL/Odt6wG0Pj0Lsf6P7qUJcv0FBt6sskYmC05JCoBJU4SC8epqFFdgS4uMlVrO9k0M6BfDg7s1cbA2dHSVNWUm/3UQ+lEGrC1C1BrsEhkrXfBUVDZbPKX9bwHKfC/EfoiS7LctOqqpNQYpId/2KCvHvSTDWZ+Belhwo18Nz7+XNpX2FPdT1NQKfDbsY8ePdAi/VJx5NzXYpKrknm8zxF4vU+VmFB7LI5NmtCcK+y9mKw4X2hOfODRXAmiA1/3upT+32wejwh7+NLcR0EofdpjCv9dz8DfY9UtgFdfzmNz3d/2ZOzOi5NyIO5yzDbSy/8hEQC53qOIKsDcoYxOh5CuCGmlTHXWnuUbvoT5TvNNbPKXqp066IkPwCCH8epirRZm+0L6C7r2/A8+6WIlgUwpSAtdAabx+ABuXnBwB2CvES/BUWVtAdmyJ4eu6H+P1QG/v9nCjEt0VCcDw5VCoPodMWHcn16X9A/1lpoSpGiEF60Bo6k9Qzsw8vp+m9NZmXtHCzdb6JfuSqxAYv97Q0ljkJ5DUjgltZZxcBUYtDwNe4EuLxYRiXbrEtNTJaKhPncHG3AhxxGSkxyk9CH7Oq+d0PTmUjAnfJCfrY+18eGxu/bkBGm4eiYu3oVQM=
+  - TWINE_USERNAME=__token__
 install:
 - python3 -m pip install cibuildwheel
 script:
