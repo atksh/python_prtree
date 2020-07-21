@@ -7,18 +7,13 @@ jobs:
   - services: docker
   - os: osx
     language: shell
-  - os: windows
-    language: shell
-    before_install:
-    - choco install python3 --version 3.8.0
-    - export PATH="/c/Python38:/c/Python38/Scripts:$PATH"
 env:
   global:
   - OMP_NUM_THREADS=4
   - TWINE_USERNAME=__token__
   - secure: TbILDBDKUSg2o1wVFxgpCKXD/T38yn9QASalhYK5wPavoQaB9AMFst/Dg+UhSW3PS1Sm+R5CN907tt8ApELrKC9IuSGmCJDgo8KU59/acMLt/2nRHrtq2DtvNaxvPFIq3ydkOy0cVxD7qaakJgGmoQtH8wU9t+D4dlacnrDLtY3iz32e4IozzcmpwXS7SfZ7V0u851zNGQpe4U0QnpP8X3TPBbglIZb6KJJkf+oPxe3Cg+IdvOCKKHwy0s7jK9j04Nd6Imkk8cFisSEeNFQpGmTGgWNjYdiMQ2CfEe0zaBpsg8mBKP00xM2dz4MThbq+mHs29kYCoGdzVYJ+5B40xF/i8QsGEM3S814ky4Fs6U2Ura+a06l44sI0a/RpHc72kO01lGvUNfQ0pnGpYdahl5cIpik4RorrJgENa/W3b0fXAVJF6/UBBCTbDZbTM/dds6BQOb3pK8uk6IDYsY1I94xVBHmwUK9iyu9gDk/nN/JRAsuvaU1PEYqlDnQEdFbPKx+MkjXojYDPnXyN1xa5xhNW1Yt4A3copCxm5TJ6aKddQxgO3QE2ipD+fqwRfkLwZbBL/sBEKeh7no8HcF5JgOPAyUs5jwI+INQsY/NppJGc3wT9tCIMH62x8u6DuJwNNHUtqRgurp8X4Rf+Q9fsm3g8/Yu9Tzzpbs5nKfJjFs0=
   - CIBW_BUILD="cp3?-*"
-  - CIBW_SKIP="cp27-* *-win32 *-manylinux_i686"
+  - CIBW_SKIP="cp27-* *-win *-manylinux_i686"
   - CIBW_BEFORE_BUILD="pip install pybind11"
 install:
   - python3 -m pip install cibuildwheel
