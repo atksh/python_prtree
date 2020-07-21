@@ -94,7 +94,7 @@ setup(
     test_suite='test_PRTree.suite',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    keywords='priority rtree prtree',
+    keywords='priority rtree prtree python map-matching map-match',
     classifiers=[
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3.7',
