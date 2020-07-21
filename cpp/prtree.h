@@ -435,7 +435,7 @@ class PRTree : Uncopyable{
       const auto &buff_info_x = x.request();
       const auto &shape_x = buff_info_x.shape;
       const auto &ndim = buff_info_x.ndim;
-      if (shape_x[0] != 4 or ndim != 1){
+      if (shape_x[0] != 4 || ndim != 1){
         throw std::runtime_error("invalid shape.");
       }
       auto it = umap.find(idx);
