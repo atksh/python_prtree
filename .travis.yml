@@ -1,30 +1,32 @@
 language: python
-
+dist: bionic
+compiler:
+- gcc
 jobs:
   include:
-    - services: docker
-    - os: osx
-      language: shell
-    - os: windows
-      language: shell
-      before_install:
-        # install Python 3 and make sure it's on PATH as 'python3'
-        - choco install python --version 3.8.0
-        - export PATH="/c/Python38:/c/Python38/Scripts:$PATH"
-        - ln -s /c/Python38/python.exe /c/Python38/python3.exe
-
+  - services: docker
+  - os: osx
+    language: shell
+  - os: windows
+    language: shell
+    before_install:
+      # install Python 3 and make sure it's on PATH as 'python3'
+      - choco install python --version 3.8.0
+      - export PATH="/c/Python38:/c/Python38/Scripts:$PATH"
+      - ln -s /c/Python38/python.exe /c/Python38/python3.exe
 env:
   global:
-    - CIBW_BUILD="cp3?-*"
-    - CIBW_SKIP="cp27-* *-win32 *-manylinux_i686"
-    - CIBW_BEFORE_BUILD="pip install pybind11"
-    - TWINE_USERNAME=__token__
+  - OMP_NUM_THREADS=4
+  - CIBW_BUILD="cp3?-*"
+  - CIBW_SKIP="cp27-* *-win *-manylinux_i686"
+  - CIBW_BEFORE_BUILD="pip install pybind11"
+  - TWINE_USERNAME=__token__
 install:
-  - python3 -m pip install cibuildwheel
+- python3 -m pip install cibuildwheel
 script:
-  - python3 -m cibuildwheel --output-dir wheelhouse
+- python3 -m cibuildwheel --output-dir wheelhouse
 after_success:
-  - |
+- |
   if [[ $TRAVIS_TAG ]]; then
     python3 -m pip install twine
     python3 -m twine upload wheelhouse/*.whl
