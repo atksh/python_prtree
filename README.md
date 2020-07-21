@@ -50,8 +50,6 @@ prtree.insert(3, np.array([0.3, 0.5, 0.1, 0.2]))  # add a new rectangle to the P
 # Installation
 To install python_prtree with pip command
 ```bash
-pip install git+https://github.com/atksh/python_prtree
-# or
 pip install python-prtree
 ```
 
@@ -61,13 +59,7 @@ git clone --recursive https://github.com/atksh/python_prtree
 cd python_prtree
 python setup.py install
 ```
-
-## For APPLE USERS
-Please, make sure that cmake and openmp are installed, or copy and paste this command
-```bash
-brew install cmake libomp
-```
-then, you can install by pip.
+This installation needs cmake.
 
 
 # Performance
@@ -82,14 +74,11 @@ then, you can install by pip.
 
 # Requirement
 - numpy
-- openmp
-- cmake
 
 
 # NOTE
 
 - This PRTree is implemented by C++ with Pybind11, and much faster than numba implementation of PRTree.
-- mimalloc could allow us to get better performance (1.5x ~ 2.0x).
 - If you can use C++, you should use boost::geometry (I didn't know it and sadly made this package).
 - Please note that insert / erase operations are not optimized compared to ordinary r-tree. Plus, this implementation does not exactly follow that of the paper due to my technical skills.
 
