@@ -38,8 +38,7 @@ class TestPRTree(unittest.TestCase):
         for i in range(N):
             self.assertEqual(set(prtree1.query(x[i])), set(prtree2.query(x[i])))
 
-
-        for i in range(N):
+        for i in range(N-1):
             prtree1.erase(i)
             prtree2.erase(i)
 

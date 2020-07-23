@@ -629,6 +629,7 @@ class PRTree : Uncopyable{
         out.insert(out.end(),
             std::make_move_iterator(o.begin()),
             std::make_move_iterator(o.end()));
+        vec<vec<T>>().swap(o);
       }
       return out;
     }
