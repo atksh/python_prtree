@@ -315,7 +315,7 @@ class PseudoPRTree : Uncopyable{
           node->left = std::make_unique<PseudoPRTreeNode<T, B>>();
           auto node_left = node->left.get();
           X_left = vec<DataType<T>>(std::make_move_iterator(b), std::make_move_iterator(m));
-          if (2 ** depth <= 2 * nthreads){
+          if (std::pow(2, depth) <= 2 * nthreads){
             std::thread t_left([&]{construct(node_left, X_left, depth + 1);});
             threads.push_back(std::move(t_left));
           } else {
@@ -326,7 +326,7 @@ class PseudoPRTree : Uncopyable{
           node->right = std::make_unique<PseudoPRTreeNode<T, B>>();
           auto node_right = node->right.get();
           X_right = vec<DataType<T>>(std::make_move_iterator(m), std::make_move_iterator(e));
-          if (2 ** depth <= 2 * nthreads){
+          if (std::pow(2, depth) <= 2 * nthreads){
             std::thread t_right([&]{construct(node_right, X_right, depth + 1);});
             threads.push_back(std::move(t_right));
           } else {
