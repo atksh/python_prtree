@@ -286,7 +286,7 @@ template<class T, int B=6>
 class PseudoPRTree : Uncopyable{
   public:
     std::unique_ptr<PseudoPRTreeNode<T, B>> root;
-    const int nthreads = std::max(1, (int) std::thread::hardware_concurrency();
+    const int nthreads = std::max(1, (int) std::thread::hardware_concurrency());
 
     PseudoPRTree(){
       root = std::make_unique<PseudoPRTreeNode<T, B>>();
@@ -317,7 +317,7 @@ class PseudoPRTree : Uncopyable{
           X_left = vec<DataType<T>>(std::make_move_iterator(b), std::make_move_iterator(m));
           if (std::pow(2, depth) <= 2 * nthreads){
             std::thread t_left([&]{construct(node_left, X_left, depth + 1);});
-            threads.push_back(std::move(t_left));
+            threads.emplace_back(std::move(t_left));
           } else {
             construct(node_left, X_left, depth + 1);
           }
@@ -328,7 +328,7 @@ class PseudoPRTree : Uncopyable{
           X_right = vec<DataType<T>>(std::make_move_iterator(m), std::make_move_iterator(e));
           if (std::pow(2, depth) <= 2 * nthreads){
             std::thread t_right([&]{construct(node_right, X_right, depth + 1);});
-            threads.push_back(std::move(t_right));
+            threads.emplace_back(std::move(t_right));
           } else {
             construct(node_right, X_right, depth + 1);
           }
