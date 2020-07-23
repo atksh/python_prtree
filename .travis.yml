@@ -2,7 +2,6 @@ language: python
 jobs:
   include:
   - services: docker
-    before_install
   - os: osx
     language: shell
   - os: windows
@@ -18,10 +17,10 @@ env:
   - CIBW_SKIP="cp27-* *-win32 *-manylinux_i686"
   - TWINE_USERNAME=__token__
   - CIBW_TEST_COMMAND:
-    - cd {project}
-    - python3 -m pip install -U cython pip
-    - python3 -m pip install numpy
-    - python3 setup.py test
+    cd {project}
+    python3 -m pip install -U cython pip
+    python3 -m pip install numpy
+    python3 setup.py test
 install:
 - python3 -m pip install cibuildwheel
 script:
