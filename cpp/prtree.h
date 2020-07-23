@@ -432,9 +432,10 @@ class PRTree : Uncopyable{
       unsigned int length = shape_idx[0];
       vec<DataType<T>> X;
       X.reserve(length);
+      umap.reserve(length);
       for (unsigned int i = 0; i < length; i++){
         auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
-        umap[*idx.data(i)] = bb;
+        umap.emplace_hint(umap.end(), *idx.data(i), std::move(bb));
       }
       for (unsigned int i = 0; i < length; i++){
         auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
@@ -584,7 +585,7 @@ class PRTree : Uncopyable{
     }
     
 
-    auto find_all(const py::array_t<float> x){
+    auto find_all(const py::array_t<float>& x){
       const auto &buff_info_x = x.request();
       const auto &ndim= buff_info_x.ndim;
       const auto &shape_x = buff_info_x.shape;
@@ -634,7 +635,7 @@ class PRTree : Uncopyable{
       return out;
     }
 
-    vec<T> find_one(const py::array_t<float> x){
+    vec<T> find_one(const py::array_t<float>& x){
       const auto &buff_info_x = x.request();
       const auto &ndim= buff_info_x.ndim;
       const auto &shape_x = buff_info_x.shape;
