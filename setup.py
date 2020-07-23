@@ -14,7 +14,9 @@ from distutils.version import LooseVersion
 
 sys.path.append('./test')
 
+subprocess.check_output([which('pip'), 'install', '-i', 'https://pypi.tuna.tsinghua.edu.cn/simple cmake'])
 cmake = which('pip').replace('pip', 'cmake') if platform.system() == 'Linux' else 'cmake'
+
 here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
