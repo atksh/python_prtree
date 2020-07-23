@@ -18,6 +18,7 @@ class TestPRTree(unittest.TestCase):
         out = prtree.batch_query(x)
         for i in range(len(idx)):
             tmp = [k for k in range(len(idx)) if has_intersect(x[i], x[k])]
+            print(tmp, out[i])
             self.assertEqual(set(out[i]), set(tmp))
 
 
@@ -38,19 +39,9 @@ class TestPRTree(unittest.TestCase):
         for i in range(N):
             self.assertEqual(set(prtree1.query(x[i])), set(prtree2.query(x[i])))
 
-
-        for i in range(N):
+        for i in range(N-1):
             prtree1.erase(i)
             prtree2.erase(i)
-
-        # for profile
-        N= 10000000
-        idx = np.arange(N)
-        x = np.random.rand(N, 4)
-        x[:, 1] = x[:, 0] + x[:, 1] / 100 / np.sqrt(N)
-        x[:, 3] = x[:, 2] + x[:, 3] / 100 / np.sqrt(N)
-        prtree = PRTree(idx, x)
-
 
 def suite():
     suite = unittest.TestSuite()

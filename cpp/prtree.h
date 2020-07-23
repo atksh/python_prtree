@@ -1,5 +1,7 @@
 #pragma once
 #include <array>
+#include <cmath>
+#include <limits>
 #include <random>
 #include <vector>
 #include <unordered_map>
@@ -11,6 +13,8 @@
 #include <iterator>
 #include <iostream>
 #include <mutex>
+#include <thread>
+#include <future>
 #include <cstdlib>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -282,6 +286,7 @@ template<class T, int B=6>
 class PseudoPRTree : Uncopyable{
   public:
     std::unique_ptr<PseudoPRTreeNode<T, B>> root;
+    const int nthreads = std::max(1, (int) std::thread::hardware_concurrency());
 
     PseudoPRTree(){
       root = std::make_unique<PseudoPRTreeNode<T, B>>();
@@ -290,10 +295,13 @@ class PseudoPRTree : Uncopyable{
       if (likely(!root)){
         root = std::make_unique<PseudoPRTreeNode<T, B>>();
       }
+      py::gil_scoped_release release;
       construct(root.get(), X, 0);
     }
 
     void construct(PseudoPRTreeNode<T, B>* node, vec<DataType<T>>& X, const unsigned int& depth){
+      vec<std::thread> threads;
+      vec<DataType<T>> X_left, X_right;
       if (likely(X.size() > 0 && node != nullptr)) {
         int axis = depth % 4;
         auto comp = [&](const DataType<T>& lhs, const DataType<T>& rhs){
@@ -307,17 +315,30 @@ class PseudoPRTree : Uncopyable{
         if (likely(m - b > 0)){
           node->left = std::make_unique<PseudoPRTreeNode<T, B>>();
           auto node_left = node->left.get();
-          vec<DataType<T>> X_left(std::make_move_iterator(b), std::make_move_iterator(m));
-          construct(node_left, X_left, depth + 1);
-          vec<DataType<T>>().swap(X_left);
+          X_left = vec<DataType<T>>(std::make_move_iterator(b), std::make_move_iterator(m));
+          if (std::pow(2, depth) <= 2 * nthreads){
+            std::thread t_left([&]{construct(node_left, X_left, depth + 1);});
+            threads.emplace_back(std::move(t_left));
+          } else {
+            construct(node_left, X_left, depth + 1);
+          }
         }
         if (likely(e - m > 0)){
           node->right = std::make_unique<PseudoPRTreeNode<T, B>>();
           auto node_right = node->right.get();
-          vec<DataType<T>> X_right(std::make_move_iterator(m), std::make_move_iterator(e));
-          construct(node_right, X_right, depth + 1);
-          vec<DataType<T>>().swap(X_right);
+          X_right = vec<DataType<T>>(std::make_move_iterator(m), std::make_move_iterator(e));
+          if (std::pow(2, depth) <= 2 * nthreads){
+            std::thread t_right([&]{construct(node_right, X_right, depth + 1);});
+            threads.emplace_back(std::move(t_right));
+          } else {
+            construct(node_right, X_right, depth + 1);
+          }
         }
+        for (auto& t : threads){
+          t.join();
+        }
+        vec<DataType<T>>().swap(X_left);
+        vec<DataType<T>>().swap(X_right);
       }
     }
 
@@ -412,9 +433,10 @@ class PRTree : Uncopyable{
       unsigned int length = shape_idx[0];
       vec<DataType<T>> X;
       X.reserve(length);
+      umap.reserve(length);
       for (unsigned int i = 0; i < length; i++){
         auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
-        umap[*idx.data(i)] = bb;
+        umap.emplace_hint(umap.end(), *idx.data(i), std::move(bb));
       }
       for (unsigned int i = 0; i < length; i++){
         auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
@@ -564,7 +586,8 @@ class PRTree : Uncopyable{
     }
     
 
-    auto find_all(const py::array_t<float> x){
+    auto find_all(const py::array_t<float>& x){
+      py::gil_scoped_release release;
       const auto &buff_info_x = x.request();
       const auto &ndim= buff_info_x.ndim;
       const auto &shape_x = buff_info_x.shape;
@@ -587,22 +610,40 @@ class PRTree : Uncopyable{
           X.emplace_back(std::move(bb));
         }
       }
-      py::gil_scoped_release release;
-      vec<vec<T>> out;
       unsigned int length = X.size();
-      out.reserve(length);
-      for(unsigned int i=0; i<length; i++){
-        out.emplace_back(std::move(find(X[i])));
+      const int nthreads = std::max(1, (int) std::thread::hardware_concurrency());
+      vec<vec<vec<T>>> out_privates(nthreads);
+      {
+        vec<std::thread> threads(nthreads);
+        for (auto& o : out_privates){
+          o.reserve(length/nthreads+1);
+        }
+        for (int t = 0; t < nthreads; t++){
+          threads[t] = std::thread(std::bind(
+                [&](const int bi, const int ei, const int t){
+                for (int i = bi; i < ei; i++){
+                  out_privates[t].emplace_back(std::move(find(X[i])));
+                }
+              }, t*length/nthreads, unlikely((t+1)==nthreads)?length:(t+1)*length/nthreads, t));
+        }
+        std::for_each(threads.begin(), threads.end(), [&](std::thread& x){x.join();});
       }
-      vec<BB>().swap(X);
+      vec<vec<T>> out;
+      out.reserve(length);
+      for (int t = 0; t < nthreads; t++){
+        out.insert(out.end(),
+            std::make_move_iterator(out_privates[t].begin()),
+            std::make_move_iterator(out_privates[t].end()));
+        vec<vec<T>>().swap(out_privates[t]);
+      }
       return out;
     }
 
-    vec<T> find_one(const py::array_t<float> x){
+    vec<T> find_one(const py::array_t<float>& x){
       const auto &buff_info_x = x.request();
       const auto &ndim= buff_info_x.ndim;
       const auto &shape_x = buff_info_x.shape;
-      if (ndim != 1 || shape_x[0] != 4){
+      if (unlikely(ndim != 1 || shape_x[0] != 4)){
         throw std::runtime_error("invalid shape");
       } 
       const BB bb = BB(*x.data(0), *x.data(1), *x.data(2), *x.data(3));

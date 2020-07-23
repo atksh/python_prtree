@@ -1,7 +1,7 @@
 language: python
 dist: bionic
 compiler:
-- gcc
+  - gcc
 jobs:
   include:
   - services: docker
@@ -10,22 +10,21 @@ jobs:
   - os: windows
     language: shell
     before_install:
-      - choco install python --version 3.8.0
+      - choco install python --version 3.8.1
       - export PATH="/c/Python38:/c/Python38/Scripts:$PATH"
       - ln -s /c/Python38/python.exe /c/Python38/python3.exe
 env:
   global:
   - CIBW_BUILD="cp3?-*"
   - CIBW_SKIP="cp27-* *-win32 *-manylinux_i686"
-  - CIBW_BEFORE_BUILD="pip install pybind11"
   - TWINE_USERNAME=__token__
 install:
-- python3 -m pip install cibuildwheel
+  - python3 -m pip install cibuildwheel
 script:
-- python3 -m cibuildwheel --output-dir wheelhouse
+  - python3 -m cibuildwheel --output-dir wheelhouse
 after_success:
-- |
-  if [[ $TRAVIS_TAG ]]; then
-    python3 -m pip install twine
+  - |
+    if [[ $TRAVIS_TAG ]]; then
+      python3 -m pip install twine
     python3 -m twine upload wheelhouse/*.whl
-  fi
+    fi
