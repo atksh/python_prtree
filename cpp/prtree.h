@@ -608,24 +608,26 @@ class PRTree : Uncopyable{
           X.emplace_back(std::move(bb));
         }
       }
-      vec<vec<T>> out;
       unsigned int length = X.size();
-      out.reserve(length);
       const int nthreads = std::max(1, (int) std::thread::hardware_concurrency());
       vec<vec<vec<T>>> out_privates(nthreads);
-      vec<std::thread> threads(nthreads);
-      for (auto& o : out_privates){
-        o.reserve(length/nthreads+1);
+      {
+        vec<std::thread> threads(nthreads);
+        for (auto& o : out_privates){
+          o.reserve(length/nthreads+1);
+        }
+        for (int t = 0; t < nthreads; t++){
+          threads[t] = std::thread(std::bind(
+                [&](const int bi, const int ei, const int t){
+                for (int i = bi; i < ei; i++){
+                  out_privates[t].emplace_back(std::move(find(X[i])));
+                }
+              }, t*length/nthreads, unlikely((t+1)==nthreads)?length:(t+1)*length/nthreads, t));
+        }
+        std::for_each(threads.begin(), threads.end(), [&](std::thread& x){x.join();});
       }
-      for (int t = 0; t < nthreads; t++){
-        threads[t] = std::thread(std::bind(
-              [&](const int bi, const int ei, const int t){
-              for (int i = bi; i < ei; i++){
-                out_privates[t].emplace_back(std::move(find(X[i])));
-              }
-            }, t*length/nthreads, unlikely((t+1)==nthreads)?length:(t+1)*length/nthreads, t));
-      }
-      std::for_each(threads.begin(), threads.end(), [&](std::thread& x){x.join();});
+      vec<vec<T>> out;
+      out.reserve(length);
       for (int t = 0; t < nthreads; t++){
         out.insert(out.end(),
             std::make_move_iterator(out_privates[t].begin()),

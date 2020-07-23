@@ -1,10 +1,8 @@
 import os
 import re
-import platform
 import sys
 import platform
 import subprocess
-from shutil import which
 from multiprocessing import cpu_count
 
 from setuptools import setup, Extension
@@ -13,9 +11,6 @@ from setuptools.command.build_ext import build_ext
 from distutils.version import LooseVersion
 
 sys.path.append('./test')
-
-subprocess.check_output([which('pip'), 'install', '-i', 'https://pypi.tuna.tsinghua.edu.cn/simple cmake'])
-cmake = which('pip').replace('pip', 'cmake') if platform.system() == 'Linux' else 'cmake'
 
 here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
@@ -34,7 +29,7 @@ class CMakeExtension(Extension):
 class CMakeBuild(build_ext):
     def run(self):
         try:
-            out = subprocess.check_output([cmake, '--version'])
+            out = subprocess.check_output(['cmake', '--version'])
         except OSError:
             raise RuntimeError("CMake must be installed to build the following extensions: " +
                                ", ".join(e.name for e in self.extensions))
@@ -77,9 +72,9 @@ class CMakeBuild(build_ext):
         if not os.path.exists(self.build_temp):
             os.makedirs(self.build_temp)
 
-        subprocess.check_call([cmake, ext.sourcedir] +
+        subprocess.check_call(['cmake', ext.sourcedir] +
                               cmake_args, cwd=self.build_temp, env=env)
-        subprocess.check_call([cmake, '--build', '.'] +
+        subprocess.check_call(['cmake', '--build', '.'] +
                               build_args, cwd=self.build_temp)
 
 
