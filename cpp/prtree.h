@@ -1,5 +1,7 @@
 #pragma once
 #include <array>
+#include <cmath>
+#include <limits>
 #include <random>
 #include <vector>
 #include <unordered_map>
@@ -26,7 +28,6 @@ using pair = std::pair<T, U>;
 template<class T>
 using vec = std::vector<T>;
 static std::mt19937 rand_src(42);
-static unsigned int MAX_THREAD_DEPTH = 5;
 
 
 #   if defined __GNUC__
@@ -285,6 +286,7 @@ template<class T, int B=6>
 class PseudoPRTree : Uncopyable{
   public:
     std::unique_ptr<PseudoPRTreeNode<T, B>> root;
+    const int nthreads = std::thread::hardware_concurrency();
 
     PseudoPRTree(){
       root = std::make_unique<PseudoPRTreeNode<T, B>>();
@@ -313,7 +315,7 @@ class PseudoPRTree : Uncopyable{
           node->left = std::make_unique<PseudoPRTreeNode<T, B>>();
           auto node_left = node->left.get();
           X_left = vec<DataType<T>>(std::make_move_iterator(b), std::make_move_iterator(m));
-          if (depth < MAX_THREAD_DEPTH){
+          if (2 ** depth <= 2 * nthreads){
             std::thread t_left([&]{construct(node_left, X_left, depth + 1);});
             threads.push_back(std::move(t_left));
           } else {
@@ -324,7 +326,7 @@ class PseudoPRTree : Uncopyable{
           node->right = std::make_unique<PseudoPRTreeNode<T, B>>();
           auto node_right = node->right.get();
           X_right = vec<DataType<T>>(std::make_move_iterator(m), std::make_move_iterator(e));
-          if (depth < MAX_THREAD_DEPTH){
+          if (2 ** depth <= 2 * nthreads){
             std::thread t_right([&]{construct(node_right, X_right, depth + 1);});
             threads.push_back(std::move(t_right));
           } else {
