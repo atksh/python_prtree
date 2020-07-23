@@ -16,6 +16,7 @@ env:
   - CIBW_MANYLINUX_X86_64_IMAGE="manylinux2014"
   - CIBW_SKIP="cp27-* *-win32 *-manylinux_i686"
   - TWINE_USERNAME=__token__
+  - CIBW_BEFORE_BUILD="pip install pybind11"
   - CIBW_TEST_COMMAND="cd {project} && python3 -m pip install -U cython pip && python3 -m pip install numpy && python3 setup.py test"
 install:
 - python3 -m pip install cibuildwheel
