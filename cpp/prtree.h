@@ -219,15 +219,12 @@ class Leaf : Uncopyable{
 
     void del(const T& key, const BB& target){
       if (unlikely(mbb(target))){
-        for (auto it = data.begin(); it != data.end();++it){
-          if (unlikely(it->second(target) && it->first == key)){
-            it = data.erase(it);
-            break;
-          }
-        }
+        auto remove_it = std::remove_if(data.begin(), data.end(), [&](auto& datum){
+              return datum.second(target) && datum.first == key;
+            });
+        data.erase(remove_it, data.end());
       }
     }
-
 
 };
 
