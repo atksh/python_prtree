@@ -43,15 +43,6 @@ class TestPRTree(unittest.TestCase):
             prtree1.erase(i)
             prtree2.erase(i)
 
-        # for profile
-        N= 10000000
-        idx = np.arange(N)
-        x = np.random.rand(N, 4)
-        x[:, 1] = x[:, 0] + x[:, 1] / 100 / np.sqrt(N)
-        x[:, 3] = x[:, 2] + x[:, 3] / 100 / np.sqrt(N)
-        prtree = PRTree(idx, x)
-
-
 def suite():
     suite = unittest.TestSuite()
     suite.addTests(unittest.makeSuite(TestPRTree))
