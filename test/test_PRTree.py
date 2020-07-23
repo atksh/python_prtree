@@ -18,6 +18,7 @@ class TestPRTree(unittest.TestCase):
         out = prtree.batch_query(x)
         for i in range(len(idx)):
             tmp = [k for k in range(len(idx)) if has_intersect(x[i], x[k])]
+            print(tmp, out[i])
             self.assertEqual(set(out[i]), set(tmp))
 
 

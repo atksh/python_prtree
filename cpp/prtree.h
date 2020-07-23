@@ -286,7 +286,7 @@ template<class T, int B=6>
 class PseudoPRTree : Uncopyable{
   public:
     std::unique_ptr<PseudoPRTreeNode<T, B>> root;
-    const int nthreads = std::thread::hardware_concurrency();
+    const int nthreads = std::max(1, (int) std::thread::hardware_concurrency();
 
     PseudoPRTree(){
       root = std::make_unique<PseudoPRTreeNode<T, B>>();
@@ -623,14 +623,14 @@ class PRTree : Uncopyable{
               for (int i = bi; i < ei; i++){
                 out_privates[t].emplace_back(std::move(find(X[i])));
               }
-            }, t*length/nthreads, (t+1)==nthreads?length:(t+1)*length/nthreads, t));
+            }, t*length/nthreads, unlikely((t+1)==nthreads)?length:(t+1)*length/nthreads, t));
       }
       std::for_each(threads.begin(), threads.end(), [&](std::thread& x){x.join();});
-      for (auto& o: out_privates){
+      for (int t = 0; t < nthreads; t++){
         out.insert(out.end(),
-            std::make_move_iterator(o.begin()),
-            std::make_move_iterator(o.end()));
-        vec<vec<T>>().swap(o);
+            std::make_move_iterator(out_privates[t].begin()),
+            std::make_move_iterator(out_privates[t].end()));
+        vec<vec<T>>().swap(out_privates[t]);
       }
       return out;
     }
@@ -639,7 +639,7 @@ class PRTree : Uncopyable{
       const auto &buff_info_x = x.request();
       const auto &ndim= buff_info_x.ndim;
       const auto &shape_x = buff_info_x.shape;
-      if (ndim != 1 || shape_x[0] != 4){
+      if (unlikely(ndim != 1 || shape_x[0] != 4)){
         throw std::runtime_error("invalid shape");
       } 
       const BB bb = BB(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
