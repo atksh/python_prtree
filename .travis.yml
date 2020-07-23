@@ -10,7 +10,7 @@ jobs:
   - os: windows
     language: shell
     before_install:
-      - choco install python --version 3.8.0
+      - choco install python --version 3.8.1
       - export PATH="/c/Python38:/c/Python38/Scripts:$PATH"
       - ln -s /c/Python38/python.exe /c/Python38/python3.exe
 env:
@@ -19,6 +19,7 @@ env:
   - CIBW_SKIP="cp27-* *-win32 *-manylinux_i686"
   - TWINE_USERNAME=__token__
   - CIBW_BEFORE_BUILD="pip install pybind11"
+  - CIBW_BEFORE_TEST="pip install -U cython && pip install numpy"
   - CIBW_TEST_COMMAND="cd {project} && python3 setup.py test"
 install:
 - python3 -m pip install cibuildwheel
