@@ -10,13 +10,11 @@ endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-set(CMAKE_CXX_FLAGS "-O3 -Ofast -ffast-math -flto")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Ofast -ffast-math -flto")
+set(CMAKE_CXX_FLAGS "-O3 -Ofast -ffast-math -flto -pthread")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Ofast -ffast-math -flto -pthread")
 
 project(PRTree)
-find_package(Threads REQUIRED)
 
 add_subdirectory(./pybind11/)
 pybind11_add_module(PRTree cpp/main.cc cpp/prtree.h)
-target_link_libraries(PRTree PRIVATE Threads::Threads)
 
