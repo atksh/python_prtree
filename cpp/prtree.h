@@ -610,7 +610,6 @@ class PRTree : Uncopyable{
       }
       unsigned int length = X.size();
       const int nthreads = std::max(1, (int) std::thread::hardware_concurrency());
-      /*
       vec<vec<vec<T>>> out_privates(nthreads);
       {
         vec<std::thread> threads(nthreads);
@@ -634,12 +633,6 @@ class PRTree : Uncopyable{
             std::make_move_iterator(out_privates[t].begin()),
             std::make_move_iterator(out_privates[t].end()));
         vec<vec<T>>().swap(out_privates[t]);
-      }
-      */
-      vec<vec<T>> out;
-      out.reserve(length);
-      for (auto& x : X){
-        out.emplace_back(std::move(find(x)));
       }
       return out;
     }

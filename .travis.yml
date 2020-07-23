@@ -13,16 +13,10 @@ jobs:
 env:
   global:
   - CIBW_BUILD="cp3?-*"
-  - CIBW_MANYLINUX_X86_64_IMAGE="manylinux2014"
   - CIBW_SKIP="cp27-* *-win32 *-manylinux_i686"
   - TWINE_USERNAME=__token__
   - CIBW_TEST_COMMAND="cd {project} && python3 -m pip install -U cython pip && python3 -m pip install numpy && python3 setup.py test"
 install:
-  - |
-    if [ "$TRAVIS_OS_NAME" = "linux" ]; then
-      /opt/python/cp37-cp37m/bin/pip install -i https://pypi.tuna.tsinghua.edu.cn/simple cmake
-      sudo ln -s /opt/python/cp37-cp37m/bin/cmake /usr/bin/cmake
-    fi
   - python3 -m pip install cibuildwheel
 script:
   - python3 -m cibuildwheel --output-dir wheelhouse
