@@ -10,8 +10,8 @@ endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-set(CMAKE_CXX_FLAGS "-O3")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS "-O3 -Ofast -ffast-math -flto")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Ofast -ffast-math -flto")
 
 project(PRTree)
 find_package(Threads REQUIRED)
