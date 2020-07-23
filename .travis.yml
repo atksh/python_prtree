@@ -1,4 +1,7 @@
 language: python
+dist: bionic
+compiler:
+  - gcc
 jobs:
   include:
   - services: docker
