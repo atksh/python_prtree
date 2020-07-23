@@ -295,6 +295,7 @@ class PseudoPRTree : Uncopyable{
       if (likely(!root)){
         root = std::make_unique<PseudoPRTreeNode<T, B>>();
       }
+      py::gil_scoped_release release;
       construct(root.get(), X, 0);
     }
 
@@ -586,6 +587,7 @@ class PRTree : Uncopyable{
     
 
     auto find_all(const py::array_t<float>& x){
+      py::gil_scoped_release release;
       const auto &buff_info_x = x.request();
       const auto &ndim= buff_info_x.ndim;
       const auto &shape_x = buff_info_x.shape;
