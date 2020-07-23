@@ -21,7 +21,7 @@ env:
   - TWINE_USERNAME=__token__
   - CIBW_BEFORE_BUILD="pip install pybind11"
   - CIBW_BEFORE_TEST="python3 -m pip install -U cython && python3 -m pip install numpy"
-  - CIBW_TEST_COMMAND="cd {project} && python3 setup.py test"
+  - CIBW_TEST_COMMAND="cd {project} && python3 setup.py test && rm -rf build"
 install:
 - python3 -m pip install cibuildwheel
 script:
