@@ -21,7 +21,7 @@ install:
   - |
     if [ "$TRAVIS_OS_NAME" = "linux" ]; then
       /opt/python/cp37-cp37m/bin/pip install -i https://pypi.tuna.tsinghua.edu.cn/simple cmake
-      ln -s /opt/python/cp37-cp37m/bin/cmake /usr/bin/cmake
+      sudo ln -s /opt/python/cp37-cp37m/bin/cmake /usr/bin/cmake
     fi
   - python3 -m pip install cibuildwheel
 script:
