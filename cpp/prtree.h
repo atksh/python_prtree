@@ -11,6 +11,8 @@
 #include <iterator>
 #include <iostream>
 #include <mutex>
+#include <thread>
+#include <future>
 #include <cstdlib>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -24,6 +26,7 @@ using pair = std::pair<T, U>;
 template<class T>
 using vec = std::vector<T>;
 static std::mt19937 rand_src(42);
+static unsigned int MAX_THREAD_DEPTH = 5;
 
 
 #   if defined __GNUC__
@@ -294,6 +297,8 @@ class PseudoPRTree : Uncopyable{
     }
 
     void construct(PseudoPRTreeNode<T, B>* node, vec<DataType<T>>& X, const unsigned int& depth){
+      vec<std::thread> threads;
+      vec<DataType<T>> X_left, X_right;
       if (likely(X.size() > 0 && node != nullptr)) {
         int axis = depth % 4;
         auto comp = [&](const DataType<T>& lhs, const DataType<T>& rhs){
@@ -307,17 +312,30 @@ class PseudoPRTree : Uncopyable{
         if (likely(m - b > 0)){
           node->left = std::make_unique<PseudoPRTreeNode<T, B>>();
           auto node_left = node->left.get();
-          vec<DataType<T>> X_left(std::make_move_iterator(b), std::make_move_iterator(m));
-          construct(node_left, X_left, depth + 1);
-          vec<DataType<T>>().swap(X_left);
+          X_left = vec<DataType<T>>(std::make_move_iterator(b), std::make_move_iterator(m));
+          if (depth < MAX_THREAD_DEPTH){
+            std::thread t_left([&]{construct(node_left, X_left, depth + 1);});
+            threads.push_back(std::move(t_left));
+          } else {
+            construct(node_left, X_left, depth + 1);
+          }
         }
         if (likely(e - m > 0)){
           node->right = std::make_unique<PseudoPRTreeNode<T, B>>();
           auto node_right = node->right.get();
-          vec<DataType<T>> X_right(std::make_move_iterator(m), std::make_move_iterator(e));
-          construct(node_right, X_right, depth + 1);
-          vec<DataType<T>>().swap(X_right);
+          X_right = vec<DataType<T>>(std::make_move_iterator(m), std::make_move_iterator(e));
+          if (depth < MAX_THREAD_DEPTH){
+            std::thread t_right([&]{construct(node_right, X_right, depth + 1);});
+            threads.push_back(std::move(t_right));
+          } else {
+            construct(node_right, X_right, depth + 1);
+          }
         }
+        for (auto& t : threads){
+          t.join();
+        }
+        vec<DataType<T>>().swap(X_left);
+        vec<DataType<T>>().swap(X_right);
       }
     }
 
@@ -587,14 +605,32 @@ class PRTree : Uncopyable{
           X.emplace_back(std::move(bb));
         }
       }
-      py::gil_scoped_release release;
       vec<vec<T>> out;
       unsigned int length = X.size();
       out.reserve(length);
-      for(unsigned int i=0; i<length; i++){
-        out.emplace_back(std::move(find(X[i])));
+      const int nthreads = std::thread::hardware_concurrency();
+      vec<vec<vec<T>>> out_privates(nthreads);
+      for (auto& o : out_privates){
+        o.reserve(length/nthreads+1);
       }
-      vec<BB>().swap(X);
+      {
+        vec<std::thread> threads(nthreads);
+        std::mutex critical;
+        for (int t = 0; t < nthreads; t++){
+          threads[t] = std::thread(std::bind(
+                [&](const int bi, const int ei, const int t){
+                for (int i = bi; i < ei; i++){
+                  out_privates[t].emplace_back(std::move(find(X[i])));
+                }
+              }, t*length/nthreads, (t+1)==nthreads?length:(t+1)*length/nthreads,t));
+        }
+        std::for_each(threads.begin(), threads.end(), [](std::thread& x){x.join();});
+      }
+      for (auto& o: out_privates){
+        out.insert(out.end(),
+            std::make_move_iterator(o.begin()),
+            std::make_move_iterator(o.end()));
+      }
       return out;
     }
 
