@@ -19,3 +19,4 @@ find_package(Threads REQUIRED)
 add_subdirectory(./pybind11/)
 pybind11_add_module(PRTree cpp/main.cc cpp/prtree.h)
 target_link_libraries(PRTree PRIVATE Threads::Threads)
+
