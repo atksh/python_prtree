@@ -6,9 +6,9 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(PYBIND11_CPP_STANDARD -std=c++1z)
 
 if(MSVC)
-  set(CMAKE_CXX_FLAGS "/O3 /Ofast /ffast-math /flto /pthread")
+  set(CMAKE_CXX_FLAGS "/O2 /pthread")
 else()
-  set(CMAKE_CXX_FLAGS "-O3 -Ofast -ffast-math -flto -pthread")
+  set(CMAKE_CXX_FLAGS "-O2 -pthread -static-libgcc -static-libstdc++")
 endif()
 
 project(PRTree)
