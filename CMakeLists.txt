@@ -8,12 +8,11 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(CMAKE_CXX_FLAGS "-O3 -pthread")
+set(CMAKE_CXX_FLAGS "-O3")
 
 project(PRTree)
-find_package(Threads REQUIRED)
 
 add_subdirectory(./pybind11/)
 pybind11_add_module(PRTree cpp/main.cc cpp/prtree.h)
-target_link_libraries(PRTree PRIVATE Threads::Threads)
+target_compile_options(PRTree PUBLIC "-pthread")
 
