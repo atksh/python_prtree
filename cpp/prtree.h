@@ -292,13 +292,14 @@ class PseudoPRTree : Uncopyable{
       if (likely(!root)){
         root = std::make_unique<PseudoPRTreeNode<T, B>>();
       }
-      construct(root.get(), X, 0);
+      construct(root.get(), std::move(X), 0);
     }
 
-    void construct(PseudoPRTreeNode<T, B>* node, vec<DataType<T>>& X, const unsigned int depth){
+    void construct(PseudoPRTreeNode<T, B>* node, vec<DataType<T>>&& X, const unsigned int depth){
       bool use_recursive_threads = std::pow(2, depth + 1) <= nthreads;
       vec<std::thread> threads;
       vec<DataType<T>> X_left, X_right;
+      PseudoPRTreeNode<T, B> *node_left, *node_right;
       if (likely(X.size() > 0 && node != nullptr)) {
         int axis = depth % 4;
         auto comp = [&](const DataType<T>& lhs, const DataType<T>& rhs){
@@ -311,22 +312,22 @@ class PseudoPRTree : Uncopyable{
         std::nth_element(b, m, e, comp);
         if (likely(m - b > 0)){
           node->left = std::make_unique<PseudoPRTreeNode<T, B>>();
-          auto node_left = node->left.get();
+          node_left = node->left.get();
           X_left = vec<DataType<T>>(std::make_move_iterator(b), std::make_move_iterator(m));
           if (use_recursive_threads){
-            threads.emplace_back(std::thread([&](){construct(node_left, X_left, depth + 1);}));
+            threads.emplace_back(std::thread([&](){construct(node_left, std::move(X_left), depth + 1);}));
           } else {
-            construct(node_left, X_left, depth + 1);
+            construct(node_left, std::move(X_left), depth + 1);
           }
         }
         if (likely(e - m > 0)){
           node->right = std::make_unique<PseudoPRTreeNode<T, B>>();
-          auto node_right = node->right.get();
+          node_right = node->right.get();
           X_right = vec<DataType<T>>(std::make_move_iterator(m), std::make_move_iterator(e));
           if (use_recursive_threads){
-            threads.emplace_back(std::thread([&](){construct(node_right, X_right, depth + 1);}));
+            threads.emplace_back(std::thread([&](){construct(node_right, std::move(X_right), depth + 1);}));
           } else {
-            construct(node_right, X_right, depth + 1);
+            construct(node_right, std::move(X_right), depth + 1);
           }
         }
         std::for_each(threads.begin(), threads.end(), [&](std::thread& x){x.join();});
