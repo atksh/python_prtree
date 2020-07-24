@@ -4,15 +4,16 @@ compiler:
   - gcc
 jobs:
   include:
-  - services: docker
-  - os: osx
-    language: shell
-  - os: windows
-    language: shell
-    before_install:
-      - choco install python --version 3.8.1
-      - export PATH="/c/Python38:/c/Python38/Scripts:$PATH"
-      - ln -s /c/Python38/python.exe /c/Python38/python3.exe
+    - os: linux
+      services: docker
+    - os: osx
+      language: shell
+    - os: windows
+      language: shell
+      before_install:
+        - choco install python --version 3.8.1
+        - export PATH="/c/Python38:/c/Python38/Scripts:$PATH"
+        - ln -s /c/Python38/python.exe /c/Python38/python3.exe
 env:
   global:
   - CIBW_BUILD="cp3?-*"
