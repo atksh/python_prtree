@@ -9,7 +9,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 
-set(CMAKE_CXX_FLAGS "-O3 -flto -pthread")
+set(CMAKE_CXX_FLAGS "-O3")
 
 project(PRTree)
 find_package(Threads REQUIRED)
