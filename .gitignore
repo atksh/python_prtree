@@ -1,5 +1,6 @@
 /cmake-build-*/
 /docker/
+/ldata/
 /build/
 /dist/
 /_build/
