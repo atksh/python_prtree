@@ -56,12 +56,12 @@ class Uncopyable {
 
 class BB{
   public:
-    float xmin, xmax, ymin, ymax;
+    double xmin, xmax, ymin, ymax;
     BB() {
       clear();
     }
 
-    BB(const float& _xmin, const float& _xmax, const float& _ymin, const float& _ymax){
+    BB(const double& _xmin, const double& _xmax, const double& _ymin, const double& _ymax){
       if (unlikely(_xmin > _xmax || _ymin > _ymax)){
         throw std::runtime_error("Impossible rectange was given. xmin < xmax and ymin < ymax must be satisfied.");
       }
@@ -90,7 +90,7 @@ class BB{
       return *this;
     }
 
-    inline void expand(const float& dx, const float& dy){
+    inline void expand(const double& dx, const double& dy){
       xmin -= dx;
       xmax += dx;
       ymin -= dy;
@@ -103,7 +103,7 @@ class BB{
       return unlikely(c1 && c2);
     }
 
-    inline float operator [](const int& i)const{
+    inline double operator [](const int& i)const{
       if (i == 0){
         return xmin;
       } else if (i == 1){
@@ -447,9 +447,9 @@ class PRTree : Uncopyable{
       }
 
       bb = BB(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
-      float dx = bb.xmax - bb.xmin + 0.000000001;
-      float dy = bb.ymax - bb.ymin + 0.000000001;
-      float c = 0.0;
+      double dx = bb.xmax - bb.xmin + 0.000000001;
+      double dy = bb.ymax - bb.ymin + 0.000000001;
+      double c = 0.0;
       std::stack<PRTreeNode<T, B>*> sta;
       while (likely(cands.size() == 0)){
         while (likely(!sta.empty())){
