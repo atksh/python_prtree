@@ -6,9 +6,9 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(PYBIND11_CPP_STANDARD -std=c++1z)
 
 if(MSVC)
-  set(CMAKE_CXX_FLAGS "/O2 /pthread")
+  set(CMAKE_CXX_FLAGS "/O2 /pthread /arch:avx2")
 else()
-  set(CMAKE_CXX_FLAGS "-O2 -pthread")
+  set(CMAKE_CXX_FLAGS "-O2 -pthread -march=avx2 -mtune=avx2")
 endif()
 
 project(PRTree)
