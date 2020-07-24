@@ -30,13 +30,13 @@ using vec = std::vector<T>;
 static std::mt19937 rand_src(42);
 
 
-#   if defined __GNUC__
-#      define likely(x)       __builtin_expect(!!(x),1)
-#      define unlikely(x)     __builtin_expect(!!(x),0)
-#   else
-#      define likely(x) (x)
-#      define unlikely(x) (x)
-#   endif
+#if defined(__GNUC__) || defined(__clang__)
+#define likely(x)       __builtin_expect(!!(x),1)
+#define unlikely(x)     __builtin_expect(!!(x),0)
+#else
+#define likely(x) (x)
+#define unlikely(x) (x)
+#endif
 
 
 template<typename Iter>
@@ -339,26 +339,15 @@ class PseudoPRTree : Uncopyable{
       vec<Leaf<T, B>*> out;
       auto node = root.get();
       std::queue<U*> que;
-      vec<U*> cands;
       que.emplace(node);
 
       while (likely(!que.empty())){
         node = que.front();
         que.pop();
-        //node->address_of_leaves(out);
+        node->address_of_leaves(out);
         if (node->left) que.emplace(node->left.get());
         if (node->right) que.emplace(node->right.get());
-        cands.emplace_back(std::move(node));
       }
-
-      int total = cands.size();
-      for (int i = 0; i<total; i++){
-        auto tmp = cands[i]->address_of_leaves();
-        out.insert(out.end(),
-                      std::make_move_iterator(tmp.begin()),
-                      std::make_move_iterator(tmp.end()));
-      }
-      vec<U*>().swap(cands);
       return out;
     }
 
