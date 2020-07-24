@@ -295,7 +295,8 @@ class PseudoPRTree : Uncopyable{
       construct(root.get(), X, 0);
     }
 
-    void construct(PseudoPRTreeNode<T, B>* node, vec<DataType<T>>& X, const unsigned int& depth){
+    void construct(PseudoPRTreeNode<T, B>* node, vec<DataType<T>>& X, const unsigned int depth){
+      bool use_recursive_threads = std::pow(2, depth + 1) <= nthreads;
       vec<std::thread> threads;
       vec<DataType<T>> X_left, X_right;
       if (likely(X.size() > 0 && node != nullptr)) {
@@ -312,9 +313,8 @@ class PseudoPRTree : Uncopyable{
           node->left = std::make_unique<PseudoPRTreeNode<T, B>>();
           auto node_left = node->left.get();
           X_left = vec<DataType<T>>(std::make_move_iterator(b), std::make_move_iterator(m));
-          if (std::pow(2, depth) <= 2 * nthreads){
-            std::thread t_left([&]{construct(node_left, X_left, depth + 1);});
-            threads.emplace_back(std::move(t_left));
+          if (use_recursive_threads){
+            threads.emplace_back(std::thread([&](){construct(node_left, X_left, depth + 1);}));
           } else {
             construct(node_left, X_left, depth + 1);
           }
@@ -323,18 +323,13 @@ class PseudoPRTree : Uncopyable{
           node->right = std::make_unique<PseudoPRTreeNode<T, B>>();
           auto node_right = node->right.get();
           X_right = vec<DataType<T>>(std::make_move_iterator(m), std::make_move_iterator(e));
-          if (std::pow(2, depth) <= 2 * nthreads){
-            std::thread t_right([&]{construct(node_right, X_right, depth + 1);});
-            threads.emplace_back(std::move(t_right));
+          if (use_recursive_threads){
+            threads.emplace_back(std::thread([&](){construct(node_right, X_right, depth + 1);}));
           } else {
             construct(node_right, X_right, depth + 1);
           }
         }
-        for (auto& t : threads){
-          t.join();
-        }
-        vec<DataType<T>>().swap(X_left);
-        vec<DataType<T>>().swap(X_right);
+        std::for_each(threads.begin(), threads.end(), [&](std::thread& x){x.join();});
       }
     }
 
@@ -609,7 +604,6 @@ class PRTree : Uncopyable{
       const int nthreads = std::max(1, (int) std::thread::hardware_concurrency());
       vec<vec<vec<T>>> out_privates(nthreads);
       {
-        //py::gil_scoped_release release;
         vec<std::thread> threads(nthreads);
         for (auto& o : out_privates){
           o.reserve(length/nthreads+1);
