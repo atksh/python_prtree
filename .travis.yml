@@ -13,7 +13,7 @@ jobs:
         - ln -s /c/Python38/python.exe /c/Python38/python3.exe
 env:
   global:
-  - CIBW_BEFORE_ALL_LINUX="yum install wget && wget https://cmake.org/files/v3.6/cmake-3.6.2.tar.gz && tar xvf cmake-3.6.2.tar.gz && ./bootstrap && make && make install"
+  - CIBW_BEFORE_ALL_LINUX="yum install wget -y && wget https://cmake.org/files/v3.6/cmake-3.6.2.tar.gz && tar xvf cmake-3.6.2.tar.gz && ./bootstrap && make && make install"
   - CIBW_MANYLINUX_X86_64_IMAGE="manylinux2014"
   - CIBW_BUILD="cp3?-*"
   - CIBW_SKIP="cp27-* *-win32 *-manylinux_i686"
