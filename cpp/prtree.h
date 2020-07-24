@@ -401,7 +401,7 @@ class PRTree : Uncopyable{
     std::unordered_map<T, BB> umap;
 
   public:
-    PRTree(const py::array_t<T>& idx, const py::array_t<float>& x){
+    PRTree(const py::array_t<T>& idx, const py::array_t<double>& x){
       const auto &buff_info_idx = idx.request();
       const auto &shape_idx = buff_info_idx.shape;
       const auto &buff_info_x = x.request();
@@ -429,7 +429,7 @@ class PRTree : Uncopyable{
       vec<DataType<T>>().swap(X);
     }
 
-    void insert(const T& idx, const py::array_t<float>& x){
+    void insert(const T& idx, const py::array_t<double>& x){
       vec<Leaf<T, B>*> cands;
       std::queue<PRTreeNode<T, B>*, std::deque<PRTreeNode<T, B>*>> que;
       BB bb;
@@ -567,7 +567,7 @@ class PRTree : Uncopyable{
     }
     
 
-    auto find_all(const py::array_t<float>& x){
+    auto find_all(const py::array_t<double>& x){
       const auto &buff_info_x = x.request();
       const auto &ndim= buff_info_x.ndim;
       const auto &shape_x = buff_info_x.shape;
@@ -619,7 +619,7 @@ class PRTree : Uncopyable{
       return out;
     }
 
-    vec<T> find_one(const py::array_t<float>& x){
+    vec<T> find_one(const py::array_t<double>& x){
       const auto &buff_info_x = x.request();
       const auto &ndim= buff_info_x.ndim;
       const auto &shape_x = buff_info_x.shape;
