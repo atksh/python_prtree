@@ -295,7 +295,7 @@ class PseudoPRTree : Uncopyable{
       construct(root.get(), std::move(X), 0);
     }
 
-    void construct(PseudoPRTreeNode<T, B>* node, vec<DataType<T>>&& X, const unsigned int depth){
+    void construct(PseudoPRTreeNode<T, B>* node, vec<DataType<T>>&& X, const size_t depth){
       bool use_recursive_threads = std::pow(2, depth + 1) <= nthreads;
       vec<std::thread> threads;
       vec<DataType<T>> X_left, X_right;
@@ -422,15 +422,15 @@ class PRTree : Uncopyable{
       } else if (shape_x[1] != 4){
         throw std::runtime_error("Bounding box must have the shape (length, 4)");
       }
-      unsigned int length = shape_idx[0];
+      size_t length = shape_idx[0];
       vec<DataType<T>> X;
       X.reserve(length);
       umap.reserve(length);
-      for (unsigned int i = 0; i < length; i++){
+      for (size_t i = 0; i < length; i++){
         auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
         umap.emplace_hint(umap.end(), *idx.data(i), std::move(bb));
       }
-      for (unsigned int i = 0; i < length; i++){
+      for (size_t i = 0; i < length; i++){
         auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
         X.emplace_back(*idx.data(i), bb);
       }
@@ -535,7 +535,7 @@ class PRTree : Uncopyable{
         auto leaves_size = leaves.size();
         tmp_nodes.clear();
         tmp_nodes.reserve(leaves_size);
-        for (unsigned int k=0; k<leaves_size; k++){
+        for (size_t k=0; k<leaves_size; k++){
           int idx, jdx;
           auto& leaf = leaves[k];
           int len = leaf->data.size();
@@ -555,7 +555,7 @@ class PRTree : Uncopyable{
           }
         }
         as_X = tree.as_X();
-        unsigned int c = 0;
+        size_t c = 0;
         for (const auto& n : prev_nodes){
           if (unlikely(n)){
             c++;
@@ -601,7 +601,7 @@ class PRTree : Uncopyable{
           X.emplace_back(std::move(bb));
         }
       }
-      unsigned int length = X.size();
+      size_t length = X.size();
       const int nthreads = std::max(1, (int) std::thread::hardware_concurrency());
       vec<vec<vec<T>>> out_privates(nthreads);
       {
