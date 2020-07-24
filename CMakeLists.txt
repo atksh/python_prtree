@@ -8,6 +8,8 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+set(CMAKE_C_COMPILER /usr/bin/gcc-8)
+set(CMAKE_CXX_COMPILER /usr/bin/g++-8)
 
 set(CMAKE_CXX_FLAGS "-O3")
 

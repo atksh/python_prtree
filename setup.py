@@ -10,7 +10,7 @@ from setuptools import find_packages
 from setuptools.command.build_ext import build_ext
 from distutils.version import LooseVersion
 
-sys.path.append('./test')
+sys.path.append('./tests')
 
 here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
