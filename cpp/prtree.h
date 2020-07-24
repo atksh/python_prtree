@@ -609,7 +609,7 @@ class PRTree : Uncopyable{
       const int nthreads = std::max(1, (int) std::thread::hardware_concurrency());
       vec<vec<vec<T>>> out_privates(nthreads);
       {
-        py::gil_scoped_release release;
+        //py::gil_scoped_release release;
         vec<std::thread> threads(nthreads);
         for (auto& o : out_privates){
           o.reserve(length/nthreads+1);
