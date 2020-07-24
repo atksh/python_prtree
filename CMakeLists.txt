@@ -9,7 +9,8 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 
-set(CMAKE_CXX_FLAGS "-O3 -Ofast -ffast-math -ftemplate-backtrace-limit=0 -flto")
+set(CMAKE_CXX_FLAGS "-O3")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 project(PRTree)
 find_package(Threads REQUIRED)
