@@ -459,6 +459,8 @@ class PRTree : Uncopyable{
       }
     }
 
+    PRTree(){}
+
     PRTree(std::string fname){
       load(fname);
     }

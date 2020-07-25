@@ -20,8 +20,11 @@ PYBIND11_MODULE(PRTree, m) {
         .def(py::init<py::array_t<T>, py::array_t<double>>(), R"pbdoc(
           Construct PRTree with init.
         )pbdoc")
+        .def(py::init<>(), R"pbdoc(
+          Construct PRTree with .
+        )pbdoc")
         .def(py::init<std::string>(), R"pbdoc(
-          Construct PRTree with nothing.
+          Construct PRTree with load.
         )pbdoc")
         .def("query", &PRTree<T, B>::find_one, R"pbdoc(
           Find all indexes which has intersect with given bounding box.
