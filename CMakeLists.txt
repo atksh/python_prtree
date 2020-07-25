@@ -21,4 +21,5 @@ add_subdirectory(./third/cereal/)
 
 pybind11_add_module(PRTree ${MYCPP})
 target_link_libraries(PRTree PRIVATE cereal)
+target_include_directories(PRTree PRIVATE cereal)
 
