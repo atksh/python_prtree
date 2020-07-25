@@ -27,6 +27,24 @@ print(result)
 # [[1], [1, 2]]
 ```
 
+## New features(`python-prtree>=0.3.0`)
+You can save and load binary file as follows:
+
+```python
+# save
+prtree.save('tree.bin')
+
+
+# load with binary file
+prtree = PRTree('tree.bin')
+
+# or defered load
+prtree = PRTree()
+prtree.load('tree.bin')
+```
+
+## Note
+
 1d-array batch query will be implicitly treated as batch with size = 1.
 If you want 1d result, please use `query` method.
 ```python
