@@ -6,13 +6,20 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(PYBIND11_CPP_STANDARD -std=c++1z)
 
 if(MSVC)
-  set(CMAKE_CXX_FLAGS "/O2 /pthread")
+  set(CMAKE_C_FLAGS "/O2 /pthread /GL /LTCG")
+  set(CMAKE_CXX_FLAGS "/O2 /pthread /GL /LTCG")
 else()
-  set(CMAKE_CXX_FLAGS "-O2 -pthread")
+  set(CMAKE_C_FLAGS "-O2 -pthread -flto")
+  set(CMAKE_CXX_FLAGS "-O2 -pthread -flto")
 endif()
 
 project(PRTree)
+file(GLOB MYCPP "cpp/*")
 
-add_subdirectory(./pybind11/)
-pybind11_add_module(PRTree cpp/main.cc cpp/prtree.h)
+add_subdirectory(./third/pybind11/)
+add_subdirectory(./third/cereal/)
+
+pybind11_add_module(PRTree ${MYCPP})
+target_link_libraries(PRTree PRIVATE cereal)
+target_include_directories(PRTree PRIVATE cereal)
 

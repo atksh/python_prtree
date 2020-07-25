@@ -12,6 +12,7 @@
 #include <memory>
 #include <iterator>
 #include <iostream>
+#include <fstream>
 #include <mutex>
 #include <thread>
 #include <future>
@@ -20,13 +21,25 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
+#include <cereal/cereal.hpp>
+#include <cereal/types/memory.hpp>  //for smart pointers
+#include <cereal/types/string.hpp>
+#include <cereal/archives/json.hpp>
+#include <cereal/archives/portable_binary.hpp>
+#include <cereal/types/vector.hpp>
+#include <cereal/types/unordered_map.hpp>
+
+
 
 namespace py = pybind11;
 using std::swap;
+
 template<class T, class U>
 using pair = std::pair<T, U>;
+
 template<class T>
 using vec = std::vector<T>;
+
 static std::mt19937 rand_src(42);
 
 
@@ -114,6 +127,10 @@ class BB{
         return -ymax;
       }
     }
+    template <class Archive>
+    void serialize( Archive & ar ){
+      ar(xmin, xmax, ymin, ymax);
+    }
 };
 
 
@@ -149,6 +166,10 @@ class DataType{
       }
       return *this;
     }
+    template <class Archive>
+    void serialize( Archive & ar ){
+      ar(first, second);
+    }
 };
 
 
@@ -167,6 +188,11 @@ class Leaf : Uncopyable{
       axis = _axis;
       mbb = BB();
       data.reserve(B);
+    }
+
+    template <class Archive>
+    void serialize( Archive & ar ){
+      ar(axis, mbb, data);
     }
 
     inline void set_axis(const int& _axis){
@@ -225,7 +251,6 @@ class Leaf : Uncopyable{
         data.erase(remove_it, data.end());
       }
     }
-
 };
 
 
@@ -239,6 +264,11 @@ class PseudoPRTreeNode : Uncopyable{
       for (int i = 0; i < 4; i++){
         leaves[i].set_axis(i);
       }
+    }
+    template<class Archive>
+    void serialize(Archive & archive){
+      //archive(cereal::(left), cereal::defer(right), leaves);
+      archive(left, right, leaves);
     }
 
     inline auto address_of_leaves() {
@@ -293,6 +323,12 @@ class PseudoPRTree : Uncopyable{
         root = std::make_unique<PseudoPRTreeNode<T, B>>();
       }
       construct(root.get(), std::move(X), 0);
+    }
+
+    template<class Archive>
+    void serialize(Archive & archive){
+      archive(root);
+      //archive.serializeDeferments();
     }
 
     void construct(PseudoPRTreeNode<T, B>* node, vec<DataType<T>>&& X, const size_t depth){
@@ -391,6 +427,11 @@ class PRTreeNode : Uncopyable{
       return mbb(target);
     }
 
+    template<class Archive>
+    void serialize(Archive & archive){
+      //archive(cereal::defer(leaf), cereal::defer(head), cereal::defer(next));
+      archive(mbb, leaf, head, next);
+    }
 };
 
 
@@ -401,6 +442,41 @@ class PRTree : Uncopyable{
     std::unordered_map<T, BB> umap;
 
   public:
+    template<class Archive>
+    void serialize(Archive & archive){
+      archive(root, umap);
+      //archive.serializeDeferments();
+    }
+
+    void save(std::string fname){
+      {
+        {
+          std::ofstream ofs(fname, std::ios::binary);
+          cereal::PortableBinaryOutputArchive o_archive(ofs);
+          //cereal::JSONOutputArchive o_archive(ofs);
+          o_archive(cereal::make_nvp("root", root), cereal::make_nvp("umap", umap));
+        }
+      }
+    }
+
+    PRTree(){}
+
+    PRTree(std::string fname){
+      load(fname);
+    }
+
+    void load(std::string fname){
+      {
+        {
+          std::ifstream ifs(fname, std::ios::binary);
+          cereal::PortableBinaryInputArchive i_archive(ifs);
+          //cereal::JSONInputArchive i_archive(ifs);
+          i_archive(cereal::make_nvp("root", root), cereal::make_nvp("umap", umap));
+        }
+      }
+    }
+
+
     PRTree(const py::array_t<T>& idx, const py::array_t<double>& x){
       const auto &buff_info_idx = idx.request();
       const auto &shape_idx = buff_info_idx.shape;

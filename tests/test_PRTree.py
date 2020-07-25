@@ -1,6 +1,8 @@
 import unittest
 from python_prtree import PRTree
 import numpy as np
+import os
+import time
 
 class TestPRTree(unittest.TestCase):
     def test_result(self):
@@ -18,10 +20,28 @@ class TestPRTree(unittest.TestCase):
         out = prtree.batch_query(x)
         for i in range(len(idx)):
             tmp = [k for k in range(len(idx)) if has_intersect(x[i], x[k])]
-            print(tmp, out[i])
             self.assertEqual(set(out[i]), set(tmp))
 
 
+        prtree.save('tree.bin')
+        time.sleep(3)
+        prtree = PRTree("tree.bin")
+
+        out = prtree.batch_query(x)
+        for i in range(len(idx)):
+            tmp = [k for k in range(len(idx)) if has_intersect(x[i], x[k])]
+            self.assertEqual(set(out[i]), set(tmp))
+
+        prtree = PRTree()
+        prtree.load('tree.bin')
+
+        out = prtree.batch_query(x)
+        for i in range(len(idx)):
+            tmp = [k for k in range(len(idx)) if has_intersect(x[i], x[k])]
+            self.assertEqual(set(out[i]), set(tmp))
+
+
+        os.remove('tree.bin')
         N= 10000
         idx = np.arange(N)
         x = np.random.rand(N, 4)

@@ -17,8 +17,14 @@ PYBIND11_MODULE(PRTree, m) {
     )pbdoc";
 
     py::class_<PRTree<T, B>>(m, "PRTree")
-    .def(py::init<py::array_t<T>, py::array_t<double>>(), R"pbdoc(
+        .def(py::init<py::array_t<T>, py::array_t<double>>(), R"pbdoc(
           Construct PRTree with init.
+        )pbdoc")
+        .def(py::init<>(), R"pbdoc(
+          Construct PRTree with .
+        )pbdoc")
+        .def(py::init<std::string>(), R"pbdoc(
+          Construct PRTree with load.
         )pbdoc")
         .def("query", &PRTree<T, B>::find_one, R"pbdoc(
           Find all indexes which has intersect with given bounding box.
@@ -31,6 +37,12 @@ PYBIND11_MODULE(PRTree, m) {
         )pbdoc")
         .def("insert", &PRTree<T, B>::insert, R"pbdoc(
           Insert one to prtree
+        )pbdoc")
+        .def("save", &PRTree<T, B>::save, R"pbdoc(
+          cereal save
+        )pbdoc")
+        .def("load", &PRTree<T, B>::load, R"pbdoc(
+          cereal load
         )pbdoc")
     ;
 
