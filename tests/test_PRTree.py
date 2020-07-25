@@ -1,6 +1,7 @@
 import unittest
 from python_prtree import PRTree
 import numpy as np
+import os
 
 class TestPRTree(unittest.TestCase):
     def test_result(self):
@@ -15,6 +16,16 @@ class TestPRTree(unittest.TestCase):
         x[:, 3] += x[:, 2]
 
         prtree = PRTree(idx, x)
+        out = prtree.batch_query(x)
+        for i in range(len(idx)):
+            tmp = [k for k in range(len(idx)) if has_intersect(x[i], x[k])]
+            self.assertEqual(set(out[i]), set(tmp))
+
+
+        prtree.save('tree.bin')
+        prtree = PRTree("tree.bin")
+        os.remove('tree.bin')
+
         out = prtree.batch_query(x)
         for i in range(len(idx)):
             tmp = [k for k in range(len(idx)) if has_intersect(x[i], x[k])]
