@@ -17,7 +17,7 @@ project(PRTree)
 file(GLOB MYCPP "cpp/*")
 
 add_subdirectory(./third/pybind11/)
-add_subdirectory(./third/cereal-1.3.0/)
+add_subdirectory(./third/cereal/)
 
 pybind11_add_module(PRTree ${MYCPP})
 target_link_libraries(PRTree PRIVATE cereal)
