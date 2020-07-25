@@ -26,7 +26,14 @@ class TestPRTree(unittest.TestCase):
         prtree.save('tree.bin')
         time.sleep(3)
         prtree = PRTree("tree.bin")
-        os.remove('tree.bin')
+
+        out = prtree.batch_query(x)
+        for i in range(len(idx)):
+            tmp = [k for k in range(len(idx)) if has_intersect(x[i], x[k])]
+            self.assertEqual(set(out[i]), set(tmp))
+
+        prtree = PRTree()
+        prtree.load('tree.bin')
 
         out = prtree.batch_query(x)
         for i in range(len(idx)):
@@ -34,6 +41,7 @@ class TestPRTree(unittest.TestCase):
             self.assertEqual(set(out[i]), set(tmp))
 
 
+        os.remove('tree.bin')
         N= 10000
         idx = np.arange(N)
         x = np.random.rand(N, 4)
