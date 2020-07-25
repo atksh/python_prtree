@@ -3,11 +3,11 @@
 "python_prtree" is a python implementation of Priority R-Tree (see reference below).
 Supported futures are as follows:
 
-- Construct Priority R-Tree(PRTree) from rectangles; array of (xmin, xmax, ymin, ymax)
-- query and batch query with rectangle(s)
+- Construct Priority R-Tree(PRTree) from rectangles; an array of (xmin, xmax, ymin, ymax)
+- query and batch query with a rectangle(s)
 - insert and erase(delete) (but not optimized yet)
 
-**This package is mainly for nearly static situations, which mean few insert/delete events happen (e.g., mapmatching).**
+**This package is mainly for nearly static situations, which mean few insert/delete events happen (e.g., map-matching).**
 
 # Usage 
 ```python
@@ -28,7 +28,7 @@ print(result)
 ```
 
 ## New features(`python-prtree>=0.3.0`)
-You can save and load binary file as follows:
+You can save and load a binary file as follows:
 
 ```python
 # save
@@ -45,7 +45,7 @@ prtree.load('tree.bin')
 
 ## Note
 
-1d-array batch query will be implicitly treated as batch with size = 1.
+The 1d-array batch query will be implicitly treated as a batch with size = 1.
 If you want 1d result, please use `query` method.
 ```python
 result = prtree.query(q[0])
@@ -58,7 +58,7 @@ print(result)
 ```
 
 
-You can also erase(delete) by index and insert new one.
+You can also erase(delete) by index and insert a new one.
 ```python
 prtree.erase(1)  # delete the rectangle with idx=1 from the PRTree
 
@@ -96,8 +96,8 @@ This installation needs cmake.
 
 # NOTE
 
-- This PRTree is implemented by C++ with Pybind11, and much faster than numba implementation of PRTree.
-- If you can use C++, you should use boost::geometry (I didn't know it and sadly made this package).
+- C++ implements this PRTree with Pybind11 and much faster than the numba implementation of PRTree.
+- If you can use C++, you should use boost::geometry (I did not know it and sadly made this package).
 - Please note that insert / erase operations are not optimized compared to ordinary r-tree. Plus, this implementation does not exactly follow that of the paper due to my technical skills.
 
 
