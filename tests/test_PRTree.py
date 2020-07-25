@@ -2,6 +2,7 @@ import unittest
 from python_prtree import PRTree
 import numpy as np
 import os
+import time
 
 class TestPRTree(unittest.TestCase):
     def test_result(self):
@@ -23,6 +24,7 @@ class TestPRTree(unittest.TestCase):
 
 
         prtree.save('tree.bin')
+        time.sleep(3)
         prtree = PRTree("tree.bin")
         os.remove('tree.bin')
 
