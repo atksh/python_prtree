@@ -450,8 +450,8 @@ class PRTree : Uncopyable{
 
     void save(std::string fname){
       {
-        std::ofstream ofs(fname);
         {
+          std::ofstream ofs(fname);
           cereal::PortableBinaryOutputArchive o_archive(ofs);
           //cereal::JSONOutputArchive o_archive(ofs);
           o_archive(cereal::make_nvp("root", root), cereal::make_nvp("umap", umap));
@@ -467,8 +467,8 @@ class PRTree : Uncopyable{
 
     void load(std::string fname){
       {
-        std::ifstream ifs(fname);
         {
+          std::ifstream ifs(fname);
           cereal::PortableBinaryInputArchive i_archive(ifs);
           //cereal::JSONInputArchive i_archive(ifs);
           i_archive(cereal::make_nvp("root", root), cereal::make_nvp("umap", umap));
