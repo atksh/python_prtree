@@ -82,13 +82,13 @@ This installation needs cmake.
 
 # Performance
 ## Construction
-![fig1](./docs/images/fig1.png)
+![fig1](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/fig1.png)
 
 ## Query and batch query
-![fig2](./docs/images/fig2.png)
+![fig2](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/fig2.png)
 
 ## Delete and insert
-![fig3](./docs/images/fig3.png)
+![fig3](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/fig3.png)
 
 # Requirement
 - numpy
