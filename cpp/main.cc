@@ -17,7 +17,7 @@ PYBIND11_MODULE(PRTree, m) {
     )pbdoc";
 
     py::class_<PRTree<T, B>>(m, "PRTree")
-        .def(py::init<py::array_t<T>, py::array_t<double>>(), R"pbdoc(
+        .def(py::init<py::array_t<T>, py::array_t<float>>(), R"pbdoc(
           Construct PRTree with init.
         )pbdoc")
         .def(py::init<>(), R"pbdoc(

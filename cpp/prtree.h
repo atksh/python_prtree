@@ -16,6 +16,7 @@
 #include <mutex>
 #include <thread>
 #include <future>
+#include <functional>
 #include <cstdlib>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -29,6 +30,7 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/unordered_map.hpp>
 
+#include "parallel.h"
 
 
 namespace py = pybind11;
@@ -69,12 +71,12 @@ class Uncopyable {
 
 class BB{
   public:
-    double xmin, xmax, ymin, ymax;
+    float xmin, xmax, ymin, ymax;
     BB() {
       clear();
     }
 
-    BB(const double& _xmin, const double& _xmax, const double& _ymin, const double& _ymax){
+    BB(const float& _xmin, const float& _xmax, const float& _ymin, const float& _ymax){
       if (unlikely(_xmin > _xmax || _ymin > _ymax)){
         throw std::runtime_error("Impossible rectange was given. xmin < xmax and ymin < ymax must be satisfied.");
       }
@@ -103,7 +105,7 @@ class BB{
       return *this;
     }
 
-    inline void expand(const double& dx, const double& dy){
+    inline void expand(const float& dx, const float& dy){
       xmin -= dx;
       xmax += dx;
       ymin -= dy;
@@ -116,7 +118,7 @@ class BB{
       return unlikely(c1 && c2);
     }
 
-    inline double operator [](const int& i)const{
+    inline float operator [](const int& i)const{
       if (i == 0){
         return xmin;
       } else if (i == 1){
@@ -388,25 +390,15 @@ class PseudoPRTree : Uncopyable{
     }
 
     std::pair<DataType<int>*, DataType<int>*> as_X(void* placement, const int hint){
-      const size_t nthreads = std::max(1, (int) std::thread::hardware_concurrency());
       DataType<int> *b, *e;
       auto children = get_all_leaves(hint);
       int total = children.size();
       b = (DataType<int>*)placement;
       e = b + total;
-      {
-        vec<std::thread> threads(nthreads);
-        for (int t = 0; t < nthreads; t++){
-          threads[t] = std::thread(std::bind(
-            [&](const int bi, const int ei, const int t){
-              for (int i = bi; i < ei; i++){
-                new(b + i) DataType<int>{i, children[i]->mbb};
-              }
-            }, t * total/nthreads, unlikely((t+1)==nthreads)?total:(t+1)*total/nthreads, t)
-          );
-        }
-        std::for_each(threads.begin(), threads.end(), [&](std::thread& x){x.join();});
-      }
+      parallel_for_each(b, e, [&](auto& p){
+          int i = &p - b;
+          new(b + i) DataType<int>{i, children[i]->mbb};
+          });
       return {b, e};
     }
 };
@@ -488,8 +480,7 @@ class PRTree : Uncopyable{
       }
     }
 
-
-    PRTree(const py::array_t<T>& idx, const py::array_t<double>& x){
+    PRTree(const py::array_t<T>& idx, const py::array_t<float>& x){
       const auto &buff_info_idx = idx.request();
       const auto &shape_idx = buff_info_idx.shape;
       const auto &buff_info_x = x.request();
@@ -505,22 +496,30 @@ class PRTree : Uncopyable{
       DataType<T> *b, *e;
       void *placement = std::malloc(std::max(sizeof(DataType<T>), sizeof(DataType<int>)) * length);
       b = (DataType<T>*)placement;
-      e = b;
-      for (size_t i = 0; i < length; i++){
+      e = b + length;
+
+      parallel_for_each(b, e,
+          [&](auto& it){
+            int i = &it - b;
+            auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
+            new(b + i) DataType<T>{*idx.data(i), bb};
+          });
+
+      auto build_umap = [&]{for (size_t i = 0; i < length; i++){
         auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
-
-        new(e) DataType<T>{*idx.data(i), bb};
-        e++;
-
         umap.emplace_hint(umap.end(), *idx.data(i), std::move(bb));
-      }
+      }};
+
       //ProfilerStart("construct.prof");
-      build(b, e, placement);
+      auto t1 = std::thread(build_umap);
+      auto t2 = std::thread([&]{build(b, e, placement);});
+      t1.join();
+      t2.join();
       //ProfilerStop();
       std::free(placement);
     }
 
-    void insert(const T& idx, const py::array_t<double>& x){
+    void insert(const T& idx, const py::array_t<float>& x){
       vec<Leaf<T, B>*> cands;
       std::queue<PRTreeNode<T, B>*, std::deque<PRTreeNode<T, B>*>> que;
       BB bb;
@@ -538,9 +537,9 @@ class PRTree : Uncopyable{
       }
 
       bb = BB(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
-      double dx = bb.xmax - bb.xmin + 0.000000001;
-      double dy = bb.ymax - bb.ymin + 0.000000001;
-      double c = 0.0;
+      float dx = bb.xmax - bb.xmin + 0.000000001;
+      float dy = bb.ymax - bb.ymin + 0.000000001;
+      float c = 0.0;
       std::stack<PRTreeNode<T, B>*> sta;
       while (likely(cands.size() == 0)){
         while (likely(!sta.empty())){
@@ -600,16 +599,17 @@ class PRTree : Uncopyable{
 
     template<class iterator>
     void build(iterator b, iterator e, void *placement){
-      const int nthreads = std::max(1, (int) std::thread::hardware_concurrency());
       vec<Leaf<int, B>*> leaves;
       vec<std::unique_ptr<PRTreeNode<T, B>>> tmp_nodes, prev_nodes;
       std::unique_ptr<PRTreeNode<T, B>> p, q, r;
 
       auto first_tree = PseudoPRTree<T, B>(b, e);
-      for (auto& leaf : first_tree.get_all_leaves(e - b)){
-        p = std::make_unique<PRTreeNode<T, B>>(leaf);
-        prev_nodes.emplace_back(std::move(p));
-      }
+      auto first_leaves = first_tree.get_all_leaves(e - b);
+      parallel_for_each(first_leaves.begin(), first_leaves.end(), prev_nodes,
+            [&](auto& leaf, auto& o){
+              auto pp = std::make_unique<PRTreeNode<T, B>>(leaf);
+              o.emplace_back(std::move(pp));
+            });
 
       auto [bb, ee] = first_tree.as_X(placement, e - b);
       while (likely(prev_nodes.size() > 1)){
@@ -619,18 +619,9 @@ class PRTree : Uncopyable{
         tmp_nodes.clear();
         tmp_nodes.reserve(leaves_size);
 
-        vec<decltype(tmp_nodes)> out_privates(nthreads);
-        {
-          vec<std::thread> threads(nthreads);
-          for (auto& o : out_privates){
-            o.reserve(leaves_size/nthreads*2);
-          }
-          for (int t = 0; t < nthreads; t++){
-            threads[t] = std::thread(std::bind(
-                  [&](const int bi, const int ei, const int t){
-                  for (size_t k = bi; k < ei; k++){
+        parallel_for_each(leaves.begin(), leaves.end(), tmp_nodes,
+                  [&](auto& leaf, auto& o){
                     int idx, jdx;
-                    auto& leaf = leaves[k];
                     int len = leaf->data.size();
                     auto pp = std::make_unique<PRTreeNode<T, B>>(leaf->mbb);
                     if (likely(!leaf->data.empty())){
@@ -642,21 +633,11 @@ class PRTree : Uncopyable{
                       idx = leaf->data[0].first;
                       pp->head = std::move(prev_nodes[idx]);
                       if (!pp->head){throw std::runtime_error("ppp");}
-                      out_privates[t].emplace_back(std::move(pp));
+                      o.emplace_back(std::move(pp));
                     } else {
                       throw std::runtime_error("what????");
                     }
-                  }
-                }, t*leaves_size/nthreads, unlikely((t+1)==nthreads)?leaves_size:(t+1)*leaves_size/nthreads, t));
-          }
-          std::for_each(threads.begin(), threads.end(), [&](std::thread& x){x.join();});
-
-          for (int t = 0; t < nthreads; t++){
-            tmp_nodes.insert(tmp_nodes.end(),
-                std::make_move_iterator(out_privates[t].begin()),
-                std::make_move_iterator(out_privates[t].end()));
-          }
-        }
+                  });
 
         {
           auto tmp = tree.as_X(placement, ee - bb);
@@ -687,7 +668,7 @@ class PRTree : Uncopyable{
     }
     
 
-    auto find_all(const py::array_t<double>& x){
+    auto find_all(const py::array_t<float>& x){
       const auto &buff_info_x = x.request();
       const auto &ndim= buff_info_x.ndim;
       const auto &shape_x = buff_info_x.shape;
@@ -711,35 +692,13 @@ class PRTree : Uncopyable{
         }
       }
       size_t length = X.size();
-      const int nthreads = std::max(1, (int) std::thread::hardware_concurrency());
-      vec<vec<vec<T>>> out_privates(nthreads);
-      {
-        vec<std::thread> threads(nthreads);
-        for (auto& o : out_privates){
-          o.reserve(length/nthreads+1);
-        }
-        for (int t = 0; t < nthreads; t++){
-          threads[t] = std::thread(std::bind(
-                [&](const int bi, const int ei, const int t){
-                for (int i = bi; i < ei; i++){
-                  out_privates[t].emplace_back(std::move(find(X[i])));
-                }
-              }, t*length/nthreads, unlikely((t+1)==nthreads)?length:(t+1)*length/nthreads, t));
-        }
-        std::for_each(threads.begin(), threads.end(), [&](std::thread& x){x.join();});
-      }
       vec<vec<T>> out;
       out.reserve(length);
-      for (int t = 0; t < nthreads; t++){
-        out.insert(out.end(),
-            std::make_move_iterator(out_privates[t].begin()),
-            std::make_move_iterator(out_privates[t].end()));
-        vec<vec<T>>().swap(out_privates[t]);
-      }
+      parallel_for_each(X.begin(), X.end(), out, [&](const BB& x, auto& o){o.emplace_back(find(x));});
       return out;
     }
 
-    vec<T> find_one(const py::array_t<double>& x){
+    vec<T> find_one(const py::array_t<float>& x){
       const auto &buff_info_x = x.request();
       const auto &ndim= buff_info_x.ndim;
       const auto &shape_x = buff_info_x.shape;
