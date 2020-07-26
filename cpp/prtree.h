@@ -146,23 +146,20 @@ class DataType{
       second = s;
     }
 
-    DataType(DataType&& obj) noexcept{// move constructor for vector
+    DataType(const DataType& obj) noexcept{// copy constructor for vector
       first = obj.first;
-      second.xmin = obj.second.xmin;
-      second.xmax = obj.second.xmax;
-      second.ymin = obj.second.ymin;
-      second.ymax = obj.second.ymax;
-      obj.second.clear();
+      second = obj.second;
+    }
+
+    DataType(DataType&& obj) noexcept{// move constructor for vector
+      first = std::move(obj.first);
+      second = std::move(obj.second);
     }
 
     DataType& operator=(DataType&& obj) noexcept{
       if (likely(this != &obj)){
-        first = obj.first;
-        second.xmin = obj.second.xmin;
-        second.xmax = obj.second.xmax;
-        second.ymin = obj.second.ymin;
-        second.ymax = obj.second.ymax;
-        obj.second.clear();
+        first = std::move(obj.first);
+        second = std::move(obj.second);
       }
       return *this;
     }
@@ -209,14 +206,10 @@ class Leaf : Uncopyable{
       for (const auto& datum : data){
         mbb += datum.second;
       }
-      //auto init = std::make_DataType<T>(std::forward<T>(data[0].first), BB());
-      //mbb = std::reduce(data.begin(), data.end(), init, [&](DataType<T>& lhs, DataType<T>& rhs) {
-      //      return std::make_DataType<T>(std::forward<T>(lhs.first), std::forward<BB>(lhs.second + rhs.second));
-      //    }).second;
     }
 
     template <typename F>
-    bool filter(DataType<T>& value, const F &comp){// false means given value is ignored
+    inline bool filter(DataType<T>& value, const F comp){// false means given value is ignored
       if (unlikely(data.size() < B)){ // if there is room, just push the candidate
         data.emplace_back(std::move(value));
         update_mbb();
@@ -289,12 +282,9 @@ class PseudoPRTreeNode : Uncopyable{
       }
     }
 
-    auto filter (vec<DataType<T>>& X, int axis){
-      auto _comp = [&](const DataType<T>& lhs, const DataType<T>& rhs){
-        return lhs.second[axis] < rhs.second[axis];
-      };
-      auto comp = std::ref(_comp);
-      auto out = std::remove_if(X.begin(), X.end(), [&](auto& x) {
+    template<class iterator, class Function>
+    inline auto filter (iterator b, iterator e, const int axis, const Function comp){
+      auto out = std::remove_if(b, e, [&](auto& x){
           for (auto& l : leaves){
             if (unlikely(l.filter(x, comp))){
               return true;
@@ -302,7 +292,6 @@ class PseudoPRTreeNode : Uncopyable{
           }
           return false;
       });
-      X.erase(out, X.end());
       return out;
     }
     
@@ -318,11 +307,16 @@ class PseudoPRTree : Uncopyable{
     PseudoPRTree(){
       root = std::make_unique<PseudoPRTreeNode<T, B>>();
     }
-    PseudoPRTree(vec<DataType<T>>& X){
+
+    template<class iterator>
+    PseudoPRTree(iterator& b, iterator& e){
       if (likely(!root)){
         root = std::make_unique<PseudoPRTreeNode<T, B>>();
       }
-      construct(root.get(), std::move(X), 0);
+      construct(root.get(), b, e, 0);
+      delete[] b;
+      b = nullptr;
+      e = nullptr;
     }
 
     template<class Archive>
@@ -331,39 +325,39 @@ class PseudoPRTree : Uncopyable{
       //archive.serializeDeferments();
     }
 
-    void construct(PseudoPRTreeNode<T, B>* node, vec<DataType<T>>&& X, const size_t depth){
-      bool use_recursive_threads = std::pow(2, depth + 1) <= nthreads;
-      vec<std::thread> threads;
-      vec<DataType<T>> X_left, X_right;
-      PseudoPRTreeNode<T, B> *node_left, *node_right;
-      if (likely(X.size() > 0 && node != nullptr)) {
-        int axis = depth % 4;
+    template<class iterator>
+    inline void construct(PseudoPRTreeNode<T, B>* node, iterator& b, iterator& e, const size_t depth){
+      if (e - b > 0 && node != nullptr) {
+        bool use_recursive_threads = std::pow(2, depth + 1) <= nthreads;
+
+        vec<std::thread> threads;
+        PseudoPRTreeNode<T, B> *node_left, *node_right;
+
+        const int axis = depth % 4;
         auto comp = [&](const DataType<T>& lhs, const DataType<T>& rhs){
           return lhs.second[axis] < rhs.second[axis];
         };
-        auto e = node->filter(X, axis);
-        auto b = X.begin();
+        auto ee = node->filter(b, e, axis, std::ref(comp));
         auto m = b;
-        std::advance(m, (e - b) / 2);
-        std::nth_element(b, m, e, comp);
-        if (likely(m - b > 0)){
+        std::advance(m, (ee - b) / 2);
+        auto mm = m;
+        std::nth_element(b, m, ee, comp); // about 25~30 % of construction time
+        if (m - b > 0){
           node->left = std::make_unique<PseudoPRTreeNode<T, B>>();
           node_left = node->left.get();
-          X_left = vec<DataType<T>>(std::make_move_iterator(b), std::make_move_iterator(m));
           if (use_recursive_threads){
-            threads.emplace_back(std::thread([&](){construct(node_left, std::move(X_left), depth + 1);}));
+            threads.emplace_back(std::thread([&](){construct(node_left, b, m, depth + 1);}));
           } else {
-            construct(node_left, std::move(X_left), depth + 1);
+            construct(node_left, b, m, depth + 1);
           }
         }
-        if (likely(e - m > 0)){
+        if (ee - mm > 0){
           node->right = std::make_unique<PseudoPRTreeNode<T, B>>();
           node_right = node->right.get();
-          X_right = vec<DataType<T>>(std::make_move_iterator(m), std::make_move_iterator(e));
           if (use_recursive_threads){
-            threads.emplace_back(std::thread([&](){construct(node_right, std::move(X_right), depth + 1);}));
+            threads.emplace_back(std::thread([&](){construct(node_right, mm, ee, depth + 1);}));
           } else {
-            construct(node_right, std::move(X_right), depth + 1);
+            construct(node_right, mm, ee, depth + 1);
           }
         }
         std::for_each(threads.begin(), threads.end(), [&](std::thread& x){x.join();});
@@ -387,15 +381,16 @@ class PseudoPRTree : Uncopyable{
       return out;
     }
 
-    inline vec<DataType<int>> as_X(){
-      vec<DataType<int>> out;
+    std::pair<DataType<int>*, DataType<int>*> as_X(){
+      DataType<int> *b, *e;
       auto children = get_all_leaves();
       int total = children.size();
-      out.reserve(total);
+      b = new DataType<int>[total];
+      e = b + total;
       for (int i = 0; i<total; i++){
-        out.emplace_back(i, children[i]->mbb);
+        b[i] = DataType<int>(i, children[i]->mbb);
       }
-      return out;
+      return {b, e};
     }
 };
 
@@ -488,8 +483,9 @@ class PRTree : Uncopyable{
         throw std::runtime_error("Bounding box must have the shape (length, 4)");
       }
       size_t length = shape_idx[0];
-      vec<DataType<T>> X;
-      X.reserve(length);
+      DataType<T> *b, *e;
+      b = new DataType<T>[length];
+      e = b + length;
       umap.reserve(length);
       for (size_t i = 0; i < length; i++){
         auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
@@ -497,12 +493,11 @@ class PRTree : Uncopyable{
       }
       for (size_t i = 0; i < length; i++){
         auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
-        X.emplace_back(*idx.data(i), bb);
+        b[i] = DataType<T>(*idx.data(i), bb);
       }
       //ProfilerStart("construct.prof");
-      build(X);
+      build(b, e);
       //ProfilerStop();
-      vec<DataType<T>>().swap(X);
     }
 
     void insert(const T& idx, const py::array_t<double>& x){
@@ -583,19 +578,21 @@ class PRTree : Uncopyable{
     }
 
 
-    void build(vec<DataType<T>>& X){
+    template<class iterator>
+    void build(iterator b, iterator e){
       vec<Leaf<int, B>*> leaves;
       vec<std::unique_ptr<PRTreeNode<T, B>>> tmp_nodes, prev_nodes;
       std::unique_ptr<PRTreeNode<T, B>> p, q, r;
 
-      auto first_tree = PseudoPRTree<T, B>(X);
+      auto first_tree = PseudoPRTree<T, B>(b, e);
       for (auto& leaf : first_tree.get_all_leaves()){
         p = std::make_unique<PRTreeNode<T, B>>(leaf);
         prev_nodes.emplace_back(std::move(p));
       }
-      vec<DataType<int>> as_X = first_tree.as_X();
+
+      auto [bb, ee] = first_tree.as_X();
       while (likely(prev_nodes.size() > 1)){
-        auto tree = PseudoPRTree<int, B>(as_X);
+        auto tree = PseudoPRTree<int, B>(bb, ee);
         leaves = tree.get_all_leaves();
         auto leaves_size = leaves.size();
         tmp_nodes.clear();
@@ -619,7 +616,11 @@ class PRTree : Uncopyable{
             throw std::runtime_error("what????");
           }
         }
-        as_X = tree.as_X();
+        {
+          auto tmp = tree.as_X();
+          bb = tmp.first;
+          ee = tmp.second;
+        }
         size_t c = 0;
         for (const auto& n : prev_nodes){
           if (unlikely(n)){
@@ -639,7 +640,6 @@ class PRTree : Uncopyable{
       vec<Leaf<int, B>*>().swap(leaves);
       vec<std::unique_ptr<PRTreeNode<T, B>>>().swap(tmp_nodes);
       vec<std::unique_ptr<PRTreeNode<T, B>>>().swap(prev_nodes);
-      vec<DataType<int>>().swap(as_X);
     }
     
 

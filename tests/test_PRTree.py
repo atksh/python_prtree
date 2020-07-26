@@ -24,7 +24,7 @@ class TestPRTree(unittest.TestCase):
 
 
         prtree.save('tree.bin')
-        time.sleep(3)
+        time.sleep(.3)
         prtree = PRTree("tree.bin")
 
         out = prtree.batch_query(x)
