@@ -314,7 +314,10 @@ class PseudoPRTree : Uncopyable{
         root = std::make_unique<PseudoPRTreeNode<T, B>>();
       }
       construct(root.get(), b, e, 0);
-      delete[] b;
+      b->~DataType<T>();
+      for (DataType<T>* it = b; it < e; ++it){
+        it->~DataType<T>();
+      }
       b = nullptr;
       e = nullptr;
     }
@@ -381,14 +384,15 @@ class PseudoPRTree : Uncopyable{
       return out;
     }
 
-    std::pair<DataType<int>*, DataType<int>*> as_X(){
+    std::pair<DataType<int>*, DataType<int>*> as_X(void* placement){
       DataType<int> *b, *e;
       auto children = get_all_leaves();
       int total = children.size();
-      b = new DataType<int>[total];
-      e = b + total;
-      for (int i = 0; i<total; i++){
-        b[i] = DataType<int>(i, children[i]->mbb);
+      b = (DataType<int>*)placement;
+      e = b;
+      for (int i = 0; i < total; i++){
+        new(e) DataType<int>{i, children[i]->mbb};
+        e++;
       }
       return {b, e};
     }
@@ -483,21 +487,24 @@ class PRTree : Uncopyable{
         throw std::runtime_error("Bounding box must have the shape (length, 4)");
       }
       size_t length = shape_idx[0];
-      DataType<T> *b, *e;
-      b = new DataType<T>[length];
-      e = b + length;
       umap.reserve(length);
+
+      DataType<T> *b, *e;
+      void *placement = std::malloc(std::max(sizeof(DataType<T>), sizeof(DataType<int>)) * length);
+      b = (DataType<T>*)placement;
+      e = b;
       for (size_t i = 0; i < length; i++){
         auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
+
+        new(e) DataType<T>{*idx.data(i), bb};
+        e++;
+
         umap.emplace_hint(umap.end(), *idx.data(i), std::move(bb));
       }
-      for (size_t i = 0; i < length; i++){
-        auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
-        b[i] = DataType<T>(*idx.data(i), bb);
-      }
       //ProfilerStart("construct.prof");
-      build(b, e);
+      build(b, e, placement);
       //ProfilerStop();
+      std::free(placement);
     }
 
     void insert(const T& idx, const py::array_t<double>& x){
@@ -579,7 +586,7 @@ class PRTree : Uncopyable{
 
 
     template<class iterator>
-    void build(iterator b, iterator e){
+    void build(iterator b, iterator e, void *placement){
       vec<Leaf<int, B>*> leaves;
       vec<std::unique_ptr<PRTreeNode<T, B>>> tmp_nodes, prev_nodes;
       std::unique_ptr<PRTreeNode<T, B>> p, q, r;
@@ -590,7 +597,7 @@ class PRTree : Uncopyable{
         prev_nodes.emplace_back(std::move(p));
       }
 
-      auto [bb, ee] = first_tree.as_X();
+      auto [bb, ee] = first_tree.as_X(placement);
       while (likely(prev_nodes.size() > 1)){
         auto tree = PseudoPRTree<int, B>(bb, ee);
         leaves = tree.get_all_leaves();
@@ -617,7 +624,7 @@ class PRTree : Uncopyable{
           }
         }
         {
-          auto tmp = tree.as_X();
+          auto tmp = tree.as_X(placement);
           bb = tmp.first;
           ee = tmp.second;
         }
