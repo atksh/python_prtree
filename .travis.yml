@@ -5,6 +5,7 @@ jobs:
       services: docker
     - os: osx
       language: shell
+      osx_image: xcode11.6
     - os: windows
       language: shell
       before_install:
