@@ -33,6 +33,8 @@
 #include "parallel.h"
 
 
+using Real = float;
+
 namespace py = pybind11;
 using std::swap;
 
@@ -71,12 +73,12 @@ class Uncopyable {
 
 class BB{
   public:
-    float xmin, xmax, ymin, ymax;
+    Real xmin, xmax, ymin, ymax;
     BB() {
       clear();
     }
 
-    BB(const float& _xmin, const float& _xmax, const float& _ymin, const float& _ymax){
+    BB(const Real& _xmin, const Real& _xmax, const Real& _ymin, const Real& _ymax){
       if (unlikely(_xmin > _xmax || _ymin > _ymax)){
         throw std::runtime_error("Impossible rectange was given. xmin < xmax and ymin < ymax must be satisfied.");
       }
@@ -105,7 +107,7 @@ class BB{
       return *this;
     }
 
-    inline void expand(const float& dx, const float& dy){
+    inline void expand(const Real& dx, const Real& dy){
       xmin -= dx;
       xmax += dx;
       ymin -= dy;
@@ -118,7 +120,7 @@ class BB{
       return unlikely(c1 && c2);
     }
 
-    inline float operator [](const int& i)const{
+    inline Real operator [](const int& i)const{
       if (i == 0){
         return xmin;
       } else if (i == 1){
@@ -266,16 +268,6 @@ class PseudoPRTreeNode : Uncopyable{
       archive(left, right, leaves);
     }
 
-    inline auto address_of_leaves() {
-      vec<Leaf<T, B>*> out;
-      for (auto& leaf : leaves){
-        if (likely(leaf.data.size() > 0)){
-          out.emplace_back(&leaf);
-        }
-      }
-      return out;
-    }
-
     inline void address_of_leaves(vec<Leaf<T, B>*>& out) {
       for (auto& leaf : leaves){
         if (likely(leaf.data.size() > 0)){
@@ -318,7 +310,7 @@ class PseudoPRTree : Uncopyable{
       }
       construct(root.get(), b, e, 0);
       b->~DataType<T>();
-      for (DataType<T>* it = b; it < e; ++it){
+      for (DataType<T>* it = e-1; it >= b; --it){
         it->~DataType<T>();
       }
       b = nullptr;
@@ -480,7 +472,7 @@ class PRTree : Uncopyable{
       }
     }
 
-    PRTree(const py::array_t<T>& idx, const py::array_t<float>& x){
+    PRTree(const py::array_t<T>& idx, const py::array_t<double>& x){
       const auto &buff_info_idx = idx.request();
       const auto &shape_idx = buff_info_idx.shape;
       const auto &buff_info_x = x.request();
@@ -519,7 +511,7 @@ class PRTree : Uncopyable{
       std::free(placement);
     }
 
-    void insert(const T& idx, const py::array_t<float>& x){
+    void insert(const T& idx, const py::array_t<double>& x){
       vec<Leaf<T, B>*> cands;
       std::queue<PRTreeNode<T, B>*, std::deque<PRTreeNode<T, B>*>> que;
       BB bb;
@@ -537,9 +529,9 @@ class PRTree : Uncopyable{
       }
 
       bb = BB(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
-      float dx = bb.xmax - bb.xmin + 0.000000001;
-      float dy = bb.ymax - bb.ymin + 0.000000001;
-      float c = 0.0;
+      Real dx = bb.xmax - bb.xmin + 0.000000001;
+      Real dy = bb.ymax - bb.ymin + 0.000000001;
+      Real c = 0.0;
       std::stack<PRTreeNode<T, B>*> sta;
       while (likely(cands.size() == 0)){
         while (likely(!sta.empty())){
@@ -668,7 +660,7 @@ class PRTree : Uncopyable{
     }
     
 
-    auto find_all(const py::array_t<float>& x){
+    auto find_all(const py::array_t<double>& x){
       const auto &buff_info_x = x.request();
       const auto &ndim= buff_info_x.ndim;
       const auto &shape_x = buff_info_x.shape;
@@ -680,6 +672,7 @@ class PRTree : Uncopyable{
         throw std::runtime_error("invalid shape");
       }
       vec<BB> X;
+      X.reserve(ndim==1?1:shape_x[0]);
       BB bb;
       if (ndim == 1){
         bb = BB(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
@@ -698,7 +691,7 @@ class PRTree : Uncopyable{
       return out;
     }
 
-    vec<T> find_one(const py::array_t<float>& x){
+    vec<T> find_one(const py::array_t<double>& x){
       const auto &buff_info_x = x.request();
       const auto &ndim= buff_info_x.ndim;
       const auto &shape_x = buff_info_x.shape;
