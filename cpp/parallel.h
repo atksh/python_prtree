@@ -1,23 +1,17 @@
 #pragma once
 #include <vector>
-#include <mutex>
 #include <thread>
 #include <algorithm>
-#include <iostream>
-
-
-template<typename U>
-using vec = std::vector<U>;
 
 template<typename F, typename Iter, typename T>
 void parallel_for_each(const Iter first, const Iter last, T& result, const F& func){
   auto f = std::ref(func);
   const int nthreads = std::max(1, (int) std::thread::hardware_concurrency());
   const size_t total = std::distance(first, last);
-  vec<T> rr(nthreads);
+  std::vector<T> rr(nthreads);
   {
-    vec<std::thread> threads;
-    vec<Iter> iters;
+    std::vector<std::thread> threads;
+    std::vector<Iter> iters;
     auto step = total / nthreads;
     auto remaining = total % nthreads;
     auto n = first;
@@ -51,8 +45,8 @@ void parallel_for_each(const Iter first, const Iter last, const F& func){
   const int nthreads = std::max(1, (int) std::thread::hardware_concurrency());
   const size_t total = std::distance(first, last);
   {
-    vec<std::thread> threads;
-    vec<Iter> iters;
+    std::vector<std::thread> threads;
+    std::vector<Iter> iters;
     auto step = total / nthreads;
     auto remaining = total % nthreads;
     auto n = first;
