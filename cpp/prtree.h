@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <numeric>
 #include <memory>
+#include <memory_resource>
 #include <iterator>
 #include <iostream>
 #include <fstream>
@@ -30,6 +31,9 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/unordered_map.hpp>
 
+#include "xsimd/xsimd.hpp"
+namespace xs = xsimd;
+
 #include "parallel.h"
 
 
@@ -42,7 +46,13 @@ template<class T, class U>
 using pair = std::pair<T, U>;
 
 template<class T>
-using vec = std::vector<T>;
+using vec = std::pmr::vector<T>;
+
+template<class T>
+using deque = std::pmr::deque<T>;
+
+template<class T>
+using queue = std::queue<T, deque<T>>;
 
 static std::mt19937 rand_src(42);
 
@@ -72,8 +82,9 @@ class Uncopyable {
 };
 
 class BB{
+  private:
+    xs::batch<Real, 4> values;
   public:
-    Real xmin, xmax, ymin, ymax;
     BB() {
       clear();
     }
@@ -82,58 +93,53 @@ class BB{
       if (unlikely(_xmin > _xmax || _ymin > _ymax)){
         throw std::runtime_error("Impossible rectange was given. xmin < xmax and ymin < ymax must be satisfied.");
       }
-      xmin = _xmin;
-      xmax = _xmax;
-      ymin = _ymin;
-      ymax = _ymax;
+      values = xs::batch<Real, 4>(-_xmin, _xmax, -_ymin, _ymax);
     }
 
+    BB(const xs::batch<Real, 4>& v){
+      if (unlikely(-v[0]> v[1] || -v[2]> v[3])){
+        throw std::runtime_error("Impossible rectange was given. xmin < xmax and ymin < ymax must be satisfied.");
+      }
+      values = v;
+    }
+
+    inline Real xmin()const{return -values[0];}
+    inline Real xmax()const{return values[1];}
+    inline Real ymin()const{return -values[2];}
+    inline Real ymax()const{return values[3];}
+
     inline void clear(){
-      xmin = 1e100;
-      xmax = -1e100;
-      ymin = 1e100;
-      ymax= -1e100;
+      values = xs::batch<Real, 4>(-1e100, -1e100, -1e100, -1e100);
     }
 
     inline BB operator +(const BB& rhs) const{
-      return BB(std::min(xmin, rhs.xmin), std::max(xmax, rhs.xmax), std::min(ymin, rhs.ymin), std::max(ymax, rhs.ymax));
+      return BB(xs::fmax(values, rhs.values));
     }
 
     inline BB operator +=(const BB& rhs){
-      xmin = std::min(xmin, rhs.xmin);
-      xmax = std::max(xmax, rhs.xmax);
-      ymin = std::min(ymin, rhs.ymin);
-      ymax = std::max(ymax, rhs.ymax);
+      values = xs::fmax(values, rhs.values);
       return *this;
     }
 
     inline void expand(const Real& dx, const Real& dy){
-      xmin -= dx;
-      xmax += dx;
-      ymin -= dy;
-      ymax += dy;
+      auto d = xs::batch<Real, 4>(dx, dx, dy, dy);
+      values += d;
     }
 
     inline bool operator ()(const BB& target) const{ // whether this and target has any intersect
-      const bool c1 = unlikely(std::max(xmin, target.xmin) <= std::min(xmax, target.xmax));
-      const bool c2 = unlikely(std::max(ymin, target.ymin) <= std::min(ymax, target.ymax));
-      return unlikely(c1 && c2);
+      const auto m = xs::fmin(values, target.values);
+      //const bool c1 = unlikely(std::max(xmin(), target.xmin()) <= std::min(xmax(), target.xmax()));
+      //const bool c2 = unlikely(std::max(ymin(), target.ymin()) <= std::min(ymax(), target.ymax()));
+      //return unlikely(c1 && c2);
+      return (-m[0] <= m[1]) && (-m[2] <= m[3]);
     }
 
     inline Real operator [](const int& i)const{
-      if (i == 0){
-        return xmin;
-      } else if (i == 1){
-        return -xmax;
-      } else if (i == 2){
-        return ymin;
-      } else{
-        return -ymax;
-      }
+      return values[i];
     }
     template <class Archive>
     void serialize( Archive & ar ){
-      ar(xmin, xmax, ymin, ymax);
+      ar(values[0], values[1], values[2], values[3]);
     }
 };
 
@@ -150,23 +156,6 @@ class DataType{
       second = s;
     }
 
-    DataType(const DataType& obj) noexcept{// copy constructor for vector
-      first = obj.first;
-      second = obj.second;
-    }
-
-    DataType(DataType&& obj) noexcept{// move constructor for vector
-      first = std::move(obj.first);
-      second = std::move(obj.second);
-    }
-
-    DataType& operator=(DataType&& obj) noexcept{
-      if (likely(this != &obj)){
-        first = std::move(obj.first);
-        second = std::move(obj.second);
-      }
-      return *this;
-    }
     template <class Archive>
     void serialize( Archive & ar ){
       ar(first, second);
@@ -367,7 +356,7 @@ class PseudoPRTree : Uncopyable{
         using U = PseudoPRTreeNode<T, B>;
         cache_children.reserve(hint);
         auto node = root.get();
-        std::queue<U*> que;
+        queue<U*> que;
         que.emplace(node);
 
         while (likely(!que.empty())){
@@ -472,7 +461,7 @@ class PRTree : Uncopyable{
       }
     }
 
-    PRTree(const py::array_t<T>& idx, const py::array_t<double>& x){
+    PRTree(const py::array_t<T>& idx, const py::array_t<float>& x){
       const auto &buff_info_idx = idx.request();
       const auto &shape_idx = buff_info_idx.shape;
       const auto &buff_info_x = x.request();
@@ -511,9 +500,9 @@ class PRTree : Uncopyable{
       std::free(placement);
     }
 
-    void insert(const T& idx, const py::array_t<double>& x){
+    void insert(const T& idx, const py::array_t<float>& x){
       vec<Leaf<T, B>*> cands;
-      std::queue<PRTreeNode<T, B>*, std::deque<PRTreeNode<T, B>*>> que;
+      queue<PRTreeNode<T, B>*> que;
       BB bb;
       PRTreeNode<T, B>* p, * q;
 
@@ -529,8 +518,8 @@ class PRTree : Uncopyable{
       }
 
       bb = BB(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
-      Real dx = bb.xmax - bb.xmin + 0.000000001;
-      Real dy = bb.ymax - bb.ymin + 0.000000001;
+      Real dx = bb.xmax() - bb.xmin() + 0.000000001;
+      Real dy = bb.ymax() - bb.ymin() + 0.000000001;
       Real c = 0.0;
       std::stack<PRTreeNode<T, B>*> sta;
       while (likely(cands.size() == 0)){
@@ -660,7 +649,7 @@ class PRTree : Uncopyable{
     }
     
 
-    auto find_all(const py::array_t<double>& x){
+    auto find_all(const py::array_t<float>& x){
       const auto &buff_info_x = x.request();
       const auto &ndim= buff_info_x.ndim;
       const auto &shape_x = buff_info_x.shape;
@@ -691,7 +680,7 @@ class PRTree : Uncopyable{
       return out;
     }
 
-    vec<T> find_one(const py::array_t<double>& x){
+    vec<T> find_one(const py::array_t<float>& x){
       const auto &buff_info_x = x.request();
       const auto &ndim= buff_info_x.ndim;
       const auto &shape_x = buff_info_x.shape;
@@ -704,7 +693,7 @@ class PRTree : Uncopyable{
 
     vec<T> find(const BB& target){
       vec<T> out;
-      std::queue<PRTreeNode<T, B>*, std::deque<PRTreeNode<T, B>*>> que;
+      queue<PRTreeNode<T, B>*> que;
       PRTreeNode<T, B>* p, * q;
       auto qpush = [&](PRTreeNode<T, B>* r){
         if (unlikely((*r)(target))){
@@ -740,7 +729,7 @@ class PRTree : Uncopyable{
         throw std::runtime_error("Given index is not found.");
       }
       BB target = it->second;
-      std::queue<PRTreeNode<T, B>*> que;
+      queue<PRTreeNode<T, B>*> que;
       PRTreeNode<T, B>* p, * q;
       auto qpush = [&](PRTreeNode<T, B>* r){
         if (unlikely((*r)(target))){
