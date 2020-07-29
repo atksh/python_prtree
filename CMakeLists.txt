@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -18,8 +18,8 @@ file(GLOB MYCPP "cpp/*")
 
 add_subdirectory(./third/pybind11/)
 add_subdirectory(./third/cereal/)
+add_subdirectory(./third/xsimd/)
 
 pybind11_add_module(PRTree ${MYCPP})
-target_link_libraries(PRTree PRIVATE cereal)
-target_include_directories(PRTree PRIVATE cereal)
+target_link_libraries(PRTree PRIVATE cereal xsimd)
 
