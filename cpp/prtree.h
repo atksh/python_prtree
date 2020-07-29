@@ -10,7 +10,6 @@
 #include <algorithm>
 #include <numeric>
 #include <memory>
-#include <memory_resource>
 #include <iterator>
 #include <iostream>
 #include <fstream>
@@ -46,10 +45,10 @@ template<class T, class U>
 using pair = std::pair<T, U>;
 
 template<class T>
-using vec = std::pmr::vector<T>;
+using vec = std::vector<T>;
 
 template<class T>
-using deque = std::pmr::deque<T>;
+using deque = std::deque<T>;
 
 template<class T>
 using queue = std::queue<T, deque<T>>;
