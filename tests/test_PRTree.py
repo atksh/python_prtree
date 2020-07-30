@@ -13,7 +13,7 @@ class TestPRTree(unittest.TestCase):
             return b1 and b2
 
         idx = np.arange(100)
-        x = np.random.rand(len(idx), 4).astype(np.float32)
+        x = np.random.rand(len(idx), 4)
         x[:, 1] += x[:, 0]
         x[:, 3] += x[:, 2]
 
@@ -43,7 +43,7 @@ class TestPRTree(unittest.TestCase):
         os.remove('tree.bin')
         N = 100000
         idx = np.arange(N)
-        x = np.random.rand(N, 4).astype(np.float32)
+        x = np.random.rand(N, 4)
         x[:, 1] = x[:, 0] + x[:, 1] / np.sqrt(N) / 100
         x[:, 3] = x[:, 2] + x[:, 3] / np.sqrt(N) / 100
         prtree1 = PRTree(idx, x)
@@ -52,7 +52,7 @@ class TestPRTree(unittest.TestCase):
         for i in range(N//2, N):
             prtree2.insert(idx[i], x[i])
 
-        x = np.random.rand(N, 4).astype(np.float32)
+        x = np.random.rand(N, 4)
         x[:, 1] = x[:, 0] + x[:, 1] / np.sqrt(N) / 100
         x[:, 3] = x[:, 2] + x[:, 3] / np.sqrt(N) / 100
         for i in range(N):

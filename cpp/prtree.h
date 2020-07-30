@@ -16,7 +16,6 @@
 #include <mutex>
 #include <thread>
 #include <future>
-#include <functional>
 #include <cstdlib>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -34,6 +33,7 @@
 namespace xs = xsimd;
 
 #include "parallel.h"
+#include "function_ref.h"
 
 using Real = float;
 
@@ -77,8 +77,12 @@ protected:
   ~Uncopyable() = default;
   Uncopyable(const Uncopyable &) = delete;
   Uncopyable &operator=(const Uncopyable &) = delete;
+  Uncopyable(Uncopyable&&) = default;
+  Uncopyable &operator=(Uncopyable &&) = default;
 };
 
+
+static const auto zero_values = xs::batch<Real, 4>(-1e100, -1e100, -1e100, -1e100);
 class BB
 {
 private:
@@ -115,7 +119,7 @@ public:
 
   inline void clear()
   {
-    values = xs::batch<Real, 4>(-1e100, -1e100, -1e100, -1e100);
+    values += zero_values;
   }
 
   inline BB operator+(const BB &rhs) const
@@ -167,6 +171,12 @@ public:
   {
     first = f;
     second = s;
+  }
+
+  DataType(T&& f, BB&& s)noexcept
+  {
+    first = std::move(f);
+    second = std::move(s);
   }
 
   template <class Archive>
@@ -223,12 +233,12 @@ public:
   }
 
   template <typename F>
-  inline bool filter(DataType<T> &value, const F comp)
+  inline bool filter(DataType<T> &value, const F& comp)
   { // false means given value is ignored
     if (unlikely(data.size() < B))
     { // if there is room, just push the candidate
-      data.emplace_back(std::move(value));
-      update_mbb();
+      mbb += value.second;
+      data.push_back(std::move(value));
       return true;
     }
     else
@@ -236,9 +246,7 @@ public:
       auto iter = upper_bound(data.begin(), data.end(), value, comp);
       if (unlikely(iter != data.end()))
       {
-        //iter->swap(value);
-        swap(iter->first, value.first);
-        swap(iter->second, value.second);
+        swap(*iter, value);
         update_mbb();
       }
       return false;
@@ -282,6 +290,7 @@ public:
   {
     for (int i = 0; i < 4; i++)
     {
+      leaves[i].data.reserve(B);
       leaves[i].set_axis(i);
     }
   }
@@ -303,13 +312,22 @@ public:
     }
   }
 
-  template <class iterator, class Function>
-  inline auto filter(iterator b, iterator e, const int axis, const Function comp)
+  template <class iterator>
+  inline auto filter(iterator& b, iterator& e)
   {
+    vec<tl::function_ref<bool(const DataType<T>&, const DataType<T>&)>> comps;
+    for (int axis = 0; axis < 4; axis++){
+      comps.emplace_back(
+            [axis](const DataType<T> &lhs, const DataType<T> &rhs)noexcept {
+              return lhs.second[axis] < rhs.second[axis];
+            }
+          );
+    }
+
     auto out = std::remove_if(b, e, [&](auto &x) {
       for (auto &l : leaves)
       {
-        if (unlikely(l.filter(x, comp)))
+        if (unlikely(l.filter(x, comps[l.axis])))
         {
           return true;
         }
@@ -341,7 +359,7 @@ public:
       root = std::make_unique<PseudoPRTreeNode<T, B>>();
     }
     construct(root.get(), b, e, 0);
-    b->~DataType<T>();
+
     for (DataType<T> *it = e - 1; it >= b; --it)
     {
       it->~DataType<T>();
@@ -365,24 +383,25 @@ public:
       bool use_recursive_threads = std::pow(2, depth + 1) <= nthreads;
 
       vec<std::thread> threads;
+      threads.reserve(2);
       PseudoPRTreeNode<T, B> *node_left, *node_right;
 
       const int axis = depth % 4;
-      auto comp = [&](const DataType<T> &lhs, const DataType<T> &rhs) {
-        return lhs.second[axis] < rhs.second[axis];
-      };
-      auto ee = node->filter(b, e, axis, std::ref(comp));
+      auto ee = node->filter(b, e);
       auto m = b;
       std::advance(m, (ee - b) / 2);
       auto mm = m;
-      std::nth_element(b, m, ee, comp); // about 25~30 % of construction time
+      std::nth_element(b, m, ee, [axis](const DataType<T> &lhs, const DataType<T> &rhs)noexcept{
+        return lhs.second[axis] < rhs.second[axis];
+      });
+
       if (m - b > 0)
       {
         node->left = std::make_unique<PseudoPRTreeNode<T, B>>();
         node_left = node->left.get();
         if (use_recursive_threads)
         {
-          threads.emplace_back(std::thread([&]() { construct(node_left, b, m, depth + 1); }));
+          threads.push_back(std::thread([&]() { construct(node_left, b, m, depth + 1); }));
         }
         else
         {
@@ -395,7 +414,7 @@ public:
         node_right = node->right.get();
         if (use_recursive_threads)
         {
-          threads.emplace_back(std::thread([&]() { construct(node_right, mm, ee, depth + 1); }));
+          threads.push_back(std::thread([&]() { construct(node_right, mm, ee, depth + 1); }));
         }
         else
         {
@@ -458,19 +477,18 @@ public:
   {
     mbb = _mbb;
   }
-  PRTreeNode(BB &&_mbb)
+
+  PRTreeNode(BB && _mbb)
   {
     mbb = std::move(_mbb);
   }
+
   PRTreeNode(Leaf<T, B> *l)
   {
     leaf = std::make_unique<Leaf<T, B>>();
-    leaf->mbb = l->mbb;
     mbb = l->mbb;
-    for (const auto &d : l->data)
-    {
-      leaf->push(d.first, d.second);
-    }
+    leaf->mbb = std::move(l->mbb);
+    leaf->data = std::move(l->data);
   }
 
   inline bool operator()(const BB &target)
@@ -546,6 +564,9 @@ public:
     {
       throw std::runtime_error("Bounding box must have the shape (length, 4)");
     }
+
+    auto ri = idx.template unchecked<1>();
+    auto rx = x.template unchecked<2>();
     size_t length = shape_idx[0];
     umap.reserve(length);
 
@@ -557,18 +578,18 @@ public:
     parallel_for_each(b, e,
                       [&](auto &it) {
                         int i = &it - b;
-                        auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
-                        new (b + i) DataType<T>{*idx.data(i), bb};
+                        auto bb = BB(rx(i, 0), rx(i, 1), rx(i, 2), rx(i, 3));
+                        new (b + i) DataType<T>{ri(i), std::move(bb)};
                       });
 
     auto build_umap = [&] {for (size_t i = 0; i < length; i++){
-        auto bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
-        umap.emplace_hint(umap.end(), *idx.data(i), std::move(bb));
+        auto bb = BB(rx(i, 0), rx(i, 1), rx(i, 2), rx(i, 3));
+        umap.emplace_hint(umap.end(), ri(i), std::move(bb));
       } };
 
     //ProfilerStart("construct.prof");
-    auto t1 = std::thread(build_umap);
     auto t2 = std::thread([&] { build(b, e, placement); });
+    auto t1 = std::thread(std::move(build_umap));
     t1.join();
     t2.join();
     //ProfilerStop();
@@ -625,7 +646,7 @@ public:
 
         if (unlikely(p->leaf))
         {
-          cands.emplace_back(p->leaf.get());
+          cands.push_back(p->leaf.get());
         }
         else
         {
@@ -670,7 +691,7 @@ public:
   }
 
   template <class iterator>
-  void build(iterator b, iterator e, void *placement)
+  void build(iterator& b, iterator& e, void *placement)
   {
     vec<Leaf<int, B> *> leaves;
     vec<std::unique_ptr<PRTreeNode<T, B>>> tmp_nodes, prev_nodes;
@@ -681,7 +702,7 @@ public:
     parallel_for_each(first_leaves.begin(), first_leaves.end(), prev_nodes,
                       [&](auto &leaf, auto &o) {
                         auto pp = std::make_unique<PRTreeNode<T, B>>(leaf);
-                        o.emplace_back(std::move(pp));
+                        o.push_back(std::move(pp));
                       });
 
     auto [bb, ee] = first_tree.as_X(placement, e - b);
@@ -712,7 +733,7 @@ public:
                             {
                               throw std::runtime_error("ppp");
                             }
-                            o.emplace_back(std::move(pp));
+                            o.push_back(std::move(pp));
                           }
                           else
                           {
@@ -772,7 +793,7 @@ public:
     if (ndim == 1)
     {
       bb = BB(*x.data(0), *x.data(1), *x.data(2), *x.data(3));
-      X.emplace_back(std::move(bb));
+      X.push_back(std::move(bb));
     }
     else
     {
@@ -780,13 +801,13 @@ public:
       for (long int i = 0; i < shape_x[0]; i++)
       {
         bb = BB(*x.data(i, 0), *x.data(i, 1), *x.data(i, 2), *x.data(i, 3));
-        X.emplace_back(std::move(bb));
+        X.push_back(std::move(bb));
       }
     }
     size_t length = X.size();
     vec<vec<T>> out;
     out.reserve(length);
-    parallel_for_each(X.begin(), X.end(), out, [&](const BB &x, auto &o) { o.emplace_back(find(x)); });
+    parallel_for_each(X.begin(), X.end(), out, [&](const BB &x, auto &o) { o.push_back(find(x)); });
     return out;
   }
 
