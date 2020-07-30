@@ -1,10 +1,10 @@
+import gc
+import random
 from python_prtree import PRTree
 import numpy as np
 import time
 import matplotlib.pyplot as plt
 plt.rcParams["font.size"] = 18
-import random
-import gc
 
 
 def f(N):
@@ -38,8 +38,6 @@ def f(N):
     return t - s, u - t2, (u1 - u), (v - u2), (time.time() - v2)
 
 
-
-
 x = []
 y1 = []
 y2 = []
@@ -47,10 +45,10 @@ y22 = []
 y3 = []
 y4 = []
 for i in list(range(7, 25))[::-1]:
-    n = int(1.5 ** (12+ i))
+    n = int(1.5 ** (12 + i))
     print(n, end=', ')
     x.append(n)
-    s, t, t2, u,v = f(n)
+    s, t, t2, u, v = f(n)
     y1.append(s)
     y2.append(t)
     y22.append(t2)
