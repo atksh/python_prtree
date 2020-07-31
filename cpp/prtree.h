@@ -30,10 +30,10 @@
 #include <cereal/types/unordered_map.hpp>
 
 #include "xsimd/xsimd.hpp"
-namespace xs = xsimd;
-
 #include "parallel.h"
 #include "function_ref.h"
+
+namespace xs = xsimd;
 
 using Real = float;
 
@@ -69,18 +69,6 @@ inline Iter select_randomly(Iter start, Iter end)
   std::advance(start, dis(rand_src));
   return start;
 };
-
-class Uncopyable
-{
-protected:
-  Uncopyable() = default;
-  ~Uncopyable() = default;
-  Uncopyable(const Uncopyable &) = delete;
-  Uncopyable &operator=(const Uncopyable &) = delete;
-  Uncopyable(Uncopyable&&) = default;
-  Uncopyable &operator=(Uncopyable &&) = default;
-};
-
 
 static const auto zero_values = xs::batch<Real, 4>(-1e100, -1e100, -1e100, -1e100);
 class BB
@@ -165,7 +153,7 @@ class DataType
 public:
   T first;
   BB second;
-  DataType() = default;
+  DataType(){};
 
   DataType(const T &f, const BB &s)
   {
@@ -173,7 +161,7 @@ public:
     second = s;
   }
 
-  DataType(T&& f, BB&& s)noexcept
+  DataType(T &&f, BB &&s)
   {
     first = std::move(f);
     second = std::move(s);
@@ -187,7 +175,7 @@ public:
 };
 
 template <class T, int B = 6>
-class Leaf : Uncopyable
+class Leaf
 {
 public:
   int axis = 0;
@@ -204,6 +192,12 @@ public:
     axis = _axis;
     mbb = BB();
     data.reserve(B);
+  }
+
+  ~Leaf()
+  {
+    data.clear();
+    vec<DataType<T>>().swap(data);
   }
 
   template <class Archive>
@@ -233,7 +227,7 @@ public:
   }
 
   template <typename F>
-  inline bool filter(DataType<T> &value, const F& comp)
+  inline bool filter(DataType<T> &value, const F &comp)
   { // false means given value is ignored
     if (unlikely(data.size() < B))
     { // if there is room, just push the candidate
@@ -280,7 +274,7 @@ public:
 };
 
 template <class T, int B = 6>
-class PseudoPRTreeNode : Uncopyable
+class PseudoPRTreeNode
 {
 public:
   std::array<Leaf<T, B>, 4> leaves;
@@ -290,10 +284,10 @@ public:
   {
     for (int i = 0; i < 4; i++)
     {
-      leaves[i].data.reserve(B);
       leaves[i].set_axis(i);
     }
   }
+
   template <class Archive>
   void serialize(Archive &archive)
   {
@@ -313,15 +307,15 @@ public:
   }
 
   template <class iterator>
-  inline auto filter(iterator& b, iterator& e)
+  inline auto filter(iterator &b, iterator &e)
   {
-    vec<tl::function_ref<bool(const DataType<T>&, const DataType<T>&)>> comps;
-    for (int axis = 0; axis < 4; axis++){
+    vec<tl::function_ref<bool(const DataType<T> &, const DataType<T> &)>> comps;
+    for (int axis = 0; axis < 4; axis++)
+    {
       comps.emplace_back(
-            [axis](const DataType<T> &lhs, const DataType<T> &rhs)noexcept {
-              return lhs.second[axis] < rhs.second[axis];
-            }
-          );
+          [axis](const DataType<T> &lhs, const DataType<T> &rhs) noexcept {
+            return lhs.second[axis] < rhs.second[axis];
+          });
     }
 
     auto out = std::remove_if(b, e, [&](auto &x) {
@@ -339,7 +333,7 @@ public:
 };
 
 template <class T, int B = 6>
-class PseudoPRTree : Uncopyable
+class PseudoPRTree
 {
 public:
   std::unique_ptr<PseudoPRTreeNode<T, B>> root;
@@ -349,6 +343,12 @@ public:
   PseudoPRTree()
   {
     root = std::make_unique<PseudoPRTreeNode<T, B>>();
+  }
+
+  ~PseudoPRTree()
+  {
+    cache_children.clear();
+    vec<Leaf<T, B> *>().swap(cache_children);
   }
 
   template <class iterator>
@@ -391,7 +391,7 @@ public:
       auto m = b;
       std::advance(m, (ee - b) / 2);
       auto mm = m;
-      std::nth_element(b, m, ee, [axis](const DataType<T> &lhs, const DataType<T> &rhs)noexcept{
+      std::nth_element(b, m, ee, [axis](const DataType<T> &lhs, const DataType<T> &rhs) noexcept {
         return lhs.second[axis] < rhs.second[axis];
       });
 
@@ -422,6 +422,8 @@ public:
         }
       }
       std::for_each(threads.begin(), threads.end(), [&](std::thread &x) { x.join(); });
+      threads.clear();
+      vec<std::thread>().swap(threads);
     }
   }
 
@@ -465,7 +467,7 @@ public:
 };
 
 template <class T, int B = 6>
-class PRTreeNode : Uncopyable
+class PRTreeNode
 {
 public:
   BB mbb;
@@ -478,7 +480,7 @@ public:
     mbb = _mbb;
   }
 
-  PRTreeNode(BB && _mbb)
+  PRTreeNode(BB &&_mbb)
   {
     mbb = std::move(_mbb);
   }
@@ -505,7 +507,7 @@ public:
 };
 
 template <class T, int B = 6>
-class PRTree : Uncopyable
+class PRTree
 {
 private:
   std::unique_ptr<PRTreeNode<T, B>> root;
@@ -532,6 +534,12 @@ public:
   }
 
   PRTree() {}
+
+  ~PRTree()
+  {
+    umap.clear();
+    std::unordered_map<T, BB>().swap(umap);
+  }
 
   PRTree(std::string fname)
   {
@@ -572,7 +580,7 @@ public:
 
     DataType<T> *b, *e;
     void *placement = std::malloc(std::max(sizeof(DataType<T>), sizeof(DataType<int>)) * length);
-    b = (DataType<T> *)placement;
+    b = reinterpret_cast<DataType<T> *>(placement);
     e = b + length;
 
     parallel_for_each(b, e,
@@ -691,10 +699,9 @@ public:
   }
 
   template <class iterator>
-  void build(iterator& b, iterator& e, void *placement)
+  void build(iterator &b, iterator &e, void *placement)
   {
-    vec<Leaf<int, B> *> leaves;
-    vec<std::unique_ptr<PRTreeNode<T, B>>> tmp_nodes, prev_nodes;
+    vec<std::unique_ptr<PRTreeNode<T, B>>> prev_nodes;
     std::unique_ptr<PRTreeNode<T, B>> p, q, r;
 
     auto first_tree = PseudoPRTree<T, B>(b, e);
@@ -709,9 +716,10 @@ public:
     while (likely(prev_nodes.size() > 1))
     {
       auto tree = PseudoPRTree<int, B>(bb, ee);
-      leaves = tree.get_all_leaves(ee - bb);
+      vec<Leaf<int, B> *> leaves = tree.get_all_leaves(ee - bb);
       auto leaves_size = leaves.size();
-      tmp_nodes.clear();
+
+      vec<std::unique_ptr<PRTreeNode<T, B>>> tmp_nodes;
       tmp_nodes.reserve(leaves_size);
 
       parallel_for_each(leaves.begin(), leaves.end(), tmp_nodes,
@@ -741,12 +749,6 @@ public:
                           }
                         });
 
-      {
-        auto tmp = tree.as_X(placement, ee - bb);
-        bb = std::move(tmp.first);
-        ee = std::move(tmp.second);
-      }
-
       /*size_t c = 0;
         for (const auto& n : prev_nodes){
           if (unlikely(n)){
@@ -756,17 +758,24 @@ public:
         if (unlikely(c > 0)){
           throw std::runtime_error("eee");
         }*/
-
+      leaves.clear();
+      vec<Leaf<int, B> *>().swap(leaves);
       prev_nodes.swap(tmp_nodes);
+      tmp_nodes.clear();
+      vec<std::unique_ptr<PRTreeNode<T, B>>>().swap(tmp_nodes);
+
+      {
+        auto tmp = tree.as_X(placement, ee - bb);
+        bb = std::move(tmp.first);
+        ee = std::move(tmp.second);
+      }
     }
     if (unlikely(prev_nodes.size() != 1))
     {
       throw std::runtime_error("#roots is not 1.");
     }
     root = std::move(prev_nodes[0]);
-
-    vec<Leaf<int, B> *>().swap(leaves);
-    vec<std::unique_ptr<PRTreeNode<T, B>>>().swap(tmp_nodes);
+    prev_nodes.clear();
     vec<std::unique_ptr<PRTreeNode<T, B>>>().swap(prev_nodes);
   }
 
