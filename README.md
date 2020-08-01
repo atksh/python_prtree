@@ -1,5 +1,9 @@
 # python_prtree
 
+[![Downloads](https://pepy.tech/badge/python-prtree)](https://pepy.tech/project/python-prtree)
+[![Downloads](https://pepy.tech/badge/python-prtree/month)](https://pepy.tech/project/python-prtree/month)
+[![Downloads](https://pepy.tech/badge/python-prtree/week)](https://pepy.tech/project/python-prtree/week)
+
 "python_prtree" is a python implementation of Priority R-Tree (see reference below).
 Supported futures are as follows:
 
