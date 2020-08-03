@@ -47,6 +47,8 @@ prtree = PRTree()
 prtree.load('tree.bin')
 ```
 
+Cross-version compatibility is **NOT** guaranteed, so please rebuild your tree when you update this package.
+
 ## Note
 
 The 1d-array batch query will be implicitly treated as a batch with size = 1.
