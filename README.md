@@ -47,7 +47,7 @@ prtree = PRTree()
 prtree.load('tree.bin')
 ```
 
-Cross-version compatibility is **NOT** guaranteed, so please rebuild your tree when you update this package.
+Cross-version compatibility is **NOT** guaranteed, so please reconstruct your tree when you update this package.
 
 ## Note
 
