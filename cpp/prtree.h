@@ -65,18 +65,11 @@ template <int D = 2> class BB {
 private:
   std::array<Real, 2 * D> values;
 
-  template <typename Iter> bool validate(const Iter &v) const {
-    for (int i = 0; i < D; ++i) {
-      if (unlikely(-v[2 * i] <= v[2 * i + 1])) {
-        throw std::runtime_error("Invalid bb");
-      }
-    }
-  }
-
 public:
   BB() { clear(); }
 
   template <typename Iter> BB(const Iter &minima, const Iter &maxima) {
+    std::array<Real, 2 * D> v;
     if (unlikely(minima.size() != maxima.size())) {
       throw std::runtime_error("Invalid size");
     }
@@ -85,24 +78,16 @@ public:
       throw std::runtime_error("Invalid size");
     }
     for (int i = 0; i < n; ++i) {
-      values[2 * i] = -minima[i];
-      values[2 * i + 1] = maxima[i];
+      v[2 * i] = -minima[i];
+      v[2 * i + 1] = maxima[i];
     }
+    validate(v);
+    values = v;
   }
 
   BB(const std::array<Real, 2 * D> v) {
     validate(v);
     values = v;
-  }
-
-  BB(const vec<Real> v) {
-    if (unlikely(v.size() != 2 * D)) {
-      throw std::runtime_error("Invalid size");
-    }
-    validate(v);
-    for (int i = 0; i < 2 * D; ++i) {
-      values[i] = v[i];
-    }
   }
 
   Real min(const int dim) const {
@@ -118,7 +103,20 @@ public:
     return values[2 * dim + 1];
   }
 
-  void clear() { std::fill_n(values.begin(), D, -1e100); }
+  bool validate(const std::array<Real, 2 * D> &v) const {
+    bool flag = false;
+    for (int i = 0; i < 2; ++i) {
+      if (-v[2 * i] > v[2 * i + 1]) {
+        flag = true;
+        break;
+      }
+    }
+    if (flag) {
+      throw std::runtime_error("Invalid bb");
+    }
+    return flag;
+  }
+  void clear() { std::fill_n(values.begin(), 2 * D, -1e100); }
 
   BB operator+(const BB &rhs) const {
     std::array<Real, 2 * D> result;
@@ -146,7 +144,7 @@ public:
       const BB &target) const { // whether this and target has any intersect
     std::array<Real, 2 * D> result;
     for (int i = 0; i < 2 * D; ++i) {
-      result[i] = std::max(values[i], target.values[i]);
+      result[i] = std::min(values[i], target.values[i]);
     }
     bool flag = true;
     for (int i = 0; i < D; ++i) {
@@ -155,10 +153,7 @@ public:
     return flag;
   }
 
-  Real operator[](const int i) const {
-    std::cout << "accessed at " << i << std::endl;
-    return values[i];
-  }
+  Real operator[](const int i) const { return values[i]; }
   template <class Archive> void serialize(Archive &ar) { ar(values); }
 };
 
@@ -214,7 +209,6 @@ public:
   void update_mbb() {
     mbb.clear();
     for (const auto &datum : data) {
-      std::cout << datum.second[0] << std::endl;
       mbb += datum.second;
     }
   }
@@ -222,20 +216,15 @@ public:
   template <typename F>
   bool filter(DataType<T, D> &value,
               const F &comp) { // false means given value is ignored
-    std::cout << data.size() << std::endl;
     if (unlikely(data.size() <
                  B)) { // if there is room, just push the candidate
       mbb += value.second;
       data.push_back(std::move(value));
       return true;
     } else { // if there is no room, check the priority and swap if needed
-      std::cout << "upper_bounding... " << std::endl;
       auto iter = std::upper_bound(data.begin(), data.end(), value, comp);
-      std::cout << "done" << std::endl;
       if (unlikely(iter != data.end())) {
-        std::cout << "swapping... " << std::endl;
         swap(*iter, value);
-        std::cout << "done" << std::endl;
         update_mbb();
       }
       return false;
@@ -299,13 +288,10 @@ public:
 
     auto out = std::remove_if(b, e, [&](auto &x) {
       for (auto &l : leaves) {
-        std::cout << l.axis << std::endl;
         if (unlikely(l.filter(x, comps[l.axis]))) {
-          std::cout << "true" << std::endl;
           return true;
         }
       }
-      std::cout << "false" << std::endl;
       return false;
     });
     return out;
@@ -348,15 +334,14 @@ public:
                  const size_t depth) {
     if (e - b > 0 && node != nullptr) {
       bool use_recursive_threads = std::pow(2, depth + 1) <= nthreads;
+      use_recursive_threads = false;
 
       vec<std::thread> threads;
       threads.reserve(2);
       PseudoPRTreeNode<T, B, D> *node_left, *node_right;
 
       const int axis = depth % (2 * D);
-      std::cout << "axis " << axis << std::endl;
       auto ee = node->filter(b, e);
-      std::cout << "filtered" << std::endl;
       auto m = b;
       std::advance(m, (ee - b) / 2);
       auto mm = m;
@@ -394,7 +379,6 @@ public:
   }
 
   auto get_all_leaves(const int hint) {
-    std::cout << "get_all_leaves" << std::endl;
     if (cache_children.empty()) {
       using U = PseudoPRTreeNode<T, B, D>;
       cache_children.reserve(hint);
@@ -472,7 +456,6 @@ public:
       {
         std::ofstream ofs(fname, std::ios::binary);
         cereal::PortableBinaryOutputArchive o_archive(ofs);
-        // cereal::JSONOutputArchive o_archive(ofs);
         o_archive(cereal::make_nvp("root", root),
                   cereal::make_nvp("umap", umap));
       }
@@ -524,7 +507,7 @@ public:
     b = reinterpret_cast<DataType<T, D> *>(placement);
     e = b + length;
 
-    parallel_for_each(b, e, [&](auto &it) {
+    std::for_each(b, e, [&](auto &it) {
       int i = &it - b;
       std::array<Real, D> minima;
       std::array<Real, D> maxima;
@@ -550,12 +533,10 @@ public:
     };
 
     // ProfilerStart("construct.prof");
+    auto t2 = std::thread([&] { build(b, e, placement); });
     auto t1 = std::thread(std::move(build_umap));
     t1.join();
-    std::cout << "end build umap" << std::endl;
-    auto t2 = std::thread([&] { build(b, e, placement); });
     t2.join();
-    std::cout << "build" << std::endl;
     // ProfilerStop();
     std::free(placement);
   }
@@ -661,19 +642,16 @@ public:
 
   template <class iterator>
   void build(iterator &b, iterator &e, void *placement) {
-    std::cout << "building..." << std::endl;
     vec<std::unique_ptr<PRTreeNode<T, B, D>>> prev_nodes;
     std::unique_ptr<PRTreeNode<T, B, D>> p, q, r;
 
     auto first_tree = PseudoPRTree<T, B, D>(b, e);
-    std::cout << "building..." << std::endl;
     auto first_leaves = first_tree.get_all_leaves(e - b);
     parallel_for_each(first_leaves.begin(), first_leaves.end(), prev_nodes,
                       [&](auto &leaf, auto &o) {
                         auto pp = std::make_unique<PRTreeNode<T, B, D>>(leaf);
                         o.push_back(std::move(pp));
                       });
-    std::cout << "end p-for-each" << std::endl;
     auto [bb, ee] = first_tree.as_X(placement, e - b);
     while (likely(prev_nodes.size() > 1)) {
       auto tree = PseudoPRTree<int, B, D>(bb, ee);
