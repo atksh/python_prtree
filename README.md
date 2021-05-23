@@ -4,7 +4,8 @@
 "python_prtree" is a python implementation of Priority R-Tree (see reference below).
 Supported futures are as follows:
 
-- Construct Priority R-Tree(PRTree) from rectangles; an array of (xmin, xmax, ymin, ymax)
+- Construct Priority R-Tree(PRTree) from rectangles; an array of (xmin, xmax, ymin, ymax) / (xmin, xmax, ymin, ymax, zmin, zmax)
+  - Now supports 3D PRTree with python_prtree>=0.4.0
 - query and batch query with a rectangle(s)
 - insert and erase(delete) (but not optimized yet)
 
@@ -13,13 +14,13 @@ Supported futures are as follows:
 # Usage 
 ```python
 import numpy as np
-from python_prtree import PRTree
+from python_prtree import PRTree2D
 
 idxes = np.array([1, 2])  # must be unique because it uses idx as key for hash map
 rects = np.array([[0.0, 1.0, 0.0, 0.5],
                   [1.0, 1.2, 2.5, 3.0]])  # (xmin, xmax, ymin, ymax)
 
-prtree = PRTree(idxes, rects)  # initial construction
+prtree = PRTree2D(idxes, rects)  # initial construction
 
 q = np.array([[0.5, 0.6, 0.2, 0.3],
               [0.8, 1.5, 0.5, 3.5]])
@@ -28,7 +29,28 @@ print(result)
 # [[1], [1, 2]]
 ```
 
-## New features(`python-prtree>=0.3.0`)
+## New features (`python-prtree>=0.4.0`)
+You can use PRTree3D:
+
+```python
+import numpy as np
+from python_prtree import PRTree3D
+
+idxes = np.array([1, 2])  # must be unique because it uses idx as key for hash map
+rects = np.array([[0.0, 1.0, 0.0, 0.5, 0.0, 0.5],
+                  [1.0, 1.2, 2.5, 3.0, 2.5, 3.0]])  # (xmin, xmax, ymin, ymax, zmin, zmax)
+
+prtree = PRTree3D(idxes, rects)  # initial construction
+
+q = np.array([[0.5, 0.6, 0.2, 0.3, 0.2, 0.3],
+              [0.8, 1.5, 0.5, 3.5, 0.5, 3.5]])
+result = prtree.batch_query(q)
+print(result)
+# [[1], [1, 2]]
+```
+
+
+## New features (`python-prtree>=0.3.0`)
 You can save and load a binary file as follows:
 
 ```python
@@ -85,13 +107,33 @@ This installation needs cmake.
 
 # Performance
 ## Construction
-![fig1](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/fig1.png)
+### 2d
+
+![2d_fig1](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/2d_fig1.png)
+
+### 3d
+
+![3d_fig1](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/3d_fig1.png)
 
 ## Query and batch query
-![fig2](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/fig2.png)
+
+### 2d
+
+![2d_fig2](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/2d_fig2.png)
+
+### 3d
+
+![3d_fig2](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/2d_fig2.png)
 
 ## Delete and insert
-![fig3](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/fig3.png)
+
+### 2d
+
+![2d_fig3](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/2d_fig3.png)
+
+### 3d
+
+![3d_fig3](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/2d_fig3.png)
 
 # Requirement
 - numpy

@@ -334,7 +334,6 @@ public:
                  const size_t depth) {
     if (e - b > 0 && node != nullptr) {
       bool use_recursive_threads = std::pow(2, depth + 1) <= nthreads;
-      use_recursive_threads = false;
 
       vec<std::thread> threads;
       threads.reserve(2);
@@ -507,7 +506,7 @@ public:
     b = reinterpret_cast<DataType<T, D> *>(placement);
     e = b + length;
 
-    std::for_each(b, e, [&](auto &it) {
+    parallel_for_each(b, e, [&](auto &it) {
       int i = &it - b;
       std::array<Real, D> minima;
       std::array<Real, D> maxima;
