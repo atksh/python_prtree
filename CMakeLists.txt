@@ -18,8 +18,7 @@ file(GLOB MYCPP "cpp/*")
 
 add_subdirectory(./third/pybind11/)
 add_subdirectory(./third/cereal/)
-add_subdirectory(./third/xsimd/)
 
 pybind11_add_module(PRTree ${MYCPP})
-target_link_libraries(PRTree PRIVATE cereal xsimd)
+target_link_libraries(PRTree PRIVATE cereal)
 
