@@ -123,7 +123,7 @@ This installation needs cmake.
 
 ### 3d
 
-![3d_fig2](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/2d_fig2.png)
+![3d_fig2](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/3d_fig2.png)
 
 ## Delete and insert
 
@@ -133,7 +133,7 @@ This installation needs cmake.
 
 ### 3d
 
-![3d_fig3](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/2d_fig3.png)
+![3d_fig3](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/3d_fig3.png)
 
 # Requirement
 - numpy
