@@ -3,13 +3,15 @@ from python_prtree import PRTree2D, PRTree3D
 import numpy as np
 
 
+N_SEED = 100
+
 def has_intersect(x, y, dim):
     return all(
         [max(x[i], y[i]) <= min(x[i + dim], y[i + dim]) for i in range(dim)]
     )
 
 
-@pytest.mark.parametrize("seed", range(30))
+@pytest.mark.parametrize("seed", range(N_SEED))
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
 def test_result(seed, PRTree, dim):
     np.random.seed(seed)
@@ -25,7 +27,7 @@ def test_result(seed, PRTree, dim):
         assert set(out[i]) == set(tmp)
 
 
-@pytest.mark.parametrize("seed", range(30))
+@pytest.mark.parametrize("seed", range(N_SEED))
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
 def test_io(seed, PRTree, dim, tmp_path):
     np.random.seed(seed)
@@ -55,7 +57,7 @@ def test_io(seed, PRTree, dim, tmp_path):
         assert set(out[i]) == set(tmp)
 
 
-@pytest.mark.parametrize("seed", range(30))
+@pytest.mark.parametrize("seed", range(N_SEED))
 @pytest.mark.parametrize("from_scratch", [False, True])
 @pytest.mark.parametrize("rebuild", [False, True])
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
