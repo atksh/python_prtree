@@ -718,9 +718,9 @@ public:
     const auto &ndim = buff_info_x.ndim;
     const auto &shape_x = buff_info_x.shape;
     bool is_point = false;
-    if (ndim == 1 && (not (shape_x[0] == 2 * D || shape_x[0] == D))) {
+    if (ndim == 1 && (!(shape_x[0] == 2 * D || shape_x[0] == D))) {
       throw std::runtime_error("Invalid Bounding box size");
-    } else if (ndim == 2 && (not (shape_x[1] == 2 * D || shape_x[1] == D))) {
+    } else if (ndim == 2 && (!(shape_x[1] == 2 * D || shape_x[1] == D))) {
       throw std::runtime_error(
           "Bounding box must have the shape (length, 2 * dim)");
     } else if (ndim > 3) {
@@ -783,7 +783,7 @@ public:
 
   vec<T> find_one(const vec<float> &x) {
     bool is_point = false;
-    if (unlikely(not (x.size() == 2 * D || x.size() == D))) {
+    if (unlikely(!(x.size() == 2 * D || x.size() == D))) {
       throw std::runtime_error("invalid shape");
     }
     std::array<Real, D> minima;
