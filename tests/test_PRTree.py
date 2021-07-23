@@ -11,6 +11,7 @@ def has_intersect(x, y, dim):
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
 def test_result(PRTree, dim):
+    np.random.seed(1)
     idx = np.arange(100)
     x = np.random.rand(len(idx), 2 * dim)
     for i in range(dim):
@@ -25,6 +26,7 @@ def test_result(PRTree, dim):
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
 def test_io(PRTree, dim, tmp_path):
+    np.random.seed(1)
     idx = np.arange(100)
     x = np.random.rand(len(idx), 2 * dim)
     for i in range(dim):
@@ -53,6 +55,7 @@ def test_io(PRTree, dim, tmp_path):
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
 def test_insert_erase(PRTree, dim):
+    np.random.seed(1)
     N = 10000
     idx = np.arange(N)
     x = np.random.rand(N, 2 * dim)
