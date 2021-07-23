@@ -1,15 +1,31 @@
 # python_prtree
 
+*python_prtree* is a python/c++ implementation of the Priority R-Tree (see references below). The supported futures are as follows:
 
-"python_prtree" is a python implementation of Priority R-Tree (see reference below).
-Supported futures are as follows:
+- Construct a Priority R-Tree (PRTree) from an array of rectangles
+  - The array shape is (xmin, ymin, xmax, ymax) in 2D and (xmin, ymin, zmin, xmax, ymax, zmax) in 3D.
+  - 3D PRTree is supported since `>=0.4.0`.
+  - Changed the ordering of the array shape since `>=0.5.0`. 
+- `query` and `batch_query` with rectangle(s)
+- `insert` and `erase` (but not yet optimized)
+- `rebuild` with already given data since `>=0.5.0`.
+  - For better performance when too many insert/erase operations are called since.
 
-- Construct Priority R-Tree(PRTree) from rectangles; an array of (xmin, xmax, ymin, ymax) / (xmin, xmax, ymin, ymax, zmin, zmax)
-  - Now supports 3D PRTree with python_prtree>=0.4.0
-- query and batch query with a rectangle(s)
-- insert and erase(delete) (but not optimized yet)
+This package is mainly for **mostly static situations** where insertion and deletion events rarely occur (e.g. map matching).
 
-**This package is mainly for nearly static situations, which mean few insert/delete events happen (e.g., map-matching).**
+## Installation
+You can install python_prtree with the pip command:
+```bash
+pip install python-prtree
+```
+
+If the pip installation does not work (e.g. on an M1 Mac), please git clone clone and install as follows:
+```bash
+pip install -U cmake pybind11
+git clone --recursive https://github.com/atksh/python_prtree
+cd python_prtree
+python setup.py install
+```
 
 # Usage 
 ```python
@@ -17,19 +33,39 @@ import numpy as np
 from python_prtree import PRTree2D
 
 idxes = np.array([1, 2])  # must be unique because it uses idx as key for hash map
-rects = np.array([[0.0, 1.0, 0.0, 0.5],
-                  [1.0, 1.2, 2.5, 3.0]])  # (xmin, xmax, ymin, ymax)
+rects = np.array([[0.0, 0.0, 1.0, 0.5],
+                  [1.0, 1.5, 1.2, 3.0]])  # (xmin, ymin, xmax, ymax)
 
 prtree = PRTree2D(idxes, rects)  # initial construction
 
-q = np.array([[0.5, 0.6, 0.2, 0.3],
-              [0.8, 1.5, 0.5, 3.5]])
+q = np.array([[0.5, 0.2, 0.6, 0.3],
+              [0.8, 0.5, 1.5, 3.5]])
 result = prtree.batch_query(q)
 print(result)
 # [[1], [1, 2]]
+
+# You can insert an additional rectangle,
+prtree.insert(3, np.array([1.0, 1.0, 2.0, 2.0]))
+q = np.array([[0.5, 0.2, 0.6, 0.3],
+              [0.8, 0.5, 1.5, 3.5]])
+result = prtree.batch_query(q)
+print(result)
+# [[1], [1, 2, 3]]
+
+# And erase by index.
+prtree.erase(2)
+result = prtree.batch_query(q)
+print(result)
+# [[1], [1, 3]]
 ```
 
-## New features 
+## New features and Changes 
+### `python-prtree>=0.5.0`
+- [**CRUTIAL**] Changed the input order from (xmin, xmax, ymin, ymax, ...) to (xmin, ymin, xmax, ymax, ...) to (xmin, ymin, xmax, ymax, ...).
+- [**FEATURE**] Added rebuild method to build the PRTree from scratch using the already given data.
+- [**BUGFIX**] Fixed a bug that prevented insertion into an empty PRTree.
+- [**REMIND**] Cross-version saving and loading compatibility is not guaranteed.
+
 ### `python-prtree>=0.4.0`
 You can use PRTree3D:
 
@@ -38,16 +74,16 @@ import numpy as np
 from python_prtree import PRTree3D
 
 idxes = np.array([1, 2])  # must be unique because it uses idx as key for hash map
-rects = np.array([[0.0, 1.0, 0.0, 0.5, 0.0, 0.5],
-                  [1.0, 1.2, 2.5, 3.0, 2.5, 3.0]])  # (xmin, xmax, ymin, ymax, zmin, zmax)
+rects = np.array([[0.0, 0.5, 0.0, 0.5, 1.0, 0.5],
+                  [1.0, 1.5, 2.0, 1.2, 2.5, 3.0]])  # (xmin, ymin, zmin, xmax, ymax, zmax)
 
 prtree = PRTree3D(idxes, rects)  # initial construction
 
-q = np.array([[0.5, 0.6, 0.2, 0.3, 0.2, 0.3],
-              [0.8, 1.5, 0.5, 3.5, 0.5, 3.5]])
+q = np.array([[0.5, 0.2, 0.2, 0.6, 0.3, 0.3],
+              [0.8, 0.5, 0.5, 1.5, 3.5, 3.5]])
 result = prtree.batch_query(q)
 print(result)
-# [[1], [1, 2]]
+# [[], [2]]
 ```
 
 ### `python-prtree>=0.3.0`
@@ -90,19 +126,7 @@ prtree.erase(1)  # delete the rectangle with idx=1 from the PRTree
 prtree.insert(3, np.array([0.3, 0.5, 0.1, 0.2]))  # add a new rectangle to the PRTree
 ```
 
-# Installation
-To install python_prtree with pip command
-```bash
-pip install python-prtree
-```
 
-Or, you can clone and install just like
-```bash
-git clone --recursive https://github.com/atksh/python_prtree
-cd python_prtree
-python setup.py install
-```
-This installation needs cmake.
 
 
 # Performance

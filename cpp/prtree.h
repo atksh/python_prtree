@@ -78,8 +78,8 @@ public:
       throw std::runtime_error("Invalid size");
     }
     for (int i = 0; i < n; ++i) {
-      v[2 * i] = -minima[i];
-      v[2 * i + 1] = maxima[i];
+      v[i] = -minima[i];
+      v[i + D] = maxima[i];
     }
     validate(v);
     values = v;
@@ -94,25 +94,25 @@ public:
     if (unlikely(dim < 0 || D <= dim)) {
       throw std::runtime_error("Invalid dim");
     }
-    return -values[2 * dim];
+    return -values[dim];
   }
   Real max(const int dim) const {
     if (unlikely(dim < 0 || D <= dim)) {
       throw std::runtime_error("Invalid dim");
     }
-    return values[2 * dim + 1];
+    return values[dim + D];
   }
 
   bool validate(const std::array<Real, 2 * D> &v) const {
     bool flag = false;
     for (int i = 0; i < 2; ++i) {
-      if (-v[2 * i] > v[2 * i + 1]) {
+      if (-v[i] > v[i + D]) {
         flag = true;
         break;
       }
     }
     if (flag) {
-      throw std::runtime_error("Invalid bb");
+      throw std::runtime_error("Invalid Bounding Box");
     }
     return flag;
   }
@@ -135,8 +135,8 @@ public:
 
   void expand(const std::array<Real, D> &delta) {
     for (int i = 0; i < D; ++i) {
-      values[2 * i] += delta[i];
-      values[2 * i + 1] += delta[i];
+      values[i] += delta[i];
+      values[i + D] += delta[i];
     }
   }
 
@@ -148,7 +148,7 @@ public:
     }
     bool flag = true;
     for (int i = 0; i < D; ++i) {
-      flag = flag && (-result[2 * i] <= result[2 * i + 1]);
+      flag = flag && (-result[i] <= result[i + D]);
     }
     return flag;
   }
@@ -443,10 +443,11 @@ template <class T, int B = 6, int D = 2> class PRTree {
 private:
   std::unique_ptr<PRTreeNode<T, B, D>> root;
   std::unordered_map<T, BB<D>> umap;
+  int64_t n_at_build = 0;
 
 public:
   template <class Archive> void serialize(Archive &archive) {
-    archive(root, umap);
+    archive(root, umap, n_at_build);
     // archive.serializeDeferments();
   }
 
@@ -456,7 +457,8 @@ public:
         std::ofstream ofs(fname, std::ios::binary);
         cereal::PortableBinaryOutputArchive o_archive(ofs);
         o_archive(cereal::make_nvp("root", root),
-                  cereal::make_nvp("umap", umap));
+                  cereal::make_nvp("umap", umap),
+                  cereal::make_nvp("n_at_build", n_at_build));
       }
     }
   }
@@ -477,7 +479,8 @@ public:
         cereal::PortableBinaryInputArchive i_archive(ifs);
         // cereal::JSONInputArchive i_archive(ifs);
         i_archive(cereal::make_nvp("root", root),
-                  cereal::make_nvp("umap", umap));
+                  cereal::make_nvp("umap", umap),
+                  cereal::make_nvp("n_at_build", n_at_build));
       }
     }
   }
@@ -511,32 +514,24 @@ public:
       std::array<Real, D> minima;
       std::array<Real, D> maxima;
       for (int j = 0; j < D; ++j) {
-        minima[j] = rx(i, 2 * j);
-        maxima[j] = rx(i, 2 * j + 1);
+        minima[j] = rx(i, j);
+        maxima[j] = rx(i, j + D);
       }
       auto bb = BB<D>(minima, maxima);
       new (b + i) DataType<T, D>{ri(i), std::move(bb)};
     });
 
-    auto build_umap = [&] {
-      for (size_t i = 0; i < length; i++) {
-        std::array<Real, D> minima;
-        std::array<Real, D> maxima;
-        for (int j = 0; j < D; ++j) {
-          minima[j] = rx(i, 2 * j);
-          maxima[j] = rx(i, 2 * j + 1);
-        }
-        auto bb = BB<D>(minima, maxima);
-        umap.emplace_hint(umap.end(), ri(i), std::move(bb));
+    for (size_t i = 0; i < length; i++) {
+      std::array<Real, D> minima;
+      std::array<Real, D> maxima;
+      for (int j = 0; j < D; ++j) {
+        minima[j] = rx(i, j);
+        maxima[j] = rx(i, j + D);
       }
-    };
-
-    // ProfilerStart("construct.prof");
-    auto t2 = std::thread([&] { build(b, e, placement); });
-    auto t1 = std::thread(std::move(build_umap));
-    t1.join();
-    t2.join();
-    // ProfilerStop();
+      auto bb = BB<D>(minima, maxima);
+      umap.emplace_hint(umap.end(), ri(i), std::move(bb));
+    }
+    build(b, e, placement);
     std::free(placement);
   }
 
@@ -556,15 +551,19 @@ public:
     if (unlikely(it != umap.end())) {
       throw std::runtime_error("Given index is already included.");
     }
+    if (size() > 1.5 * n_at_build){
+      rebuild();
+    }
     {
       std::array<Real, D> minima;
       std::array<Real, D> maxima;
       for (int i = 0; i < D; ++i) {
-        minima[i] = *x.data(2 * i);
-        maxima[i] = *x.data(2 * i + 1);
+        minima[i] = *x.data(i);
+        maxima[i] = *x.data(i + D);
       }
       bb = BB<D>(minima, maxima);
     }
+    umap.emplace(idx, bb);
 
     std::array<Real, D> delta;
     for (int i = 0; i < D; ++i) {
@@ -609,18 +608,10 @@ public:
         }
       }
     }
+
+    bb = umap.at(idx);
     auto tg = *select_randomly(cands.begin(), cands.end());
-    {
-      std::array<Real, D> minima;
-      std::array<Real, D> maxima;
-      for (int i = 0; i < D; ++i) {
-        minima[i] = *x.data(2 * i);
-        maxima[i] = *x.data(2 * i + 1);
-      }
-      bb = BB<D>(minima, maxima);
-    }
     tg->push(idx, bb);
-    umap[idx] = bb;
     while (likely(!sta.empty())) {
       p = sta.top();
       sta.pop();
@@ -639,8 +630,24 @@ public:
     }
   }
 
+  void rebuild(){
+    size_t length = umap.size();
+    DataType<T, D> *b, *e;
+    void *placement = std::malloc(
+        std::max(sizeof(DataType<T, D>), sizeof(DataType<int, D>)) * length);
+    b = reinterpret_cast<DataType<T, D> *>(placement);
+    e = b + length;
+    int i = 0;
+    for (const auto& [key, value] : umap ) {
+      new (b + i) DataType<T, D>{key, value};
+      i++;
+    }
+    build(b, e, placement);
+  }
+
   template <class iterator>
   void build(iterator &b, iterator &e, void *placement) {
+    n_at_build = size();
     vec<std::unique_ptr<PRTreeNode<T, B, D>>> prev_nodes;
     std::unique_ptr<PRTreeNode<T, B, D>> p, q, r;
 
@@ -682,15 +689,6 @@ public:
             }
           });
 
-      /*size_t c = 0;
-        for (const auto& n : prev_nodes){
-          if (unlikely(n)){
-            c++;
-          }
-        }
-        if (unlikely(c > 0)){
-          throw std::runtime_error("eee");
-        }*/
       leaves.clear();
       vec<Leaf<int, B, D> *>().swap(leaves);
       prev_nodes.swap(tmp_nodes);
@@ -731,8 +729,8 @@ public:
         std::array<Real, D> minima;
         std::array<Real, D> maxima;
         for (int i = 0; i < D; ++i) {
-          minima[i] = *x.data(2 * i);
-          maxima[i] = *x.data(2 * i + 1);
+          minima[i] = *x.data(i);
+          maxima[i] = *x.data(i + D);
         }
         bb = BB<D>(minima, maxima);
       }
@@ -744,8 +742,8 @@ public:
           std::array<Real, D> minima;
           std::array<Real, D> maxima;
           for (int j = 0; j < D; ++j) {
-            minima[j] = *x.data(i, 2 * j);
-            maxima[j] = *x.data(i, 2 * j + 1);
+            minima[j] = *x.data(i, j);
+            maxima[j] = *x.data(i, j + D);
           }
           bb = BB<D>(minima, maxima);
         }
@@ -770,8 +768,8 @@ public:
     std::array<Real, D> minima;
     std::array<Real, D> maxima;
     for (int i = 0; i < D; ++i) {
-      minima[i] = *x.data(2 * i);
-      maxima[i] = *x.data(2 * i + 1);
+      minima[i] = *x.data(i);
+      maxima[i] = *x.data(i + D);
     }
     const auto bb = BB<D>(minima, maxima);
     return find(bb);
@@ -843,5 +841,8 @@ public:
       }
     }
     umap.erase(idx);
+  }
+  int64_t size(){
+    return static_cast<int64_t>(umap.size());
   }
 };
