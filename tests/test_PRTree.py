@@ -3,7 +3,7 @@ from python_prtree import PRTree2D, PRTree3D
 import numpy as np
 
 
-N_SEED = 100
+N_SEED = 5
 
 def has_intersect(x, y, dim):
     return all(
