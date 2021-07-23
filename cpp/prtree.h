@@ -443,12 +443,11 @@ template <class T, int B = 6, int D = 2> class PRTree {
 private:
   std::unique_ptr<PRTreeNode<T, B, D>> root;
   std::unordered_map<T, BB<D>> umap;
-  int64_t n = 0;
   int64_t n_at_build = 0;
 
 public:
   template <class Archive> void serialize(Archive &archive) {
-    archive(root, umap, n_at_build, n);
+    archive(root, umap, n_at_build);
     // archive.serializeDeferments();
   }
 
@@ -459,8 +458,7 @@ public:
         cereal::PortableBinaryOutputArchive o_archive(ofs);
         o_archive(cereal::make_nvp("root", root),
                   cereal::make_nvp("umap", umap),
-                  cereal::make_nvp("n_at_build", n_at_build),
-                  cereal::make_nvp("n", n));
+                  cereal::make_nvp("n_at_build", n_at_build));
       }
     }
   }
@@ -482,8 +480,7 @@ public:
         // cereal::JSONInputArchive i_archive(ifs);
         i_archive(cereal::make_nvp("root", root),
                   cereal::make_nvp("umap", umap),
-                  cereal::make_nvp("n_at_build", n_at_build),
-                  cereal::make_nvp("n", n));
+                  cereal::make_nvp("n_at_build", n_at_build));
       }
     }
   }
@@ -504,7 +501,6 @@ public:
     auto ri = idx.template unchecked<1>();
     auto rx = x.template unchecked<2>();
     size_t length = shape_idx[0];
-    n = static_cast<int64_t>(length);
     umap.reserve(length);
 
     DataType<T, D> *b, *e;
@@ -525,23 +521,17 @@ public:
       new (b + i) DataType<T, D>{ri(i), std::move(bb)};
     });
 
-    auto build_umap = [&] {
-      for (size_t i = 0; i < length; i++) {
-        std::array<Real, D> minima;
-        std::array<Real, D> maxima;
-        for (int j = 0; j < D; ++j) {
-          minima[j] = rx(i, j);
-          maxima[j] = rx(i, j + D);
-        }
-        auto bb = BB<D>(minima, maxima);
-        umap.emplace_hint(umap.end(), ri(i), std::move(bb));
+    for (size_t i = 0; i < length; i++) {
+      std::array<Real, D> minima;
+      std::array<Real, D> maxima;
+      for (int j = 0; j < D; ++j) {
+        minima[j] = rx(i, j);
+        maxima[j] = rx(i, j + D);
       }
-    };
-
-    auto t2 = std::thread([&] { build(b, e, placement); });
-    auto t1 = std::thread(std::move(build_umap));
-    t1.join();
-    t2.join();
+      auto bb = BB<D>(minima, maxima);
+      umap.emplace_hint(umap.end(), ri(i), std::move(bb));
+    }
+    build(b, e, placement);
     std::free(placement);
   }
 
@@ -550,7 +540,6 @@ public:
     queue<PRTreeNode<T, B, D> *> que;
     BB<D> bb;
     PRTreeNode<T, B, D> *p, *q;
-    n++;
 
     const auto &buff_info_x = x.request();
     const auto &shape_x = buff_info_x.shape;
@@ -562,7 +551,7 @@ public:
     if (unlikely(it != umap.end())) {
       throw std::runtime_error("Given index is already included.");
     }
-    if (n > 1.5 * n_at_build){
+    if (size() > 1.5 * n_at_build){
       rebuild();
     }
     {
@@ -642,7 +631,7 @@ public:
   }
 
   void rebuild(){
-    size_t length = static_cast<size_t>(n);
+    size_t length = umap.size();
     DataType<T, D> *b, *e;
     void *placement = std::malloc(
         std::max(sizeof(DataType<T, D>), sizeof(DataType<int, D>)) * length);
@@ -658,7 +647,7 @@ public:
 
   template <class iterator>
   void build(iterator &b, iterator &e, void *placement) {
-    n_at_build = n;
+    n_at_build = size();
     vec<std::unique_ptr<PRTreeNode<T, B, D>>> prev_nodes;
     std::unique_ptr<PRTreeNode<T, B, D>> p, q, r;
 
@@ -852,9 +841,8 @@ public:
       }
     }
     umap.erase(idx);
-    n--;
   }
   int64_t size(){
-    return n;
+    return static_cast<int64_t>(umap.size());
   }
 };
