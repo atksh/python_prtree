@@ -28,7 +28,7 @@ class PRTree2D:
         if self.n == 0:
             self._tree = self.Klass(*args, **kwargs)
         else:
-            self._tree.inert(*args, **kwargs)
+            self._tree.insert(*args, **kwargs)
 
 class PRTree3D(PRTree2D):
     Klass = _PRTree3D
