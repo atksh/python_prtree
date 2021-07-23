@@ -29,6 +29,12 @@ class PRTree2D:
             self._tree = self.Klass([idx], [bb])
         else:
             self._tree.insert(idx, bb)
+    
+    def query(self, *args):
+        if len(args) == 1:
+            return self._tree.query(*args)
+        else:
+            return self._tree.query(args)
 
 class PRTree3D(PRTree2D):
     Klass = _PRTree3D

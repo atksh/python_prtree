@@ -25,6 +25,13 @@ def test_result(seed, PRTree, dim):
     for i in range(len(idx)):
         tmp = [k for k in range(len(idx)) if has_intersect(x[i], x[k], dim)]
         assert set(out[i]) == set(tmp)
+    
+    # test point query
+    x[:, dim:] = x[:, :dim]
+    out1 = prtree.batch_query(x)
+    out2 = prtree.batch_query(x[:, :dim])
+    for i in range(len(idx)):
+        assert set(out1[i]) == set(out2[i])
 
 
 @pytest.mark.parametrize("seed", range(N_SEED))
