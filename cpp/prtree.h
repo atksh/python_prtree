@@ -78,8 +78,8 @@ public:
       throw std::runtime_error("Invalid size");
     }
     for (int i = 0; i < n; ++i) {
-      v[2 * i] = -minima[i];
-      v[2 * i + 1] = maxima[i];
+      v[i] = -minima[i];
+      v[i + D] = maxima[i];
     }
     validate(v);
     values = v;
@@ -106,7 +106,7 @@ public:
   bool validate(const std::array<Real, 2 * D> &v) const {
     bool flag = false;
     for (int i = 0; i < 2; ++i) {
-      if (-v[2 * i] > v[2 * i + 1]) {
+      if (-v[i] > v[i + D]) {
         flag = true;
         break;
       }
@@ -135,8 +135,8 @@ public:
 
   void expand(const std::array<Real, D> &delta) {
     for (int i = 0; i < D; ++i) {
-      values[2 * i] += delta[i];
-      values[2 * i + 1] += delta[i];
+      values[i] += delta[i];
+      values[i + D] += delta[i];
     }
   }
 
@@ -148,7 +148,7 @@ public:
     }
     bool flag = true;
     for (int i = 0; i < D; ++i) {
-      flag = flag && (-result[2 * i] <= result[2 * i + 1]);
+      flag = flag && (-result[i] <= result[i + D]);
     }
     return flag;
   }
@@ -560,8 +560,8 @@ public:
       std::array<Real, D> minima;
       std::array<Real, D> maxima;
       for (int i = 0; i < D; ++i) {
-        minima[i] = *x.data(2 * i);
-        maxima[i] = *x.data(2 * i + 1);
+        minima[i] = *x.data(i);
+        maxima[i] = *x.data(i + D);
       }
       bb = BB<D>(minima, maxima);
     }
@@ -614,8 +614,8 @@ public:
       std::array<Real, D> minima;
       std::array<Real, D> maxima;
       for (int i = 0; i < D; ++i) {
-        minima[i] = *x.data(2 * i);
-        maxima[i] = *x.data(2 * i + 1);
+        minima[i] = *x.data(i);
+        maxima[i] = *x.data(i + D);
       }
       bb = BB<D>(minima, maxima);
     }
@@ -731,8 +731,8 @@ public:
         std::array<Real, D> minima;
         std::array<Real, D> maxima;
         for (int i = 0; i < D; ++i) {
-          minima[i] = *x.data(2 * i);
-          maxima[i] = *x.data(2 * i + 1);
+          minima[i] = *x.data(i);
+          maxima[i] = *x.data(i + D);
         }
         bb = BB<D>(minima, maxima);
       }
@@ -770,8 +770,8 @@ public:
     std::array<Real, D> minima;
     std::array<Real, D> maxima;
     for (int i = 0; i < D; ++i) {
-      minima[i] = *x.data(2 * i);
-      maxima[i] = *x.data(2 * i + 1);
+      minima[i] = *x.data(i);
+      maxima[i] = *x.data(i + D);
     }
     const auto bb = BB<D>(minima, maxima);
     return find(bb);
