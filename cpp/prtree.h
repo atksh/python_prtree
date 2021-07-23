@@ -682,15 +682,6 @@ public:
             }
           });
 
-      /*size_t c = 0;
-        for (const auto& n : prev_nodes){
-          if (unlikely(n)){
-            c++;
-          }
-        }
-        if (unlikely(c > 0)){
-          throw std::runtime_error("eee");
-        }*/
       leaves.clear();
       vec<Leaf<int, B, D> *>().swap(leaves);
       prev_nodes.swap(tmp_nodes);
