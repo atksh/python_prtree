@@ -19,16 +19,16 @@ class PRTree2D:
     def __len__(self):
         return self.n
 
-    def erase(self, *args, **kwargs):
+    def erase(self, idx):
         if self.n == 0:
             raise ValueError("Nothing to erase")
-        return self._tree.erase(*args, **kwargs)
+        self._tree.erase(idx)
 
-    def insert(self, *args, **kwargs):
+    def insert(self, idx, bb):
         if self.n == 0:
-            self._tree = self.Klass(*args, **kwargs)
+            self._tree = self.Klass([idx], [bb])
         else:
-            self._tree.insert(*args, **kwargs)
+            self._tree.insert(idx, bb)
 
 class PRTree3D(PRTree2D):
     Klass = _PRTree3D
