@@ -9,9 +9,10 @@ def has_intersect(x, y, dim):
     )
 
 
+@pytest.mark.parametrize("seed", range(30))
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
-def test_result(PRTree, dim):
-    np.random.seed(1)
+def test_result(seed, PRTree, dim):
+    np.random.seed(seed)
     idx = np.arange(100)
     x = np.random.rand(len(idx), 2 * dim)
     for i in range(dim):
@@ -24,9 +25,10 @@ def test_result(PRTree, dim):
         assert set(out[i]) == set(tmp)
 
 
+@pytest.mark.parametrize("seed", range(30))
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
-def test_io(PRTree, dim, tmp_path):
-    np.random.seed(1)
+def test_io(seed, PRTree, dim, tmp_path):
+    np.random.seed(seed)
     idx = np.arange(100)
     x = np.random.rand(len(idx), 2 * dim)
     for i in range(dim):
@@ -53,16 +55,20 @@ def test_io(PRTree, dim, tmp_path):
         assert set(out[i]) == set(tmp)
 
 
+@pytest.mark.parametrize("seed", range(30))
 @pytest.mark.parametrize("from_scratch", [False, True])
+@pytest.mark.parametrize("rebuild", [False, True])
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
-def test_insert_erase(from_scratch, PRTree, dim):
-    np.random.seed(1)
+def test_insert_erase(seed, from_scratch, rebuild, PRTree, dim):
+    np.random.seed(seed)
     N = 10000
     idx = np.arange(N)
     x = np.random.rand(N, 2 * dim)
     for i in range(dim):
-        x[:, i + dim] = x[:, i] + x[:, i + dim] / np.sqrt(N) / 100
+        x[:, i + dim] = x[:, i] + x[:, i + dim] / 10
     prtree1 = PRTree(idx, x)
+    if rebuild:
+        prtree1.rebuild()
 
     if from_scratch:
         prtree2 = PRTree()
@@ -77,7 +83,7 @@ def test_insert_erase(from_scratch, PRTree, dim):
 
     x = np.random.rand(100, 2 * dim)
     for i in range(dim):
-        x[:, i + dim] = x[:, i] + x[:, i + dim] / np.sqrt(N) / 100
+        x[:, i + dim] = x[:, i] + x[:, i + dim] / 10
     for i in range(x.shape[0]):
         assert set(prtree1.query(x[i])) == set(prtree2.query(x[i]))
 
@@ -86,6 +92,6 @@ def test_insert_erase(from_scratch, PRTree, dim):
         prtree2.erase(i)
 
     for i in range(dim):
-        x[:, i + dim] = x[:, i] + x[:, i + dim] / np.sqrt(N) / 100
+        x[:, i + dim] = x[:, i] + x[:, i + dim] / 10
     for i in range(x.shape[0]):
         assert set(prtree1.query(x[i])) == set(prtree2.query(x[i]))

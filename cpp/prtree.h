@@ -551,9 +551,6 @@ public:
     BB<D> bb;
     PRTreeNode<T, B, D> *p, *q;
     n++;
-    if (n > 1.5 * n_at_build){
-      rebuild();
-    }
 
     const auto &buff_info_x = x.request();
     const auto &shape_x = buff_info_x.shape;
@@ -565,6 +562,9 @@ public:
     if (unlikely(it != umap.end())) {
       throw std::runtime_error("Given index is already included.");
     }
+    if (n > 1.5 * n_at_build){
+      rebuild();
+    }
     {
       std::array<Real, D> minima;
       std::array<Real, D> maxima;
@@ -574,6 +574,7 @@ public:
       }
       bb = BB<D>(minima, maxima);
     }
+    umap.emplace(idx, bb);
 
     std::array<Real, D> delta;
     for (int i = 0; i < D; ++i) {
@@ -619,36 +620,23 @@ public:
       }
     }
 
-    {
-      std::array<Real, D> minima;
-      std::array<Real, D> maxima;
-      for (int i = 0; i < D; ++i) {
-        minima[i] = *x.data(i);
-        maxima[i] = *x.data(i + D);
-      }
-      bb = BB<D>(minima, maxima);
-    }
-    umap[idx] = bb;
-    if (cands.empty()){
-      rebuild();
-    } else {
-      auto tg = *select_randomly(cands.begin(), cands.end());
-      tg->push(idx, bb);
-      while (likely(!sta.empty())) {
-        p = sta.top();
-        sta.pop();
-        if (unlikely(p->leaf)) {
-          p->mbb = p->leaf->mbb;
-        } else if (likely(p->head)) {
-          BB<D> mbb;
-          q = p->head.get();
+    bb = umap.at(idx);
+    auto tg = *select_randomly(cands.begin(), cands.end());
+    tg->push(idx, bb);
+    while (likely(!sta.empty())) {
+      p = sta.top();
+      sta.pop();
+      if (unlikely(p->leaf)) {
+        p->mbb = p->leaf->mbb;
+      } else if (likely(p->head)) {
+        BB<D> mbb;
+        q = p->head.get();
+        mbb += q->mbb;
+        while (likely(q->next)) {
+          q = q->next.get();
           mbb += q->mbb;
-          while (likely(q->next)) {
-            q = q->next.get();
-            mbb += q->mbb;
-          }
-          p->mbb = mbb;
         }
+        p->mbb = mbb;
       }
     }
   }
