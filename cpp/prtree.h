@@ -443,10 +443,11 @@ template <class T, int B = 6, int D = 2> class PRTree {
 private:
   std::unique_ptr<PRTreeNode<T, B, D>> root;
   std::unordered_map<T, BB<D>> umap;
+  int64_t n = 0;
 
 public:
   template <class Archive> void serialize(Archive &archive) {
-    archive(root, umap);
+    archive(root, umap, n);
     // archive.serializeDeferments();
   }
 
@@ -456,7 +457,8 @@ public:
         std::ofstream ofs(fname, std::ios::binary);
         cereal::PortableBinaryOutputArchive o_archive(ofs);
         o_archive(cereal::make_nvp("root", root),
-                  cereal::make_nvp("umap", umap));
+                  cereal::make_nvp("umap", umap),
+                  cereal::make_nvp("n", n));
       }
     }
   }
@@ -477,7 +479,8 @@ public:
         cereal::PortableBinaryInputArchive i_archive(ifs);
         // cereal::JSONInputArchive i_archive(ifs);
         i_archive(cereal::make_nvp("root", root),
-                  cereal::make_nvp("umap", umap));
+                  cereal::make_nvp("umap", umap),
+                  cereal::make_nvp("n", n));
       }
     }
   }
@@ -498,6 +501,7 @@ public:
     auto ri = idx.template unchecked<1>();
     auto rx = x.template unchecked<2>();
     size_t length = shape_idx[0];
+    n = static_cast<int64_t>(length);
     umap.reserve(length);
 
     DataType<T, D> *b, *e;
@@ -543,6 +547,7 @@ public:
     queue<PRTreeNode<T, B, D> *> que;
     BB<D> bb;
     PRTreeNode<T, B, D> *p, *q;
+    n++;
 
     const auto &buff_info_x = x.request();
     const auto &shape_x = buff_info_x.shape;
@@ -832,5 +837,9 @@ public:
       }
     }
     umap.erase(idx);
+    n--;
+  }
+  int64_t size(){
+    return n;
   }
 };

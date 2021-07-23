@@ -53,7 +53,7 @@ def test_io(PRTree, dim, tmp_path):
         assert set(out[i]) == set(tmp)
 
 
-@pytest.mark.parametrize("from_scratch", [False])
+@pytest.mark.parametrize("from_scratch", [False, True])
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
 def test_insert_erase(from_scratch, PRTree, dim):
     np.random.seed(1)
@@ -67,10 +67,12 @@ def test_insert_erase(from_scratch, PRTree, dim):
     if from_scratch:
         prtree2 = PRTree()
         for i in range(N):
+            assert prtree2.size() == i
             prtree2.insert(idx[i], x[i])
     else:
         prtree2 = PRTree(idx[: N // 2], x[: N // 2])
         for i in range(N // 2, N):
+            assert prtree2.size() == i
             prtree2.insert(idx[i], x[i])
 
     x = np.random.rand(100, 2 * dim)

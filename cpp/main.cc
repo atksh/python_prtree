@@ -16,7 +16,7 @@ PYBIND11_MODULE(PRTree, m) {
         insert and delete are not supported.
     )pbdoc";
 
-  py::class_<PRTree<T, B, 2>>(m, "PRTree2D")
+  py::class_<PRTree<T, B, 2>>(m, "_PRTree2D")
       .def(py::init<py::array_t<T>, py::array_t<float>>(), R"pbdoc(
           Construct PRTree with init.
         )pbdoc")
@@ -43,9 +43,12 @@ PYBIND11_MODULE(PRTree, m) {
         )pbdoc")
       .def("load", &PRTree<T, B, 2>::load, R"pbdoc(
           cereal load
+        )pbdoc")
+      .def("size", &PRTree<T, B, 2>::size, R"pbdoc(
+          get n
         )pbdoc");
 
-  py::class_<PRTree<T, B, 3>>(m, "PRTree3D")
+  py::class_<PRTree<T, B, 3>>(m, "_PRTree3D")
       .def(py::init<py::array_t<T>, py::array_t<float>>(), R"pbdoc(
           Construct PRTree with init.
         )pbdoc")
@@ -72,6 +75,9 @@ PYBIND11_MODULE(PRTree, m) {
         )pbdoc")
       .def("load", &PRTree<T, B, 3>::load, R"pbdoc(
           cereal load
+        )pbdoc")
+      .def("size", &PRTree<T, B, 3>::size, R"pbdoc(
+          get n
         )pbdoc");
 
 #ifdef VERSION_INFO
