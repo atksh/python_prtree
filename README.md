@@ -29,7 +29,8 @@ print(result)
 # [[1], [1, 2]]
 ```
 
-## New features (`python-prtree>=0.4.0`)
+## New features 
+### `python-prtree>=0.4.0`
 You can use PRTree3D:
 
 ```python
@@ -49,8 +50,7 @@ print(result)
 # [[1], [1, 2]]
 ```
 
-
-## New features (`python-prtree>=0.3.0`)
+### `python-prtree>=0.3.0`
 You can save and load a binary file as follows:
 
 ```python
