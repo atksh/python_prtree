@@ -14,31 +14,31 @@ def has_intersect(x, y, dim):
 @pytest.mark.parametrize("seed", range(N_SEED))
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
 def test_result(seed, PRTree, dim):
-    np.random.seed(seed)
-    idx = np.arange(100)
-    x = np.random.rand(len(idx), 2 * dim)
-    for i in range(dim):
-        x[:, i + dim] += x[:, i]
+        np.random.seed(seed)
+        idx = np.arange(100)
+        x = np.random.rand(len(idx), 2 * dim)
+        for i in range(dim):
+            x[:, i + dim] += x[:, i]
 
-    prtree = PRTree(idx, x)
-    out = prtree.batch_query(x)
-    for i in range(len(idx)):
-        tmp = [k for k in range(len(idx)) if has_intersect(x[i], x[k], dim)]
-        assert set(out[i]) == set(tmp)
-    
-    # test point query
-    x[:, dim:] = x[:, :dim]
-    out1 = prtree.batch_query(x)
-    out2 = prtree.batch_query(x[:, :dim])
-    for i in range(len(idx)):
-        assert set(out1[i]) == set(out2[i])
+        prtree = PRTree(idx, x)
+        out = prtree.batch_query(x)
+        for i in range(len(idx)):
+            tmp = [k for k in range(len(idx)) if has_intersect(x[i], x[k], dim)]
+            assert set(out[i]) == set(tmp)
+        
+        # test point query
+        x[:, dim:] = x[:, :dim]
+        out1 = prtree.batch_query(x)
+        out2 = prtree.batch_query(x[:, :dim])
+        for i in range(len(idx)):
+            assert set(out1[i]) == set(out2[i])
 
 
-@pytest.mark.parametrize("seed", range(N_SEED))
-@pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
-def test_io(seed, PRTree, dim, tmp_path):
-    np.random.seed(seed)
-    idx = np.arange(100)
+    @pytest.mark.parametrize("seed", range(N_SEED))
+    @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
+    def test_io(seed, PRTree, dim, tmp_path):
+        np.random.seed(seed)
+        idx = np.arange(100)
     x = np.random.rand(len(idx), 2 * dim)
     for i in range(dim):
         x[:, i + dim] += x[:, i]

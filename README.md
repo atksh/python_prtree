@@ -7,6 +7,7 @@
   - 3D PRTree is supported since `>=0.4.0`.
   - Changed the ordering of the array shape since `>=0.5.0`. 
 - `query` and `batch_query` with rectangle(s)
+  - Supports Point query with (x, y) in 2D and (x, y, z) in 3D since `>=0.5.1`
 - `insert` and `erase` (but not yet optimized)
   - Fixed a bug that one cannot insert to an empty PRTree at `0.5.0`.
 - `rebuild` with already given data since `>=0.5.0`.
