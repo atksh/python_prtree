@@ -17,7 +17,7 @@ else()
 endif()
 
 project(PRTree)
-file(GLOB MYCPP "cpp/*")
+file(GLOB MYCPP "./cpp/*")
 
 add_subdirectory(./third/pybind11/)
 add_subdirectory(./third/cereal/)
