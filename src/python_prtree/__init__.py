@@ -56,7 +56,13 @@ class PRTree2D:
         obj = self._tree.get_obj(idx)
         return loads(obj)
 
-    def insert(self, idx, bb, obj=None):
+    def insert(self, idx=None, bb=None, obj=None):
+        if idx is None and obj is None:
+            raise ValueError("Specify index or obj")
+        if idx is None:
+            idx = self.n + 1
+        if bb is None:
+            raise ValueError("Specify bounding box")
         objdumps = dumps(obj)
         if self.n == 0:
             self._tree = self.Klass([idx], [bb])
