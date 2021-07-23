@@ -1,11 +1,12 @@
 name: Build and upload to PyPI
 
-push:
-  branches:
-    - master
-pull_request:
-  branches:
-    - master
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build_wheels:
