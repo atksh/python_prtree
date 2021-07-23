@@ -12,6 +12,8 @@
   - Fixed a bug that one cannot insert to an empty PRTree at `0.5.0`.
 - `rebuild` with already given data since `>=0.5.0`.
   - For better performance when too many insert/erase operations are called since.
+- The `insert` and `query` methods can now be passed pickable Python objects instead of int64 indexes since `>=0.5.2`.
+  - See the example below for more details.
 
 This package is mainly for **mostly static situations** where insertion and deletion events rarely occur (e.g. map matching).
 
@@ -29,7 +31,7 @@ cd python_prtree
 python setup.py install
 ```
 
-# Usage 
+## A Simple Example
 ```python
 import numpy as np
 from python_prtree import PRTree2D
@@ -67,7 +69,34 @@ print(prtree.query((0.5, 0.5)))
 # [1]
 ```
 
-## New features and Changes 
+## New Features and Changes 
+### `python-prtree>=0.5.2`
+You can use pickable Python objects instead of int64 indexes for `insert` and `query` methods:
+
+```python
+import numpy as np
+from python_prtree import PRTree2D
+
+objs = [{"name": "foo"}, (1, 2, 3)]  # must NOT be unique but pickable
+rects = np.array([[0.0, 0.0, 1.0, 0.5],
+                  [1.0, 1.5, 1.2, 3.0]])  # (xmin, ymin, xmax, ymax)
+
+prtree = PRTree2D()
+for obj, rect in zip(objs, rects):
+    # keyword argments: bb(bounding box) and obj(object)
+    prtree.insert(bb=rect, obj=obj)
+
+# returns indexes genereted by incremental rule.
+result = prtree.query((0, 0, 1, 1))
+print(result)
+# [1]
+
+# returns objects when you specify the keyword argment return_obj=True
+result = prtree.query((0, 0, 1, 1), return_obj=True)
+print(result)
+# [{'name': 'foo'}]
+```
+
 ### `python-prtree>=0.5.0`
 - [**CRUTIAL**] Changed the input order from (xmin, xmax, ymin, ymax, ...) to (xmin, ymin, xmax, ymax, ...).
 - [**FEATURE**] Added rebuild method to build the PRTree from scratch using the already given data.
