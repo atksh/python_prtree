@@ -17,19 +17,25 @@ import numpy as np
 from python_prtree import PRTree2D
 
 idxes = np.array([1, 2])  # must be unique because it uses idx as key for hash map
-rects = np.array([[0.0, 1.0, 0.0, 0.5],
-                  [1.0, 1.2, 2.5, 3.0]])  # (xmin, xmax, ymin, ymax)
+rects = np.array([[0.0, 0.0, 1.0, 0.5],
+                  [1.0, 1.5, 1.2, 3.0]])  # (xmin, ymin, xmax, ymax)
 
 prtree = PRTree2D(idxes, rects)  # initial construction
 
-q = np.array([[0.5, 0.6, 0.2, 0.3],
-              [0.8, 1.5, 0.5, 3.5]])
+q = np.array([[0.5, 0.2, 0.6, 0.3],
+              [0.8, 0.5, 1.5, 3.5]])
 result = prtree.batch_query(q)
 print(result)
 # [[1], [1, 2]]
 ```
 
-## New features 
+## New features and Changes 
+### `python-prtree>=0.5.0`
+- [**CRUTIAL**] Change the input order from (xmin, xmax, ymin, ymax, ...) to (xmin, ymin, xmax, ymax, ...) to (xmin, ymin, xmax, ymax, ...).
+- [**BUGFIX**] Fixed a bug that prevented insertion into an empty PRTree.
+- [**REMIND**] Cross-version saving and loading compatibility is not guaranteed.
+- [**FEATURE**] Added rebuild method to build the PRTree from scratch using the already given data.
+
 ### `python-prtree>=0.4.0`
 You can use PRTree3D:
 
@@ -38,16 +44,16 @@ import numpy as np
 from python_prtree import PRTree3D
 
 idxes = np.array([1, 2])  # must be unique because it uses idx as key for hash map
-rects = np.array([[0.0, 1.0, 0.0, 0.5, 0.0, 0.5],
-                  [1.0, 1.2, 2.5, 3.0, 2.5, 3.0]])  # (xmin, xmax, ymin, ymax, zmin, zmax)
+rects = np.array([[0.0, 0.5, 0.0, 0.5, 1.0, 0.5],
+                  [1.0, 1.5, 2.0, 1.2, 2.5, 3.0]])  # (xmin, ymin, zmin, xmax, ymax, zmax)
 
 prtree = PRTree3D(idxes, rects)  # initial construction
 
-q = np.array([[0.5, 0.6, 0.2, 0.3, 0.2, 0.3],
-              [0.8, 1.5, 0.5, 3.5, 0.5, 3.5]])
+q = np.array([[0.5, 0.2, 0.2, 0.6, 0.3, 0.3],
+              [0.8, 0.5, 0.5, 1.5, 3.5, 3.5]])
 result = prtree.batch_query(q)
 print(result)
-# [[1], [1, 2]]
+# [[], [2]]
 ```
 
 ### `python-prtree>=0.3.0`
