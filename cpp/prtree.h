@@ -444,10 +444,11 @@ private:
   std::unique_ptr<PRTreeNode<T, B, D>> root;
   std::unordered_map<T, BB<D>> umap;
   int64_t n = 0;
+  int64_t n_at_build = 0;
 
 public:
   template <class Archive> void serialize(Archive &archive) {
-    archive(root, umap, n);
+    archive(root, umap, n_at_build, n);
     // archive.serializeDeferments();
   }
 
@@ -458,6 +459,7 @@ public:
         cereal::PortableBinaryOutputArchive o_archive(ofs);
         o_archive(cereal::make_nvp("root", root),
                   cereal::make_nvp("umap", umap),
+                  cereal::make_nvp("n_at_build", n_at_build),
                   cereal::make_nvp("n", n));
       }
     }
@@ -480,6 +482,7 @@ public:
         // cereal::JSONInputArchive i_archive(ifs);
         i_archive(cereal::make_nvp("root", root),
                   cereal::make_nvp("umap", umap),
+                  cereal::make_nvp("n_at_build", n_at_build),
                   cereal::make_nvp("n", n));
       }
     }
@@ -548,6 +551,9 @@ public:
     BB<D> bb;
     PRTreeNode<T, B, D> *p, *q;
     n++;
+    if (n > 1.5 * n_at_build){
+      rebuild();
+    }
 
     const auto &buff_info_x = x.request();
     const auto &shape_x = buff_info_x.shape;
@@ -612,7 +618,7 @@ public:
         }
       }
     }
-    auto tg = *select_randomly(cands.begin(), cands.end());
+
     {
       std::array<Real, D> minima;
       std::array<Real, D> maxima;
@@ -622,28 +628,49 @@ public:
       }
       bb = BB<D>(minima, maxima);
     }
-    tg->push(idx, bb);
     umap[idx] = bb;
-    while (likely(!sta.empty())) {
-      p = sta.top();
-      sta.pop();
-      if (unlikely(p->leaf)) {
-        p->mbb = p->leaf->mbb;
-      } else if (likely(p->head)) {
-        BB<D> mbb;
-        q = p->head.get();
-        mbb += q->mbb;
-        while (likely(q->next)) {
-          q = q->next.get();
+    if (cands.empty()){
+      rebuild();
+    } else {
+      auto tg = *select_randomly(cands.begin(), cands.end());
+      tg->push(idx, bb);
+      while (likely(!sta.empty())) {
+        p = sta.top();
+        sta.pop();
+        if (unlikely(p->leaf)) {
+          p->mbb = p->leaf->mbb;
+        } else if (likely(p->head)) {
+          BB<D> mbb;
+          q = p->head.get();
           mbb += q->mbb;
+          while (likely(q->next)) {
+            q = q->next.get();
+            mbb += q->mbb;
+          }
+          p->mbb = mbb;
         }
-        p->mbb = mbb;
       }
     }
   }
 
+  void rebuild(){
+    size_t length = static_cast<size_t>(n);
+    DataType<T, D> *b, *e;
+    void *placement = std::malloc(
+        std::max(sizeof(DataType<T, D>), sizeof(DataType<int, D>)) * length);
+    b = reinterpret_cast<DataType<T, D> *>(placement);
+    e = b + length;
+    int i = 0;
+    for (const auto& [key, value] : umap ) {
+      new (b + i) DataType<T, D>{key, value};
+      i++;
+    }
+    build(b, e, placement);
+  }
+
   template <class iterator>
   void build(iterator &b, iterator &e, void *placement) {
+    n_at_build = n;
     vec<std::unique_ptr<PRTreeNode<T, B, D>>> prev_nodes;
     std::unique_ptr<PRTreeNode<T, B, D>> p, q, r;
 
