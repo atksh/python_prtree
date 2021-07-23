@@ -62,7 +62,7 @@ print(result)
 
 ## New features and Changes 
 ### `python-prtree>=0.5.0`
-- [**CRUTIAL**] Changed the input order from (xmin, xmax, ymin, ymax, ...) to (xmin, ymin, xmax, ymax, ...) to (xmin, ymin, xmax, ymax, ...).
+- [**CRUTIAL**] Changed the input order from (xmin, xmax, ymin, ymax, ...) to (xmin, ymin, xmax, ymax, ...).
 - [**FEATURE**] Added rebuild method to build the PRTree from scratch using the already given data.
 - [**BUGFIX**] Fixed a bug that prevented insertion into an empty PRTree.
 - [**REMIND**] Cross-version saving and loading compatibility is not guaranteed.
