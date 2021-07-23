@@ -18,6 +18,8 @@ env:
   - CIBW_MANYLINUX_X86_64_IMAGE="manylinux2014"
   - CIBW_BUILD="cp3?-*"
   - CIBW_SKIP="cp27-* *-win32 *-manylinux_i686"
+  - CIBW_ARCHS_LINUX="x86_64 aarch64"
+  - CIBW_ARCHS_MACOS="x86_64 arm64 universal2"
   - TWINE_USERNAME=__token__
   - CIBW_BEFORE_BUILD="pip install pybind11"
   - CIBW_TEST_COMMAND="pytest {project}/tests"
