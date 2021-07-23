@@ -112,7 +112,7 @@ public:
       }
     }
     if (flag) {
-      throw std::runtime_error("Invalid bb");
+      throw std::runtime_error("Invalid Bounding Box");
     }
     return flag;
   }
