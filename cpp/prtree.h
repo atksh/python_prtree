@@ -531,12 +531,10 @@ public:
       }
     };
 
-    // ProfilerStart("construct.prof");
     auto t2 = std::thread([&] { build(b, e, placement); });
     auto t1 = std::thread(std::move(build_umap));
     t1.join();
     t2.join();
-    // ProfilerStop();
     std::free(placement);
   }
 
