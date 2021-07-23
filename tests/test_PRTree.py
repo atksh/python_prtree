@@ -25,6 +25,11 @@ def test_result(seed, PRTree, dim):
     for i in range(len(idx)):
         tmp = [k for k in range(len(idx)) if has_intersect(x[i], x[k], dim)]
         assert set(out[i]) == set(tmp)
+
+    out = [prtree.query(x[i]) for i in range(len(x))]
+    for i in range(len(idx)):
+        tmp = [k for k in range(len(idx)) if has_intersect(x[i], x[k], dim)]
+        assert set(out[i]) == set(tmp)
     
     # test point query
     x[:, dim:] = x[:, :dim]
@@ -104,3 +109,33 @@ def test_insert_erase(seed, from_scratch, rebuild, PRTree, dim):
         x[:, i + dim] = x[:, i] + x[:, i + dim] / 10
     for i in range(x.shape[0]):
         assert set(prtree1.query(x[i])) == set(prtree2.query(x[i]))
+
+@pytest.mark.parametrize("seed", range(N_SEED))
+@pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
+def test_obj(seed, PRTree, dim, tmp_path):
+    np.random.seed(seed)
+    x = np.random.rand(100, 2 * dim)
+    for i in range(dim):
+        x[:, i + dim] += x[:, i]
+
+    obj = [str(i) for i in range(len(x))]
+    prtree = PRTree()
+    prtree2 = PRTree()
+    for i in range(len(x)):
+        prtree.insert(i, x[i])
+        prtree2.insert(bb=x[i], obj=obj[i])
+
+    q = (0,) * dim + (1,) * dim
+    idx = prtree.query(q)
+    return_obj = prtree2.query(q, return_obj=True)
+    assert len(idx) > 0
+    assert set(return_obj) == set([obj[i] for i in idx])
+
+    fname = tmp_path / "tree.bin"
+    fname = str(fname)
+    prtree.save(fname)
+    prtree = PRTree(fname)
+
+    idx = prtree.query(q)
+    return_obj = prtree2.query(q, return_obj=True)
+    assert set(return_obj) == set([obj[i] for i in idx])

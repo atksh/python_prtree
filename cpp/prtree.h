@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -18,9 +19,9 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include <utility>
 #include <optional>
 
-#include <pybind11/embed.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -33,6 +34,7 @@
 #include <cereal/types/string.hpp>
 #include <cereal/types/unordered_map.hpp>
 #include <cereal/types/vector.hpp>
+#include <cereal/types/atomic.hpp>
 
 #include "parallel.h"
 
@@ -446,12 +448,14 @@ public:
 template <class T, int B = 6, int D = 2> class PRTree {
 private:
   std::unique_ptr<PRTreeNode<T, B, D>> root;
-  std::unordered_map<T, BB<D>> umap;
+  std::unordered_map<T, BB<D>> idx2bb;
+  std::unordered_map<T, std::string> idx2data;
   int64_t n_at_build = 0;
+  std::atomic<T> global_idx = 0;
 
 public:
   template <class Archive> void serialize(Archive &archive) {
-    archive(root, umap, n_at_build);
+    archive(root, idx2bb, idx2data, global_idx, n_at_build);
     // archive.serializeDeferments();
   }
 
@@ -461,7 +465,9 @@ public:
         std::ofstream ofs(fname, std::ios::binary);
         cereal::PortableBinaryOutputArchive o_archive(ofs);
         o_archive(cereal::make_nvp("root", root),
-                  cereal::make_nvp("umap", umap),
+                  cereal::make_nvp("idx2bb", idx2bb),
+                  cereal::make_nvp("idx2data", idx2data),
+                  cereal::make_nvp("global_idx", global_idx),
                   cereal::make_nvp("n_at_build", n_at_build));
       }
     }
@@ -470,8 +476,8 @@ public:
   PRTree() {}
 
   ~PRTree() {
-    umap.clear();
-    std::unordered_map<T, BB<D>>().swap(umap);
+    idx2bb.clear();
+    std::unordered_map<T, BB<D>>().swap(idx2bb);
   }
 
   PRTree(std::string fname) { load(fname); }
@@ -483,7 +489,9 @@ public:
         cereal::PortableBinaryInputArchive i_archive(ifs);
         // cereal::JSONInputArchive i_archive(ifs);
         i_archive(cereal::make_nvp("root", root),
-                  cereal::make_nvp("umap", umap),
+                  cereal::make_nvp("idx2bb", idx2bb),
+                  cereal::make_nvp("idx2data", idx2data),
+                  cereal::make_nvp("global_idx", global_idx),
                   cereal::make_nvp("n_at_build", n_at_build));
       }
     }
@@ -505,7 +513,7 @@ public:
     auto ri = idx.template unchecked<1>();
     auto rx = x.template unchecked<2>();
     size_t length = shape_idx[0];
-    umap.reserve(length);
+    idx2bb.reserve(length);
 
     DataType<T, D> *b, *e;
     void *placement = std::malloc(
@@ -533,13 +541,27 @@ public:
         maxima[j] = rx(i, j + D);
       }
       auto bb = BB<D>(minima, maxima);
-      umap.emplace_hint(umap.end(), ri(i), std::move(bb));
+      idx2bb.emplace_hint(idx2bb.end(), ri(i), std::move(bb));
     }
     build(b, e, placement);
     std::free(placement);
   }
 
-  void insert(const T &idx, const py::array_t<float> &x) {
+  inline void set_obj(const T &idx, const std::optional<std::string> objdumps = std::nullopt){
+    if (unlikely(objdumps)){
+      idx2data.emplace(idx, objdumps.value());
+    }
+  }
+
+  inline std::optional<py::bytes> get_obj(const T &idx){
+    try{
+      return py::bytes(idx2data.at(idx));
+    } catch (const std::out_of_range& e){
+      return std::nullopt;
+    }
+  }
+
+  void insert(const T &idx, const py::array_t<float> &x, const std::optional<std::string> objdumps = std::nullopt) {
     vec<Leaf<T, B, D> *> cands;
     queue<PRTreeNode<T, B, D> *> que;
     BB<D> bb;
@@ -551,11 +573,11 @@ public:
     if (shape_x[0] != 2 * D || ndim != 1) {
       throw std::runtime_error("invalid shape.");
     }
-    auto it = umap.find(idx);
-    if (unlikely(it != umap.end())) {
+    auto it = idx2bb.find(idx);
+    if (unlikely(it != idx2bb.end())) {
       throw std::runtime_error("Given index is already included.");
     }
-    if (size() > 1.5 * n_at_build){
+    if (size() > 1.25 * n_at_build){
       rebuild();
     }
     {
@@ -567,7 +589,8 @@ public:
       }
       bb = BB<D>(minima, maxima);
     }
-    umap.emplace(idx, bb);
+    idx2bb.emplace(idx, bb);
+    set_obj(idx, objdumps);
 
     std::array<Real, D> delta;
     for (int i = 0; i < D; ++i) {
@@ -613,7 +636,7 @@ public:
       }
     }
 
-    bb = umap.at(idx);
+    bb = idx2bb.at(idx);
     auto tg = *select_randomly(cands.begin(), cands.end());
     tg->push(idx, bb);
     while (likely(!sta.empty())) {
@@ -635,14 +658,14 @@ public:
   }
 
   void rebuild(){
-    size_t length = umap.size();
+    size_t length = idx2bb.size();
     DataType<T, D> *b, *e;
     void *placement = std::malloc(
         std::max(sizeof(DataType<T, D>), sizeof(DataType<int, D>)) * length);
     b = reinterpret_cast<DataType<T, D> *>(placement);
     e = b + length;
     int i = 0;
-    for (const auto& [key, value] : umap ) {
+    for (const auto& [key, value] : idx2bb ) {
       new (b + i) DataType<T, D>{key, value};
       i++;
     }
@@ -781,28 +804,6 @@ public:
     return out;
   }
 
-  vec<T> find_one(const vec<float> &x) {
-    bool is_point = false;
-    if (unlikely(!(x.size() == 2 * D || x.size() == D))) {
-      throw std::runtime_error("invalid shape");
-    }
-    std::array<Real, D> minima;
-    std::array<Real, D> maxima;
-    if (x.size() == D){
-      is_point = true;
-    }
-    for (int i = 0; i < D; ++i) {
-      minima[i] = x.at(i);
-      if (is_point){
-        maxima[i] = minima[i];
-      } else {
-        maxima[i] = x.at(i);
-      }
-    }
-    const auto bb = BB<D>(minima, maxima);
-    return find(bb);
-  }
-
   vec<T> find(const BB<D> &target) {
     vec<T> out;
     queue<PRTreeNode<T, B, D> *> que;
@@ -835,9 +836,37 @@ public:
     return out;
   }
 
+  auto find_one(const vec<float> &x) {
+    bool is_point = false;
+    if (unlikely(!(x.size() == 2 * D || x.size() == D))) {
+      throw std::runtime_error("invalid shape");
+    }
+    std::array<Real, D> minima;
+    std::array<Real, D> maxima;
+    if (x.size() == D){
+      is_point = true;
+    }
+    for (int i = 0; i < D; ++i) {
+      minima[i] = x.at(i);
+      if (is_point){
+        maxima[i] = minima[i];
+      } else {
+        maxima[i] = x.at(i + D);
+      }
+    }
+    const auto bb = BB<D>(minima, maxima);
+    auto out = find(bb);
+    vec<std::optional<py::bytes>> objs;
+    objs.reserve(out.size());
+    for (const auto& o : out){
+      objs.push_back(get_obj(o));
+    }
+    return std::make_pair(out, objs);
+  }
+
   void erase(const T idx) {
-    auto it = umap.find(idx);
-    if (unlikely(it == umap.end())) {
+    auto it = idx2bb.find(idx);
+    if (unlikely(it == idx2bb.end())) {
       throw std::runtime_error("Given index is not found.");
     }
     BB<D> target = it->second;
@@ -868,9 +897,9 @@ public:
         }
       }
     }
-    umap.erase(idx);
+    idx2bb.erase(idx);
   }
   int64_t size(){
-    return static_cast<int64_t>(umap.size());
+    return static_cast<int64_t>(idx2bb.size());
   }
 };

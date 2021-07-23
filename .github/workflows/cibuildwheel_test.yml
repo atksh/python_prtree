@@ -40,6 +40,7 @@ jobs:
           CIBW_BEFORE_BUILD: pip install pybind11
           CIBW_TEST_COMMAND: pytest {project}/tests
           CIBW_TEST_REQUIRES: pytest numpy
+          MACOSX_DEPLOYMENT_TARGET: 10.14
       - uses: actions/upload-artifact@v2
         with:
           path: ./wheelhouse/*.whl

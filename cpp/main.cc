@@ -35,6 +35,12 @@ PYBIND11_MODULE(PRTree, m) {
       .def("erase", &PRTree<T, B, 2>::erase, R"pbdoc(
           Delete from prtree
         )pbdoc")
+      .def("set_obj", &PRTree<T, B, 2>::set_obj, R"pbdoc(
+          Set string by index
+        )pbdoc")
+      .def("get_obj", &PRTree<T, B, 2>::get_obj, R"pbdoc(
+          Get string by index
+        )pbdoc")
       .def("insert", &PRTree<T, B, 2>::insert, R"pbdoc(
           Insert one to prtree
         )pbdoc")
@@ -69,6 +75,12 @@ PYBIND11_MODULE(PRTree, m) {
         )pbdoc")
       .def("erase", &PRTree<T, B, 3>::erase, R"pbdoc(
           Delete from prtree
+        )pbdoc")
+      .def("set_obj", &PRTree<T, B, 3>::set_obj, R"pbdoc(
+          Set string by index
+        )pbdoc")
+      .def("get_obj", &PRTree<T, B, 3>::get_obj, R"pbdoc(
+          Get string by index
         )pbdoc")
       .def("insert", &PRTree<T, B, 3>::insert, R"pbdoc(
           Insert one to prtree
