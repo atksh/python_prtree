@@ -44,6 +44,9 @@ PYBIND11_MODULE(PRTree, m) {
       .def("load", &PRTree<T, B, 2>::load, R"pbdoc(
           cereal load
         )pbdoc")
+      .def("rebuild", &PRTree<T, B, 3>::rebuild, R"pbdoc(
+          rebuild prtree
+        )pbdoc")
       .def("size", &PRTree<T, B, 2>::size, R"pbdoc(
           get n
         )pbdoc");
@@ -75,6 +78,9 @@ PYBIND11_MODULE(PRTree, m) {
         )pbdoc")
       .def("load", &PRTree<T, B, 3>::load, R"pbdoc(
           cereal load
+        )pbdoc")
+      .def("rebuild", &PRTree<T, B, 3>::rebuild, R"pbdoc(
+          rebuild prtree
         )pbdoc")
       .def("size", &PRTree<T, B, 3>::size, R"pbdoc(
           get n
