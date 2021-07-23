@@ -120,12 +120,14 @@ def test_obj(seed, PRTree, dim, tmp_path):
 
     obj = [str(i) for i in range(len(x))]
     prtree = PRTree()
+    prtree2 = PRTree()
     for i in range(len(x)):
-        prtree.insert(i, x[i], obj[i])
+        prtree.insert(i, x[i])
+        prtree2.insert(x[i], obj[i])
 
     q = (0,) * dim + (1,) * dim
     idx = prtree.query(q)
-    return_obj = prtree.query(q, return_obj=True)
+    return_obj = prtree2.query(q, return_obj=True)
     assert len(idx) > 0
     assert set(return_obj) == set([obj[i] for i in idx])
 
@@ -135,5 +137,5 @@ def test_obj(seed, PRTree, dim, tmp_path):
     prtree = PRTree(fname)
 
     idx = prtree.query(q)
-    return_obj = prtree.query(q, return_obj=True)
+    return_obj = prtree2.query(q, return_obj=True)
     assert set(return_obj) == set([obj[i] for i in idx])
