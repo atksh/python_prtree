@@ -123,7 +123,7 @@ def test_obj(seed, PRTree, dim, tmp_path):
     prtree2 = PRTree()
     for i in range(len(x)):
         prtree.insert(i, x[i])
-        prtree2.insert(x[i], obj[i])
+        prtree2.insert(bb=x[i], obj=obj[i])
 
     q = (0,) * dim + (1,) * dim
     idx = prtree.query(q)
