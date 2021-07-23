@@ -511,8 +511,8 @@ public:
       std::array<Real, D> minima;
       std::array<Real, D> maxima;
       for (int j = 0; j < D; ++j) {
-        minima[j] = rx(i, 2 * j);
-        maxima[j] = rx(i, 2 * j + 1);
+        minima[j] = rx(i, j);
+        maxima[j] = rx(i, j + D);
       }
       auto bb = BB<D>(minima, maxima);
       new (b + i) DataType<T, D>{ri(i), std::move(bb)};
@@ -523,8 +523,8 @@ public:
         std::array<Real, D> minima;
         std::array<Real, D> maxima;
         for (int j = 0; j < D; ++j) {
-          minima[j] = rx(i, 2 * j);
-          maxima[j] = rx(i, 2 * j + 1);
+          minima[j] = rx(i, j);
+          maxima[j] = rx(i, j + D);
         }
         auto bb = BB<D>(minima, maxima);
         umap.emplace_hint(umap.end(), ri(i), std::move(bb));
@@ -735,8 +735,8 @@ public:
           std::array<Real, D> minima;
           std::array<Real, D> maxima;
           for (int j = 0; j < D; ++j) {
-            minima[j] = *x.data(i, 2 * j);
-            maxima[j] = *x.data(i, 2 * j + 1);
+            minima[j] = *x.data(i, j);
+            maxima[j] = *x.data(i, j + D);
           }
           bb = BB<D>(minima, maxima);
         }
