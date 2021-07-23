@@ -94,13 +94,13 @@ public:
     if (unlikely(dim < 0 || D <= dim)) {
       throw std::runtime_error("Invalid dim");
     }
-    return -values[2 * dim];
+    return -values[dim];
   }
   Real max(const int dim) const {
     if (unlikely(dim < 0 || D <= dim)) {
       throw std::runtime_error("Invalid dim");
     }
-    return values[2 * dim + 1];
+    return values[dim + D];
   }
 
   bool validate(const std::array<Real, 2 * D> &v) const {
