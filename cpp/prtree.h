@@ -537,7 +537,7 @@ public:
     std::free(placement);
   }
 
-  void insert(const T &idx, const py::array_t<float> &x, const py::object &obj){
+  void insert2(const T &idx, const py::array_t<float> &x, const py::object &obj){
     pymap.emplace(idx, obj);
     insert(idx, x);
   }
@@ -720,13 +720,24 @@ public:
     const auto &buff_info_x = x.request();
     const auto &ndim = buff_info_x.ndim;
     const auto &shape_x = buff_info_x.shape;
-    if (ndim == 1 && shape_x[0] != 2 * D) {
+    bool is_point = false;
+    if (ndim == 1 && (not (shape_x[0] == 2 * D || shape_x[0] == D))) {
       throw std::runtime_error("Invalid Bounding box size");
-    } else if (ndim == 2 && shape_x[1] != 2 * D) {
+    } else if (ndim == 2 && (not (shape_x[1] == 2 * D || shape_x[1] == D))) {
       throw std::runtime_error(
           "Bounding box must have the shape (length, 2 * dim)");
     } else if (ndim > 3) {
       throw std::runtime_error("invalid shape");
+    }
+
+    if (ndim == 1){
+      if (shape_x[0] == D){
+        is_point = true; 
+      }
+    } else {
+      if (shape_x[1] == D){
+        is_point = true; 
+      }
     }
     vec<BB<D>> X;
     X.reserve(ndim == 1 ? 1 : shape_x[0]);
@@ -737,7 +748,11 @@ public:
         std::array<Real, D> maxima;
         for (int i = 0; i < D; ++i) {
           minima[i] = *x.data(i);
-          maxima[i] = *x.data(i + D);
+          if (is_point){
+            maxima[i] = minima[i];
+          } else {
+            maxima[i] = *x.data(i + D);
+          }
         }
         bb = BB<D>(minima, maxima);
       }
@@ -750,7 +765,11 @@ public:
           std::array<Real, D> maxima;
           for (int j = 0; j < D; ++j) {
             minima[j] = *x.data(i, j);
-            maxima[j] = *x.data(i, j + D);
+            if (is_point){
+              maxima[j] = minima[j];
+            } else {
+              maxima[j] = *x.data(i, j + D);
+            }
           }
           bb = BB<D>(minima, maxima);
         }
@@ -769,14 +788,22 @@ public:
     const auto &buff_info_x = x.request();
     const auto &ndim = buff_info_x.ndim;
     const auto &shape_x = buff_info_x.shape;
-    if (unlikely(ndim != 1 || shape_x[0] != 2 * D)) {
+    bool is_point = false;
+    if (unlikely(ndim != 1 || (not (shape_x[0] == 2 * D || shape_x[0] == D)))) {
       throw std::runtime_error("invalid shape");
     }
     std::array<Real, D> minima;
     std::array<Real, D> maxima;
+    if (shape_x[0] == D){
+      is_point = true;
+    }
     for (int i = 0; i < D; ++i) {
       minima[i] = *x.data(i);
-      maxima[i] = *x.data(i + D);
+      if (is_point){
+        maxima[i] = minima[i];
+      } else {
+        maxima[i] = *x.data(i + D);
+      }
     }
     const auto bb = BB<D>(minima, maxima);
     return find(bb);
