@@ -59,6 +59,12 @@ prtree.erase(2)
 result = prtree.batch_query(q)
 print(result)
 # [[1], [1, 3]]
+
+# Point query
+print(prtree.query(0.5, 0.5))
+# [1]
+print(prtree.query((0.5, 0.5)))
+# [1]
 ```
 
 ## New features and Changes 

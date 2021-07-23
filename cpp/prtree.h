@@ -781,25 +781,22 @@ public:
     return out;
   }
 
-  vec<T> find_one(const py::array_t<float> &x) {
-    const auto &buff_info_x = x.request();
-    const auto &ndim = buff_info_x.ndim;
-    const auto &shape_x = buff_info_x.shape;
+  vec<T> find_one(const vec<float> &x) {
     bool is_point = false;
-    if (unlikely(ndim != 1 || (not (shape_x[0] == 2 * D || shape_x[0] == D)))) {
+    if (unlikely(not (x.size() == 2 * D || x.size() == D))) {
       throw std::runtime_error("invalid shape");
     }
     std::array<Real, D> minima;
     std::array<Real, D> maxima;
-    if (shape_x[0] == D){
+    if (x.size() == D){
       is_point = true;
     }
     for (int i = 0; i < D; ++i) {
-      minima[i] = *x.data(i);
+      minima[i] = x.at(i);
       if (is_point){
         maxima[i] = minima[i];
       } else {
-        maxima[i] = *x.data(i + D);
+        maxima[i] = x.at(i);
       }
     }
     const auto bb = BB<D>(minima, maxima);
