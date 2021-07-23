@@ -30,7 +30,7 @@ PYBIND11_MODULE(PRTree, m) {
           Find all indexes which has intersect with given bounding box.
         )pbdoc")
       .def("batch_query", &PRTree<T, B, 2>::find_all, R"pbdoc(
-          parallel query with openmp
+          parallel query with multi-thread
         )pbdoc")
       .def("erase", &PRTree<T, B, 2>::erase, R"pbdoc(
           Delete from prtree
@@ -65,7 +65,7 @@ PYBIND11_MODULE(PRTree, m) {
           Find all indexes which has intersect with given bounding box.
         )pbdoc")
       .def("batch_query", &PRTree<T, B, 3>::find_all, R"pbdoc(
-          parallel query with openmp
+          parallel query with multi-thread
         )pbdoc")
       .def("erase", &PRTree<T, B, 3>::erase, R"pbdoc(
           Delete from prtree

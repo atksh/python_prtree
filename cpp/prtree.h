@@ -20,6 +20,7 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
+#include <string>
 
 #include <cereal/archives/json.hpp>
 #include <cereal/archives/portable_binary.hpp>
@@ -443,6 +444,7 @@ template <class T, int B = 6, int D = 2> class PRTree {
 private:
   std::unique_ptr<PRTreeNode<T, B, D>> root;
   std::unordered_map<T, BB<D>> umap;
+  std::unordered_map<T, py::object> pymap;
   int64_t n_at_build = 0;
 
 public:
@@ -533,6 +535,11 @@ public:
     }
     build(b, e, placement);
     std::free(placement);
+  }
+
+  void insert(const T &idx, const py::array_t<float> &x, const py::object &obj){
+    pymap.emplace(idx, obj);
+    insert(idx, x);
   }
 
   void insert(const T &idx, const py::array_t<float> &x) {
