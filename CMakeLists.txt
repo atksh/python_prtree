@@ -21,7 +21,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/pybind11/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/cereal/)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third/gzip-hpp/include/)
 
-if(UNIX AND NOT APPLE)
+if(NOT APPLE)
   add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/zlib/)
   include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third/zlib/)
 endif()
