@@ -19,10 +19,12 @@ file(GLOB MYCPP ${CMAKE_CURRENT_SOURCE_DIR}/cpp/*)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/pybind11/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/cereal/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/zlib/)
-include_directories(${ZLIB_DEPS_DIR})
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third/gzip-hpp/include/)
 
 pybind11_add_module(PRTree ${MYCPP})
+target_include_directories(PRTree PUBLIC
+  ${ZLIB_DEPS_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/third/gzip-hpp/include/
+)
 target_link_libraries(PRTree PRIVATE 
   cereal zlib 
   pybind11::module pybind11::lto pybind11::windows_extras
