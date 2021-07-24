@@ -4,6 +4,3 @@
 [submodule "third/gzip-hpp"]
 	path = third/gzip-hpp
 	url = https://github.com/mapbox/gzip-hpp
-[submodule "third/zlib"]
-	path = third/zlib
-	url = https://github.com/madler/zlib
