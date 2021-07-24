@@ -17,16 +17,15 @@ endif()
 project(PRTree)
 file(GLOB MYCPP ${CMAKE_CURRENT_SOURCE_DIR}/cpp/*)
 
+find_package(Boost COMPONENTS iostreams)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/pybind11/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/cereal/)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third/gzip-hpp/include/)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/zlib/)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third/zlib/)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/boost-cmake/)
 
 pybind11_add_module(PRTree ${MYCPP})
 target_link_libraries(PRTree PRIVATE 
   pybind11::module pybind11::lto pybind11::windows_extras
-  cereal zlib 
+  cereal Boost::iostreams
 )
 
 pybind11_extension(PRTree)

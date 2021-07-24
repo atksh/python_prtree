@@ -1,6 +1,6 @@
 [submodule "pybind11"]
 	path = third/pybind11
 	url = https://github.com/pybind/pybind11.git
-[submodule "third/gzip-hpp"]
-	path = third/gzip-hpp
-	url = https://github.com/mapbox/gzip-hpp
+[submodule "third/boost-cmake"]
+	path = third/boost-cmake
+	url = https://github.com/Orphis/boost-cmake.git
