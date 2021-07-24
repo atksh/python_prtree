@@ -17,7 +17,6 @@ endif()
 project(PRTree)
 file(GLOB MYCPP ${CMAKE_CURRENT_SOURCE_DIR}/cpp/*)
 
-find_package(Boost COMPONENTS iostreams)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/pybind11/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/cereal/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/boost-cmake/)
