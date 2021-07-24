@@ -860,16 +860,20 @@ public:
     objs.reserve(out.size());
 
     py::module_ pkl = py::module_::import("pickle");
-    for (const auto& o : out){
-      auto obj = get_obj(o);
-      py::object res;
-      if (obj) {
-        res = pkl.attr("loads")(obj.value());
-      } else {
-        res = py::none();
+    std::for_each(out.begin(), out.end(),// objs,
+      //[&](auto &i, auto &o){
+      [&](auto &i){
+        auto obj = get_obj(i);
+        py::object res;
+        if (obj) {
+          res = pkl.attr("loads")(obj.value());
+        } else {
+          res = py::none();
+        }
+        py::object r = py::object(res);
+        objs.push_back(std::move(r));
       }
-      objs.push_back(std::move(res));
-    }
+    );
     return std::make_pair(out, objs);
   }
 
