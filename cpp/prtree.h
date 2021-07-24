@@ -36,6 +36,12 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/atomic.hpp>
 
+#include <gzip/compress.hpp>
+#include <gzip/config.hpp>
+#include <gzip/decompress.hpp>
+#include <gzip/utils.hpp>
+#include <gzip/version.hpp>
+
 #include "parallel.h"
 
 using Real = float;
@@ -66,6 +72,21 @@ template <typename Iter> Iter select_randomly(Iter start, Iter end) {
   std::advance(start, dis(rand_src));
   return start;
 };
+
+std::string compress(std::string& data){
+  const char * pointer = data.data();
+  std::size_t size = data.size();
+  // Check if compressed. Can check both gzip and zlib.
+  bool c = gzip::is_compressed(pointer, size); // false
+  std::string compressed_data = gzip::compress(pointer, size);
+  return compressed_data;
+}
+
+std::string decompress(std::string& compressed_data){
+  const char * compressed_pointer = compressed_data.data();
+  std::string data = gzip::decompress(compressed_pointer, compressed_data.size());
+  return data;
+}
 
 template <int D = 2> class BB {
 private:
@@ -549,13 +570,15 @@ public:
 
   inline void set_obj(const T &idx, const std::optional<std::string> objdumps = std::nullopt){
     if (unlikely(objdumps)){
-      idx2data.emplace(idx, objdumps.value());
+      auto val = objdumps.value();
+      idx2data.emplace(idx, compress(val));
     }
   }
 
   inline std::optional<py::bytes> get_obj(const T &idx){
     try{
-      return py::bytes(idx2data.at(idx));
+      auto val = idx2data.at(idx);
+      return py::bytes(decompress(val));
     } catch (const std::out_of_range& e){
       return std::nullopt;
     }
