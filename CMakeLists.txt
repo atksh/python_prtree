@@ -25,6 +25,9 @@ target_include_directories(PRTree PUBLIC
   ${ZLIB_DEPS_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/third/gzip-hpp/include/
 )
+target_include_directories(zlib PUBLIC
+  ${ZLIB_DEPS_DIR}
+)
 target_link_libraries(PRTree PRIVATE 
   cereal zlib 
   pybind11::module pybind11::lto pybind11::windows_extras
