@@ -907,6 +907,7 @@ public:
       }
     }
     idx2bb.erase(idx);
+    idx2data.erase(idx);
   }
   int64_t size(){
     return static_cast<int64_t>(idx2bb.size());
