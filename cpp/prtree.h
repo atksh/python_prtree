@@ -856,10 +856,19 @@ public:
     }
     const auto bb = BB<D>(minima, maxima);
     auto out = find(bb);
-    vec<std::optional<py::bytes>> objs;
+    vec<py::object> objs;
     objs.reserve(out.size());
+
+    py::module_ pkl = py::module_::import("pickle");
     for (const auto& o : out){
-      objs.push_back(get_obj(o));
+      auto obj = get_obj(o);
+      py::object res;
+      if (obj) {
+        res = pkl.attr("loads")(obj.value());
+      } else {
+        res = py::none();
+      }
+      objs.push_back(std::move(res));
     }
     return std::make_pair(out, objs);
   }
