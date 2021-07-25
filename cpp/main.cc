@@ -28,10 +28,10 @@ PYBIND11_MODULE(PRTree, m) {
         )pbdoc")
       .def("query", &PRTree<T, B, 2>::find_one, R"pbdoc(
           Find all indexes which has intersect with given bounding box.
-        )pbdoc")
+        )pbdoc", py::return_value_policy::move)
       .def("batch_query", &PRTree<T, B, 2>::find_all, R"pbdoc(
           parallel query with multi-thread
-        )pbdoc")
+        )pbdoc", py::return_value_policy::move)
       .def("erase", &PRTree<T, B, 2>::erase, R"pbdoc(
           Delete from prtree
         )pbdoc")
@@ -69,10 +69,10 @@ PYBIND11_MODULE(PRTree, m) {
         )pbdoc")
       .def("query", &PRTree<T, B, 3>::find_one, R"pbdoc(
           Find all indexes which has intersect with given bounding box.
-        )pbdoc")
+        )pbdoc", py::return_value_policy::move)
       .def("batch_query", &PRTree<T, B, 3>::find_all, R"pbdoc(
           parallel query with multi-thread
-        )pbdoc")
+        )pbdoc", py::return_value_policy::move)
       .def("erase", &PRTree<T, B, 3>::erase, R"pbdoc(
           Delete from prtree
         )pbdoc")

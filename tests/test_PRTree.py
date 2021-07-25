@@ -118,7 +118,7 @@ def test_obj(seed, PRTree, dim, tmp_path):
     for i in range(dim):
         x[:, i + dim] += x[:, i]
 
-    obj = [str(i) for i in range(len(x))]
+    obj = [(i, (i, str(i))) for i in range(len(x))]
     prtree = PRTree()
     prtree2 = PRTree()
     for i in range(len(x)):

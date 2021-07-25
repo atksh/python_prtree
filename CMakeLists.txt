@@ -1,11 +1,14 @@
 cmake_minimum_required(VERSION 3.0)
 
 if(WIN32)
-  set(CMAKE_CXX_FLAGS "/O2 /pthread")
+  set(CMAKE_C_FLAGS "/O3 /pthread /GL /FLTO")
+  set(CMAKE_CXX_FLAGS "/O3 /pthread /GL /FLTO")
 elseif(APPLE)
-  set(CMAKE_CXX_FLAGS "-O2 -pthread")
+  set(CMAKE_C_FLAGS "-O3 -pthread -flto")
+  set(CMAKE_CXX_FLAGS "-O3 -pthread -flto")
 else()
-  set(CMAKE_CXX_FLAGS "-O2 -pthread")
+  set(CMAKE_C_FLAGS "-O3 -pthread -flto")
+  set(CMAKE_CXX_FLAGS "-O3 -pthread -flto")
 endif()
 
 project(PRTree)

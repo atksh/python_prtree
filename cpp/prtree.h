@@ -53,7 +53,6 @@ template <class T> using deque = std::deque<T>;
 template <class T> using queue = std::queue<T, deque<T>>;
 
 static std::mt19937 rand_src(42);
-static const py::module_ pickle = py::module_::import("pickle");
 
 #if defined(__GNUC__) || defined(__clang__)
 #define likely(x) __builtin_expect(!!(x), 1)
@@ -489,11 +488,16 @@ public:
     }
   }
 
-  PRTree() {}
+  PRTree() {
+    root = std::make_unique<PRTreeNode<T, B, D>>();
+  }
 
   ~PRTree() {
+    root.reset();
     idx2bb.clear();
+    idx2data.clear();
     std::unordered_map<T, BB<D>>().swap(idx2bb);
+    std::unordered_map<T, std::string>().swap(idx2data);
   }
 
   PRTree(std::string fname) { load(fname); }
@@ -571,13 +575,11 @@ public:
   }
 
   py::object get_obj(const T &idx){
-    py::object obj;
-    try{
+    py::object obj = py::none();
+    auto search = idx2data.find(idx);
+    if (likely(search != idx2data.end())){
       auto val = idx2data.at(idx);
-      auto objdumps = py::bytes(decompress(val));
-      obj = pickle.attr("loads")(objdumps);
-    } catch (const std::out_of_range& e){
-      obj = py::none();
+      obj = py::bytes(decompress(val));
     }
     return obj;
   }
