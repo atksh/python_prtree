@@ -71,7 +71,7 @@ class PRTree2D:
         else:
             out = self._tree.query(args)
         if return_obj:
-            objs = [self._tree.get_obj(i) for i in out]
+            objs = [self.get_obj(i) for i in out]
             return objs
         else:
             return out
