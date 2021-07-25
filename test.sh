@@ -1,6 +1,6 @@
 set -e
 
 rm -rf build dist .pytest_cache
-CXX=/usr/bin/g++ pip install .
-pytest tests -vv --capture=no
+pip install . --force-reinstall
+python -m pytest tests -vv --capture=no || rm -rf build dist .pytest_cache
 

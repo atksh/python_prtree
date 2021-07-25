@@ -15,12 +15,11 @@ def dumps(obj):
     else:
         return pickle.dumps(obj)
 
-
-def loads(s):
-    if s is None:
+def loads(obj):
+    if obj is None:
         return None
     else:
-        return pickle.loads(s)
+        return pickle.loads(obj)
 
 
 class PRTree2D:
@@ -63,6 +62,7 @@ class PRTree2D:
             idx = self.n + 1
         if bb is None:
             raise ValueError("Specify bounding box")
+        
         objdumps = dumps(obj)
         if self.n == 0:
             self._tree = self.Klass([idx], [bb])
@@ -72,11 +72,11 @@ class PRTree2D:
 
     def query(self, *args, return_obj=False):
         if len(args) == 1:
-            out, objs = self._tree.query(*args)
+            out = self._tree.query(*args)
         else:
-            out, objs = self._tree.query(args)
+            out = self._tree.query(args)
         if return_obj:
-            objs = [loads(obj) for obj in objs]
+            objs = [self.get_obj(i) for i in out]
             return objs
         else:
             return out

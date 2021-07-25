@@ -36,6 +36,7 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/atomic.hpp>
 
+#include <snappy.h>
 #include "parallel.h"
 
 using Real = float;
@@ -60,6 +61,20 @@ static std::mt19937 rand_src(42);
 #define likely(x) (x)
 #define unlikely(x) (x)
 #endif
+
+
+std::string compress(std::string& data){
+  std::string output;
+  snappy::Compress(data.data(), data.size(), &output);
+  return output;
+}
+
+std::string decompress(std::string& data){
+  std::string output;
+  snappy::Uncompress(data.data(), data.size(), &output);
+  return output;
+}
+
 
 template <typename Iter> Iter select_randomly(Iter start, Iter end) {
   std::uniform_int_distribution<> dis(0, std::distance(start, end) - 1);
@@ -473,11 +488,16 @@ public:
     }
   }
 
-  PRTree() {}
+  PRTree() {
+    root = std::make_unique<PRTreeNode<T, B, D>>();
+  }
 
   ~PRTree() {
+    root.reset();
     idx2bb.clear();
+    idx2data.clear();
     std::unordered_map<T, BB<D>>().swap(idx2bb);
+    std::unordered_map<T, std::string>().swap(idx2data);
   }
 
   PRTree(std::string fname) { load(fname); }
@@ -547,18 +567,21 @@ public:
     std::free(placement);
   }
 
-  inline void set_obj(const T &idx, const std::optional<std::string> objdumps = std::nullopt){
-    if (unlikely(objdumps)){
-      idx2data.emplace(idx, objdumps.value());
+  void set_obj(const T &idx, std::optional<std::string> objdumps = std::nullopt){
+    if (objdumps){
+      auto val = objdumps.value();
+      idx2data.emplace(idx, compress(val));
     }
   }
 
-  inline std::optional<py::bytes> get_obj(const T &idx){
-    try{
-      return py::bytes(idx2data.at(idx));
-    } catch (const std::out_of_range& e){
-      return std::nullopt;
+  py::object get_obj(const T &idx){
+    py::object obj = py::none();
+    auto search = idx2data.find(idx);
+    if (likely(search != idx2data.end())){
+      auto val = idx2data.at(idx);
+      obj = py::cast<py::object>(py::bytes(decompress(val)));
     }
+    return obj;
   }
 
   void insert(const T &idx, const py::array_t<float> &x, const std::optional<std::string> objdumps = std::nullopt) {
@@ -856,12 +879,7 @@ public:
     }
     const auto bb = BB<D>(minima, maxima);
     auto out = find(bb);
-    vec<std::optional<py::bytes>> objs;
-    objs.reserve(out.size());
-    for (const auto& o : out){
-      objs.push_back(get_obj(o));
-    }
-    return std::make_pair(out, objs);
+    return out;
   }
 
   void erase(const T idx) {
@@ -898,6 +916,7 @@ public:
       }
     }
     idx2bb.erase(idx);
+    idx2data.erase(idx);
   }
   int64_t size(){
     return static_cast<int64_t>(idx2bb.size());
