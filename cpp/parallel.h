@@ -7,7 +7,7 @@ template <typename F, typename Iter, typename T>
 void parallel_for_each(const Iter first, const Iter last, T &result, const F &func)
 {
   auto f = std::ref(func);
-  const size_t nthreads = std::max(1, (size_t)std::thread::hardware_concurrency());
+  const size_t nthreads = (size_t)std::max(1, (int)std::thread::hardware_concurrency());
   const size_t total = std::distance(first, last);
   std::vector<T> rr(nthreads);
   {
@@ -54,7 +54,7 @@ template <typename F, typename Iter>
 void parallel_for_each(const Iter first, const Iter last, const F &func)
 {
   auto f = std::ref(func);
-  const size_t nthreads = std::max(1, (size_t)std::thread::hardware_concurrency());
+  const size_t nthreads = (size_t)std::max(1, (int)std::thread::hardware_concurrency());
   const size_t total = std::distance(first, last);
   {
     std::vector<std::thread> threads;
