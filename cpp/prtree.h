@@ -36,8 +36,8 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/atomic.hpp>
 
+#include <snappy.h>
 #include "parallel.h"
-#include "gzip.h"
 
 using Real = float;
 
@@ -61,6 +61,20 @@ static std::mt19937 rand_src(42);
 #define likely(x) (x)
 #define unlikely(x) (x)
 #endif
+
+
+std::string compress(std::string& data){
+  std::string output;
+  snappy::Compress(data.data(), data.size(), &output);
+  return output;
+}
+
+std::string decompress(std::string& data){
+  std::string output;
+  snappy::Uncompress(data.data(), data.size(), &output);
+  return output;
+}
+
 
 template <typename Iter> Iter select_randomly(Iter start, Iter end) {
   std::uniform_int_distribution<> dis(0, std::distance(start, end) - 1);
@@ -551,14 +565,14 @@ public:
   inline void set_obj(const T &idx, const std::optional<std::string> objdumps = std::nullopt){
     if (unlikely(objdumps)){
       auto val = objdumps.value();
-      idx2data.emplace(idx, Gzip::compress(val));
+      idx2data.emplace(idx, compress(val));
     }
   }
 
   inline std::optional<py::bytes> get_obj(const T &idx){
     try{
       auto val = idx2data.at(idx);
-      return py::bytes(Gzip::decompress(val));
+      return py::bytes(decompress(val));
     } catch (const std::out_of_range& e){
       return std::nullopt;
     }

@@ -17,14 +17,18 @@ endif()
 project(PRTree)
 file(GLOB MYCPP ${CMAKE_CURRENT_SOURCE_DIR}/cpp/*)
 
+option(SNAPPY_BUILD_TESTS "" OFF)
+option(SNAPPY_BUILD_BENCHMARKS "" OFF)
+option(SNAPPY_INSTALL "" OFF)
+
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/pybind11/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/cereal/)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/boost-cmake/)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/snappy/)
 
 pybind11_add_module(PRTree ${MYCPP})
 target_link_libraries(PRTree PRIVATE 
   pybind11::module pybind11::lto pybind11::windows_extras
-  cereal Boost::iostreams
+  cereal snappy
 )
 
 pybind11_extension(PRTree)
