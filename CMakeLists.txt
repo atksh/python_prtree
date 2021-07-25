@@ -13,6 +13,8 @@ file(GLOB MYCPP ${CMAKE_CURRENT_SOURCE_DIR}/cpp/*)
 
 option(SNAPPY_BUILD_TESTS "" OFF)
 option(SNAPPY_BUILD_BENCHMARKS "" OFF)
+option(SNAPPY_INSTALL "" OFF)
+option(BUILD_SHARED_LIBS "" ON)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/pybind11/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/cereal/)
