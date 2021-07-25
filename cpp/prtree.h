@@ -579,7 +579,7 @@ public:
     auto search = idx2data.find(idx);
     if (likely(search != idx2data.end())){
       auto val = idx2data.at(idx);
-      obj = py::bytes(decompress(val));
+      obj = py::cast<py::object>(py::bytes(decompress(val)));
     }
     return obj;
   }
