@@ -22,7 +22,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/cereal/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/snappy/)
 
 pybind11_add_module(PRTree ${MYCPP})
-set_property(PRTree PROPERTY 
+set_target_properties(PRTree PROPERTYS
   POSITION_INDEPENDENT_CODE ON
 	C_VISIBILITY_PRESET hidden
 	CXX_VISIBILITY_PRESET hidden
