@@ -53,6 +53,7 @@ template <class T> using deque = std::deque<T>;
 template <class T> using queue = std::queue<T, deque<T>>;
 
 static std::mt19937 rand_src(42);
+static const py::module_ pickle = py::module_::import("pickle");
 
 #if defined(__GNUC__) || defined(__clang__)
 #define likely(x) __builtin_expect(!!(x), 1)
@@ -562,20 +563,23 @@ public:
     std::free(placement);
   }
 
-  inline void set_obj(const T &idx, const std::optional<std::string> objdumps = std::nullopt){
+  void set_obj(T &idx, std::optional<std::string> objdumps = std::nullopt){
     if (unlikely(objdumps)){
       auto val = objdumps.value();
       idx2data.emplace(idx, compress(val));
     }
   }
 
-  inline std::optional<py::bytes> get_obj(const T &idx){
+  py::object get_obj(T &idx){
+    py::object obj;
     try{
       auto val = idx2data.at(idx);
-      return py::bytes(decompress(val));
+      auto objdumps = py::bytes(decompress(val));
+      obj = pickle.attr("loads")(objdumps);
     } catch (const std::out_of_range& e){
-      return std::nullopt;
+      obj = py::none();
     }
+    return obj;
   }
 
   void insert(const T &idx, const py::array_t<float> &x, const std::optional<std::string> objdumps = std::nullopt) {
@@ -876,19 +880,12 @@ public:
     vec<py::object> objs;
     objs.reserve(out.size());
 
-    py::module_ pkl = py::module_::import("pickle");
-    std::for_each(out.begin(), out.end(),// objs,
-      //[&](auto &i, auto &o){
+    std::for_each(out.begin(), out.end(),
       [&](auto &i){
+    //parallel_for_each(out.begin(), out.end(), objs,
+    //  [&](auto &i, auto &o){
         auto obj = get_obj(i);
-        py::object res;
-        if (obj) {
-          res = pkl.attr("loads")(obj.value());
-        } else {
-          res = py::none();
-        }
-        py::object r = py::object(res);
-        objs.push_back(std::move(r));
+        objs.push_back(std::move(obj));
       }
     );
     return std::make_pair(out, objs);

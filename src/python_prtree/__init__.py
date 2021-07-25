@@ -16,13 +16,6 @@ def dumps(obj):
         return pickle.dumps(obj)
 
 
-def loads(s):
-    if s is None:
-        return None
-    else:
-        return pickle.loads(s)
-
-
 class PRTree2D:
     Klass = _PRTree2D
 
@@ -76,7 +69,6 @@ class PRTree2D:
         else:
             out, objs = self._tree.query(args)
         if return_obj:
-            # objs = [loads(obj) for obj in objs]
             return objs
         else:
             return out
