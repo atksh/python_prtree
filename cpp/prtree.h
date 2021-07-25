@@ -564,7 +564,7 @@ public:
   }
 
   void set_obj(const T &idx, std::optional<std::string> objdumps = std::nullopt){
-    if (unlikely(objdumps)){
+    if (objdumps){
       auto val = objdumps.value();
       idx2data.emplace(idx, compress(val));
     }
@@ -877,18 +877,7 @@ public:
     }
     const auto bb = BB<D>(minima, maxima);
     auto out = find(bb);
-    vec<py::object> objs;
-    objs.reserve(out.size());
-
-    std::for_each(out.begin(), out.end(),
-      [&](auto &i){
-    //parallel_for_each(out.begin(), out.end(), objs,
-    //  [&](auto &i, auto &o){
-        auto obj = get_obj(i);
-        objs.push_back(std::move(obj));
-      }
-    );
-    return std::make_pair(out, objs);
+    return out;
   }
 
   void erase(const T idx) {
