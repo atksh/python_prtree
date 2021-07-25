@@ -40,6 +40,7 @@ jobs:
           CIBW_SKIP: cp27-* cp35-* *-win32 *-manylinux_i686
           CIBW_ARCHS_LINUX: x86_64 aarch64
           CIBW_ARCHS_MACOS: x86_64
+          CIBW_TEST_SKIP: "*universal2:arm64"
           CIBW_BEFORE_BUILD: pip install pybind11
           CIBW_TEST_COMMAND: pytest {project}/tests
           CIBW_TEST_REQUIRES: pytest numpy
