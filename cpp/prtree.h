@@ -563,14 +563,14 @@ public:
     std::free(placement);
   }
 
-  void set_obj(T &idx, std::optional<std::string> objdumps = std::nullopt){
+  void set_obj(const T &idx, std::optional<std::string> objdumps = std::nullopt){
     if (unlikely(objdumps)){
       auto val = objdumps.value();
       idx2data.emplace(idx, compress(val));
     }
   }
 
-  py::object get_obj(T &idx){
+  py::object get_obj(const T &idx){
     py::object obj;
     try{
       auto val = idx2data.at(idx);
