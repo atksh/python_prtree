@@ -34,7 +34,7 @@ set_target_properties(cereal snappy PROPERTIES
 	CXX_VISIBILITY_PRESET hidden
 )
 
-target_link_libraries(PRTree PUBLIC 
+target_link_libraries(PRTree PRIVATE
   pybind11::module pybind11::lto pybind11::windows_extras
   cereal snappy
 )
