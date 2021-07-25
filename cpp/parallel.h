@@ -13,9 +13,9 @@ void parallel_for_each(const Iter first, const Iter last, T &result, const F &fu
   {
     std::vector<std::thread> threads;
     std::vector<Iter> iters;
-    auto step = total / nthreads;
-    auto remaining = total % nthreads;
-    auto n = first;
+    size_t step = total / nthreads;
+    size_t remaining = total % nthreads;
+    Iter n = first;
     iters.emplace_back(first);
     for (int i = 0; i < nthreads - 1; ++i)
     {
@@ -59,9 +59,9 @@ void parallel_for_each(const Iter first, const Iter last, const F &func)
   {
     std::vector<std::thread> threads;
     std::vector<Iter> iters;
-    auto step = total / nthreads;
-    auto remaining = total % nthreads;
-    auto n = first;
+    size_t step = total / nthreads;
+    size_t remaining = total % nthreads;
+    Iter n = first;
     iters.emplace_back(first);
     for (int i = 0; i < nthreads - 1; ++i)
     {

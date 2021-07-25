@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(Boost_USE_STATIC_LIBS ON)
 
@@ -25,6 +24,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/cereal/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/snappy/)
 
 pybind11_add_module(PRTree ${MYCPP})
+set_property(TARGET PRTree PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(PRTree PRIVATE 
   pybind11::module pybind11::lto pybind11::windows_extras
   cereal snappy
