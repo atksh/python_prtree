@@ -28,7 +28,7 @@ set_target_properties(PRTree PROPERTIES
 	C_VISIBILITY_PRESET hidden
 	CXX_VISIBILITY_PRESET hidden
 )
-set_target_properties(cereal snappy PROPERTIES
+set_target_properties(snappy PROPERTIES
   POSITION_INDEPENDENT_CODE ON
 	C_VISIBILITY_PRESET hidden
 	CXX_VISIBILITY_PRESET hidden
