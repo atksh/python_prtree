@@ -693,6 +693,7 @@ public:
       i++;
     }
     build(b, e, placement);
+    std::free(placement);
   }
 
   template <class iterator>
