@@ -17,7 +17,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-2019, macos-10.15]
+        os: [ubuntu-20.04, windows-2022, macos-11]
 
     steps:
       - uses: actions/checkout@v2
@@ -44,7 +44,7 @@ jobs:
           CIBW_BEFORE_BUILD: pip install pybind11
           CIBW_TEST_COMMAND: pytest {project}/tests -vv
           CIBW_TEST_REQUIRES: pytest numpy
-          MACOSX_DEPLOYMENT_TARGET: 10.15
+          MACOSX_DEPLOYMENT_TARGET: 11.0
       - uses: actions/upload-artifact@v2
         with:
           path: ./wheelhouse/*.whl
