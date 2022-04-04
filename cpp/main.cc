@@ -98,6 +98,47 @@ PYBIND11_MODULE(PRTree, m) {
           get n
         )pbdoc");
 
+  py::class_<PRTree<T, B, 4>>(m, "_PRTree4D")
+      .def(py::init<py::array_t<T>, py::array_t<float>>(), R"pbdoc(
+          Construct PRTree with init.
+        )pbdoc")
+      .def(py::init<>(), R"pbdoc(
+          Construct PRTree with .
+        )pbdoc")
+      .def(py::init<std::string>(), R"pbdoc(
+          Construct PRTree with load.
+        )pbdoc")
+      .def("query", &PRTree<T, B, 4>::find_one, R"pbdoc(
+          Find all indexes which has intersect with given bounding box.
+        )pbdoc")
+      .def("batch_query", &PRTree<T, B, 4>::find_all, R"pbdoc(
+          parallel query with multi-thread
+        )pbdoc")
+      .def("erase", &PRTree<T, B, 4>::erase, R"pbdoc(
+          Delete from prtree
+        )pbdoc")
+      .def("set_obj", &PRTree<T, B, 4>::set_obj, R"pbdoc(
+          Set string by index
+        )pbdoc")
+      .def("get_obj", &PRTree<T, B, 4>::get_obj, R"pbdoc(
+          Get string by index
+        )pbdoc")
+      .def("insert", &PRTree<T, B, 4>::insert, R"pbdoc(
+          Insert one to prtree
+        )pbdoc")
+      .def("save", &PRTree<T, B, 4>::save, R"pbdoc(
+          cereal save
+        )pbdoc")
+      .def("load", &PRTree<T, B, 4>::load, R"pbdoc(
+          cereal load
+        )pbdoc")
+      .def("rebuild", &PRTree<T, B, 4>::rebuild, R"pbdoc(
+          rebuild prtree
+        )pbdoc")
+      .def("size", &PRTree<T, B, 4>::size, R"pbdoc(
+          get n
+        )pbdoc");
+
 #ifdef VERSION_INFO
   m.attr("__version__") = VERSION_INFO;
 #else

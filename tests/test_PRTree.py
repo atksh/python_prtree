@@ -1,18 +1,17 @@
 import pytest
-from python_prtree import PRTree2D, PRTree3D
+from python_prtree import PRTree2D, PRTree3D, PRTree4D
 import numpy as np
 
 
 N_SEED = 5
 
+
 def has_intersect(x, y, dim):
-    return all(
-        [max(x[i], y[i]) <= min(x[i + dim], y[i + dim]) for i in range(dim)]
-    )
+    return all([max(x[i], y[i]) <= min(x[i + dim], y[i + dim]) for i in range(dim)])
 
 
 @pytest.mark.parametrize("seed", range(N_SEED))
-@pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
+@pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_result(seed, PRTree, dim):
     np.random.seed(seed)
     idx = np.arange(100)
@@ -30,7 +29,7 @@ def test_result(seed, PRTree, dim):
     for i in range(len(idx)):
         tmp = [k for k in range(len(idx)) if has_intersect(x[i], x[k], dim)]
         assert set(out[i]) == set(tmp)
-    
+
     # test point query
     x[:, dim:] = x[:, :dim]
     out1 = prtree.batch_query(x)
@@ -40,7 +39,7 @@ def test_result(seed, PRTree, dim):
 
 
 @pytest.mark.parametrize("seed", range(N_SEED))
-@pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
+@pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_io(seed, PRTree, dim, tmp_path):
     np.random.seed(seed)
     idx = np.arange(100)
@@ -72,7 +71,7 @@ def test_io(seed, PRTree, dim, tmp_path):
 @pytest.mark.parametrize("seed", range(N_SEED))
 @pytest.mark.parametrize("from_scratch", [False, True])
 @pytest.mark.parametrize("rebuild", [False, True])
-@pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
+@pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_insert_erase(seed, from_scratch, rebuild, PRTree, dim):
     np.random.seed(seed)
     N = 10000
@@ -110,8 +109,9 @@ def test_insert_erase(seed, from_scratch, rebuild, PRTree, dim):
     for i in range(x.shape[0]):
         assert set(prtree1.query(x[i])) == set(prtree2.query(x[i]))
 
+
 @pytest.mark.parametrize("seed", range(N_SEED))
-@pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
+@pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_obj(seed, PRTree, dim, tmp_path):
     np.random.seed(seed)
     x = np.random.rand(100, 2 * dim)

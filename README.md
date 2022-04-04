@@ -1,6 +1,6 @@
 # python_prtree
 
-*python_prtree* is a python/c++ implementation of the Priority R-Tree (see references below). The supported futures are as follows:
+*python_prtree* is a python/c++ implementation of the Priority R-Tree (see references below), an alternative to R-Tree. The supported futures are as follows:
 
 - Construct a Priority R-Tree (PRTree) from an array of rectangles
   - The array shape is (xmin, ymin, xmax, ymax) in 2D and (xmin, ymin, zmin, xmax, ymax, zmax) in 3D.
@@ -70,8 +70,11 @@ print(prtree.query((0.5, 0.5)))
 ```
 
 ## New Features and Changes 
+### `python-prtree>=0.5.7`
+You can use PRTree4D.
+
 ### `python-prtree>=0.5.3`
-- Add gzip compression for pickled objects.
+- Add compression for pickled objects.
 
 ### `python-prtree>=0.5.2`
 You can use pickable Python objects instead of int64 indexes for `insert` and `query` methods:
