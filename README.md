@@ -71,7 +71,7 @@ print(prtree.query((0.5, 0.5)))
 
 ## New Features and Changes 
 ### `python-prtree>=0.5.3`
-- Add gzip compression for pickled objects.
+- Add compression for pickled objects.
 
 ### `python-prtree>=0.5.2`
 You can use pickable Python objects instead of int64 indexes for `insert` and `query` methods:
