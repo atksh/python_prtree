@@ -1,11 +1,12 @@
 import codecs
 import pickle
 
-from .PRTree import _PRTree2D, _PRTree3D
+from .PRTree import _PRTree2D, _PRTree3D, _PRTree4D
 
 __all__ = [
     "PRTree2D",
     "PRTree3D",
+    "PRTree4D",
 ]
 
 
@@ -14,6 +15,7 @@ def dumps(obj):
         return None
     else:
         return pickle.dumps(obj)
+
 
 def loads(obj):
     if obj is None:
@@ -62,7 +64,7 @@ class PRTree2D:
             idx = self.n + 1
         if bb is None:
             raise ValueError("Specify bounding box")
-        
+
         objdumps = dumps(obj)
         if self.n == 0:
             self._tree = self.Klass([idx], [bb])
@@ -84,3 +86,7 @@ class PRTree2D:
 
 class PRTree3D(PRTree2D):
     Klass = _PRTree3D
+
+
+class PRTree4D(PRTree2D):
+    Klass = _PRTree4D
