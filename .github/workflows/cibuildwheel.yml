@@ -91,10 +91,11 @@ jobs:
           - os: macos-latest
             python: 37
             platform_id: macosx_x86_64
-          - os: macos-latest
             macosx_deployment_target: 10.14
+          - os: macos-latest
             python: 38
             platform_id: macosx_x86_64
+            macosx_deployment_target: 10.14
           - os: macos-latest
             python: 39
             platform_id: macosx_x86_64
@@ -143,7 +144,7 @@ jobs:
           CIBW_TEST_COMMAND: pytest {project}/tests -vv
           CIBW_TEST_REQUIRES: pytest numpy
           CIBW_BUILD_VERBOSITY: 1
-          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macosx_deployment_target}}
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macosx_deployment_target }}
       - uses: actions/upload-artifact@v2
         with:
           path: ./wheelhouse/*.whl
