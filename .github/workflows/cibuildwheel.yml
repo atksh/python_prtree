@@ -16,8 +16,108 @@ jobs:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
+      # Ensure that a wheel builder finishes even if another fails
+      fail-fast: false
       matrix:
-        os: [ubuntu-20.04, windows-2022, macos-11]
+        include:
+          # Window 64 bit
+          # Note: windows-2019 is needed for older Python versions:
+          # https://github.com/scikit-learn/scikit-learn/issues/22530
+          - os: windows-2019
+            python: 36
+            platform_id: win_amd64
+          - os: windows-2019
+            python: 37
+            platform_id: win_amd64
+          - os: windows-2019
+            python: 38
+            platform_id: win_amd64
+          - os: windows-latest
+            python: 39
+            platform_id: win_amd64
+          - os: windows-latest
+            python: 310
+            platform_id: win_amd64
+
+          # Linux 64 bit manylinux2014
+          - os: ubuntu-latest
+            python: 36
+            platform_id: manylinux_x86_64
+            manylinux_image: manylinux2014
+          - os: ubuntu-latest
+            python: 37
+            platform_id: manylinux_x86_64
+            manylinux_image: manylinux2014
+          - os: ubuntu-latest
+            python: 38
+            platform_id: manylinux_x86_64
+            manylinux_image: manylinux2014
+          - os: ubuntu-latest
+            python: 39
+            platform_id: manylinux_x86_64
+            manylinux_image: manylinux2014
+          - os: ubuntu-latest
+            python: 310
+            platform_id: manylinux_x86_64
+            manylinux_image: manylinux2014
+
+          # Linux 64 bit aarch64
+          - os: ubuntu-latest
+            python: 36
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+          - os: ubuntu-latest
+            python: 37
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+          - os: ubuntu-latest
+            python: 38
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+          - os: ubuntu-latest
+            python: 39
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+          - os: ubuntu-latest
+            python: 310
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+
+          # MacOS x86_64
+          - os: macos-latest
+            python: 36
+            platform_id: macosx_x86_64
+            macosx_deployment_target: 10.14
+          - os: macos-latest
+            python: 37
+            platform_id: macosx_x86_64
+            macosx_deployment_target: 10.14
+          - os: macos-latest
+            python: 38
+            platform_id: macosx_x86_64
+            macosx_deployment_target: 10.14
+          - os: macos-latest
+            python: 39
+            platform_id: macosx_x86_64
+            macosx_deployment_target: 10.14
+          - os: macos-latest
+            python: 310
+            platform_id: macosx_x86_64
+            macosx_deployment_target: 10.14
+
+          # MacOS arm64
+          - os: macos-latest
+            python: 38
+            platform_id: macosx_arm64
+            macosx_deployment_target: 11.0
+          - os: macos-latest
+            python: 39
+            platform_id: macosx_arm64
+            macosx_deployment_target: 11.0
+          - os: macos-latest
+            python: 310
+            platform_id: macosx_arm64
+            macosx_deployment_target: 11.0
 
     steps:
       - uses: actions/checkout@v2
@@ -26,25 +126,25 @@ jobs:
       - uses: actions/setup-python@v2
         name: Install Python
         with:
-          python-version: 3.8
+          python-version: 3.9
       - name: Set up QEMU
         if: runner.os == 'Linux'
         uses: docker/setup-qemu-action@v1
         with:
           platforms: all
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.0.0
+        uses: pypa/cibuildwheel@v2.4.0
         env:
-          CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
-          CIBW_BUILD: cp3?-*
-          CIBW_SKIP: cp27-* cp35-* *-win32 *-manylinux_i686
-          CIBW_ARCHS_LINUX: x86_64 aarch64
-          CIBW_ARCHS_MACOS: x86_64
-          CIBW_TEST_SKIP: "*universal2:arm64"
+          CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
+          CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux_image }}
+          CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
+          CIBW_ARCHS: all
+          CIBW_TEST_SKIP: "*-macosx_arm64"
           CIBW_BEFORE_BUILD: pip install pybind11
           CIBW_TEST_COMMAND: pytest {project}/tests -vv
           CIBW_TEST_REQUIRES: pytest numpy
-          MACOSX_DEPLOYMENT_TARGET: 11.0
+          CIBW_BUILD_VERBOSITY: 1
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macosx_deployment_target }}
       - uses: actions/upload-artifact@v2
         with:
           path: ./wheelhouse/*.whl
@@ -59,7 +159,7 @@ jobs:
       - uses: actions/setup-python@v2
         name: Install Python
         with:
-          python-version: 3.8
+          python-version: 3.9
       - name: Build sdist
         run: python setup.py sdist
       - uses: actions/upload-artifact@v2
