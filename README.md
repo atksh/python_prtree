@@ -3,6 +3,7 @@
 _python_prtree_ is a python/c++ implementation of the Priority R-Tree (see references below), an alternative to R-Tree. The supported futures are as follows:
 
 - Construct a Priority R-Tree (PRTree) from an array of rectangles.
+  - `PRTree2D`, `PRTree3D` and `PRTree4D` (2D, 3D and 4D respectively)
 - `insert` and `erase`
   - The `insert` method can be passed pickable Python objects instead of int64 indexes.
 - `query` and `batch_query`
