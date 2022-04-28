@@ -53,6 +53,7 @@ template <class T> using deque = std::deque<T>;
 template <class T> using queue = std::queue<T, deque<T>>;
 
 static std::mt19937 rand_src(42);
+static const float REBUILD_THRE = 1.5;
 
 #if defined(__GNUC__) || defined(__clang__)
 #define likely(x) __builtin_expect(!!(x), 1)
@@ -74,7 +75,6 @@ std::string decompress(std::string& data){
   snappy::Uncompress(data.data(), data.size(), &output);
   return output;
 }
-
 
 template <typename Iter> Iter select_randomly(Iter start, Iter end) {
   std::uniform_int_distribution<> dis(0, std::distance(start, end) - 1);
@@ -174,6 +174,14 @@ public:
     return flag;
   }
 
+  Real area() const {
+    Real result = 1;
+    for (int i = 0; i < D; ++i) {
+      result *= values[i + D] - values[i];
+    }
+    return result;
+  }
+
   Real operator[](const int i) const { return values[i]; }
   template <class Archive> void serialize(Archive &ar) { ar(values); }
 };
@@ -216,6 +224,10 @@ public:
   ~Leaf() {
     data.clear();
     vec<DataType<T, D>>().swap(data);
+  }
+
+  Real area() const {
+    return mbb.area();
   }
 
   template <class Archive> void serialize(Archive &ar) { ar(axis, mbb, data); }
@@ -587,6 +599,7 @@ public:
   void insert(const T &idx, const py::array_t<float> &x, const std::optional<std::string> objdumps = std::nullopt) {
     vec<Leaf<T, B, D> *> cands;
     queue<PRTreeNode<T, B, D> *> que;
+    std::stack<PRTreeNode<T, B, D> *> sta;
     BB<D> bb;
     PRTreeNode<T, B, D> *p, *q;
 
@@ -599,9 +612,6 @@ public:
     auto it = idx2bb.find(idx);
     if (unlikely(it != idx2bb.end())) {
       throw std::runtime_error("Given index is already included.");
-    }
-    if (size() > 1.25 * n_at_build){
-      rebuild();
     }
     {
       std::array<Real, D> minima;
@@ -619,49 +629,64 @@ public:
     for (int i = 0; i < D; ++i) {
       delta[i] = bb.max(i) - bb.min(i) + 0.00000001;
     }
+
+    // find the leaf node to insert
     Real c = 0.0;
-    std::stack<PRTreeNode<T, B, D> *> sta;
-    while (likely(cands.size() == 0)) {
-      while (likely(!sta.empty())) {
-        sta.pop();
+    auto qpush_if_intersect = [&](PRTreeNode<T, B, D> *r) {
+      if (unlikely((*r)(bb))) {
+        que.emplace(r);
+        sta.push(r);
       }
+    };
+
+    while (likely(cands.size() == 0)) {
       std::array<Real, D> d;
       for (int i = 0; i < D; ++i) {
         d[i] = delta[i] * c;
       }
       bb.expand(d);
       c = (c + 1) * 2;
-      auto qpush = [&](PRTreeNode<T, B, D> *r) {
-        if (unlikely((*r)(bb))) {
-          que.emplace(r);
-          sta.push(r);
-        }
-      };
 
+      // depth first search
       p = root.get();
-      qpush(p);
+      qpush_if_intersect(p);
       while (likely(!que.empty())) {
         p = que.front();
         que.pop();
 
         if (unlikely(p->leaf)) {
+          // if p is leaf, then it is the leaf node to insert if it intersects
           cands.push_back(p->leaf.get());
         } else {
           if (likely(p->head)) {
             q = p->head.get();
-            qpush(q);
+            qpush_if_intersect(q);
             while (likely(q->next)) {
               q = q->next.get();
-              qpush(q);
+              qpush_if_intersect(q);
             }
           }
         }
       }
     }
-
+    // Now cands is the list of candidate leaf nodes to insert
     bb = idx2bb.at(idx);
-    auto tg = *select_randomly(cands.begin(), cands.end());
-    tg->push(idx, bb);
+    Leaf<T, B, D> *min_leaf = nullptr;
+    {
+      Real min_diff_area = 1e100;
+      for (const auto &leaf : cands) {
+        Leaf<T, B, D> tmp_leaf = Leaf<T, B, D>(*leaf);
+        Real diff_area = -tmp_leaf.area();
+        tmp_leaf.push(idx, bb);
+        diff_area += tmp_leaf.area();
+        if (min_leaf == nullptr || diff_area < min_diff_area) {
+          min_diff_area = diff_area;
+          min_leaf = leaf;
+        }
+      }
+    }
+    min_leaf->push(idx, bb);
+    // update mbbs of all cands and their parents
     while (likely(!sta.empty())) {
       p = sta.top();
       sta.pop();
@@ -678,20 +703,49 @@ public:
         p->mbb = mbb;
       }
     }
+
+    if (size() > REBUILD_THRE * n_at_build){
+      rebuild();
+    } else {
+      // Quadratic-Cost Algorithm
+      
+    }
   }
 
   void rebuild(){
+    std::stack<PRTreeNode<T, B, D> *> sta;
+    PRTreeNode<T, B, D> *p, *q;
     size_t length = idx2bb.size();
     DataType<T, D> *b, *e;
+
     void *placement = std::malloc(
         std::max(sizeof(DataType<T, D>), sizeof(DataType<int, D>)) * length);
     b = reinterpret_cast<DataType<T, D> *>(placement);
     e = b + length;
+
     int i = 0;
-    for (const auto& [key, value] : idx2bb ) {
-      new (b + i) DataType<T, D>{key, value};
-      i++;
+    sta.push(root.get());
+    while(unlikely(!sta.empty())){
+      p = sta.top();
+      sta.pop();
+
+      if (unlikely(p->leaf)){
+        for (const auto &datum : p->leaf->data){
+          new (b + i) DataType<T, D>{datum.first, datum.second};
+          i++;
+        }
+      } else {
+        if (likely(p->head)){
+          q = p->head.get();
+          sta.push(q);
+          while (likely(q->next)){
+            q = q->next.get();
+            sta.push(q);
+          }
+        }
+      }
     }
+
     build(b, e, placement);
     std::free(placement);
   }
@@ -828,38 +882,6 @@ public:
     return out;
   }
 
-  vec<T> find(const BB<D> &target) {
-    vec<T> out;
-    queue<PRTreeNode<T, B, D> *> que;
-    PRTreeNode<T, B, D> *p, *q;
-    auto qpush = [&](PRTreeNode<T, B, D> *r) {
-      if (unlikely((*r)(target))) {
-        que.emplace(r);
-      }
-    };
-
-    p = root.get();
-    qpush(p);
-    while (likely(!que.empty())) {
-      p = que.front();
-      que.pop();
-
-      if (unlikely(p->leaf)) {
-        (*p->leaf)(target, out);
-      } else {
-        if (likely(p->head)) {
-          q = p->head.get();
-          qpush(q);
-          while (likely(q->next)) {
-            q = q->next.get();
-            qpush(q);
-          }
-        }
-      }
-    }
-    return out;
-  }
-
   auto find_one(const vec<float> &x) {
     bool is_point = false;
     if (unlikely(!(x.size() == 2 * D || x.size() == D))) {
@@ -883,6 +905,38 @@ public:
     return out;
   }
 
+  vec<T> find(const BB<D> &target) {
+    vec<T> out;
+    queue<PRTreeNode<T, B, D> *> que;
+    PRTreeNode<T, B, D> *p, *q;
+    auto qpush_if_intersect = [&](PRTreeNode<T, B, D> *r) {
+      if (unlikely((*r)(target))) {
+        que.emplace(r);
+      }
+    };
+
+    p = root.get();
+    qpush_if_intersect(p);
+    while (likely(!que.empty())) {
+      p = que.front();
+      que.pop();
+
+      if (unlikely(p->leaf)) {
+        (*p->leaf)(target, out);
+      } else {
+        if (likely(p->head)) {
+          q = p->head.get();
+          qpush_if_intersect(q);
+          while (likely(q->next)) {
+            q = q->next.get();
+            qpush_if_intersect(q);
+          }
+        }
+      }
+    }
+    return out;
+  }
+
   void erase(const T idx) {
     auto it = idx2bb.find(idx);
     if (unlikely(it == idx2bb.end())) {
@@ -891,14 +945,14 @@ public:
     BB<D> target = it->second;
     queue<PRTreeNode<T, B, D> *> que;
     PRTreeNode<T, B, D> *p, *q;
-    auto qpush = [&](PRTreeNode<T, B, D> *r) {
+    auto qpush_if_intersect = [&](PRTreeNode<T, B, D> *r) {
       if (unlikely((*r)(target))) {
         que.emplace(r);
       }
     };
 
     p = root.get();
-    qpush(p);
+    qpush_if_intersect(p);
     while (likely(!que.empty())) {
       p = que.front();
       que.pop();
@@ -908,17 +962,22 @@ public:
       } else {
         if (likely(p->head)) {
           q = p->head.get();
-          qpush(q);
+          qpush_if_intersect(q);
           while (likely(q->next)) {
             q = q->next.get();
-            qpush(q);
+            qpush_if_intersect(q);
           }
         }
       }
     }
+
     idx2bb.erase(idx);
     idx2data.erase(idx);
+    if (unlikely(REBUILD_THRE * size() < n_at_build)){
+      rebuild();
+    }
   }
+
   int64_t size(){
     return static_cast<int64_t>(idx2bb.size());
   }
