@@ -706,10 +706,7 @@ public:
 
     if (size() > REBUILD_THRE * n_at_build){
       rebuild();
-    } else {
-      // Quadratic-Cost Algorithm
-      
-    }
+    } 
   }
 
   void rebuild(){
