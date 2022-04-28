@@ -221,11 +221,6 @@ public:
     data.reserve(B);
   }
 
-  ~Leaf() {
-    data.clear();
-    vec<DataType<T, D>>().swap(data);
-  }
-
   Real area() const {
     return mbb.area();
   }
@@ -338,11 +333,6 @@ public:
   const int nthreads = std::max(1, (int)std::thread::hardware_concurrency());
 
   PseudoPRTree() { root = std::make_unique<PseudoPRTreeNode<T, B, D>>(); }
-
-  ~PseudoPRTree() {
-    cache_children.clear();
-    vec<Leaf<T, B, D> *>().swap(cache_children);
-  }
 
   template <class iterator> PseudoPRTree(iterator &b, iterator &e) {
     if (likely(!root)) {
@@ -502,14 +492,6 @@ public:
 
   PRTree() {
     root = std::make_unique<PRTreeNode<T, B, D>>();
-  }
-
-  ~PRTree() {
-    root.reset();
-    idx2bb.clear();
-    idx2data.clear();
-    std::unordered_map<T, BB<D>>().swap(idx2bb);
-    std::unordered_map<T, std::string>().swap(idx2data);
   }
 
   PRTree(std::string fname) { load(fname); }
