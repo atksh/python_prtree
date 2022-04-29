@@ -382,7 +382,7 @@ public:
   }
 
   template <class iterator>
-  auto filter(iterator &b, iterator &e)
+  auto filter(const iterator &b, const iterator &e)
   {
     vec<std::function<bool(const DataType<T, D> &, const DataType<T, D> &)>>
         comps;
@@ -418,7 +418,7 @@ public:
   PseudoPRTree() { root = std::make_unique<PseudoPRTreeNode<T, B, D>>(); }
 
   template <class iterator>
-  PseudoPRTree(iterator &b, iterator &e)
+  PseudoPRTree(const iterator &b, const iterator &e)
   {
     if (likely(!root))
     {
@@ -435,7 +435,7 @@ public:
   }
 
   template <class iterator>
-  void construct(PseudoPRTreeNode<T, B, D> *node, iterator &b, iterator &e,
+  void construct(PseudoPRTreeNode<T, B, D> *node, const iterator &b, const iterator &e,
                  const size_t depth)
   {
     if (e - b > 0 && node != nullptr)
@@ -491,8 +491,6 @@ public:
       std::for_each(threads.begin(), threads.end(),
                     [&](std::thread &x)
                     { x.join(); });
-      threads.clear();
-      vec<std::thread>().swap(threads);
     }
   }
 
@@ -532,8 +530,8 @@ public:
   {
     DataType<T, D> *b, *e;
     auto children = get_all_leaves(hint);
-    int total = children.size();
-    b = (DataType<T, D> *)placement;
+    T total = children.size();
+    b = reinterpret_cast<DataType<T, D> *>(placement);
     e = b + total;
     parallel_for_each(b, e, [&](auto &p)
                       {
@@ -890,7 +888,7 @@ public:
   }
 
   template <class iterator>
-  void build(iterator &b, iterator &e, void *placement)
+  void build(const iterator &b, const iterator &e, void *placement)
   {
     n_at_build = size();
     vec<std::unique_ptr<PRTreeNode<T, B, D>>> prev_nodes;
@@ -937,12 +935,7 @@ public:
               throw std::runtime_error("what????");
             } });
 
-      leaves.clear();
-      vec<Leaf<T, B, D> *>().swap(leaves);
       prev_nodes.swap(tmp_nodes);
-      tmp_nodes.clear();
-      vec<std::unique_ptr<PRTreeNode<T, B, D>>>().swap(tmp_nodes);
-
       clean_data<T, D>(bb, ee);
       {
         auto tmp = tree.as_X(placement, ee - bb);
@@ -955,8 +948,6 @@ public:
       throw std::runtime_error("#roots is not 1.");
     }
     root = std::move(prev_nodes[0]);
-    prev_nodes.clear();
-    vec<std::unique_ptr<PRTreeNode<T, B, D>>>().swap(prev_nodes);
   }
 
   auto find_all(const py::array_t<float> &x)
