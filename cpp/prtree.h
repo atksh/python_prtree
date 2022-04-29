@@ -513,12 +513,6 @@ public:
         if (node->right)
           que.emplace(node->right.get());
       }
-
-      parallel_for_each(leaf_nodes.begin(), leaf_nodes.end(), cache_children,
-                        [&](auto &node, auto &o)
-                        {
-                          node->address_of_leaves(o);
-                        });
     }
     return cache_children;
   }
@@ -556,8 +550,8 @@ public:
   {
     leaf = std::make_unique<Leaf<T, B, D>>();
     mbb = l->mbb;
-    leaf->mbb = l->mbb;
-    leaf->data = l->data;
+    leaf->mbb = std::move(l->mbb);
+    leaf->data = std::move(l->data);
   }
 
   bool operator()(const BB<D> &target) { return mbb(target); }
