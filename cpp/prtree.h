@@ -556,8 +556,8 @@ public:
   {
     leaf = std::make_unique<Leaf<T, B, D>>();
     mbb = l->mbb;
-    leaf->mbb = std::move(l->mbb);
-    leaf->data = std::move(l->data);
+    leaf->mbb = l->mbb;
+    leaf->data = l->data;
   }
 
   bool operator()(const BB<D> &target) { return mbb(target); }
@@ -677,7 +677,8 @@ public:
         maxima[j] = rx(i, j + D);
       }
       auto bb = BB<D>(minima, maxima);
-      idx2bb.emplace_hint(idx2bb.end(), ri(i), std::move(bb));
+      auto ri_i = ri(i);
+      idx2bb.emplace_hint(idx2bb.end(), std::move(ri_i), std::move(bb));
     }
     build(b, e, placement);
     std::free(placement);
