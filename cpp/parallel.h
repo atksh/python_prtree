@@ -47,6 +47,8 @@ void parallel_for_each(const Iter first, const Iter last, T &result, const F &fu
     result.insert(result.end(),
                   std::make_move_iterator(rr[t].begin()),
                   std::make_move_iterator(rr[t].end()));
+    rr[t].clear();
+    T().swap(rr[t]);
   }
   std::vector<T>().swap(rr);
 }
