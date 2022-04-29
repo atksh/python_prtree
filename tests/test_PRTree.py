@@ -74,7 +74,7 @@ def test_io(seed, PRTree, dim, tmp_path):
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_insert_erase(seed, from_scratch, rebuild, PRTree, dim):
     np.random.seed(seed)
-    N = 10000
+    N = 1000
     idx = np.arange(N)
     x = np.random.rand(N, 2 * dim)
     for i in range(dim):
