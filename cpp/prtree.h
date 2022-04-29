@@ -680,7 +680,6 @@ public:
       idx2bb.emplace_hint(idx2bb.end(), ri(i), std::move(bb));
     }
     build(b, e, placement);
-    clean_data<T, D>(b, e);
     std::free(placement);
   }
 
@@ -883,7 +882,6 @@ public:
     }
 
     build(b, e, placement);
-    clean_data<T, D>(b, e);
     std::free(placement);
   }
 
