@@ -42,7 +42,6 @@
 using Real = float;
 
 namespace py = pybind11;
-using std::swap;
 
 template <class T, class U>
 using pair = std::pair<T, U>;
@@ -314,7 +313,7 @@ public:
       auto iter = std::upper_bound(data.begin(), data.end(), value, comp);
       if (unlikely(iter != data.end()))
       {
-        swap(*iter, value);
+        std::swap(*iter, value);
         update_mbb();
       }
       return false;
