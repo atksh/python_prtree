@@ -31,9 +31,12 @@ void parallel_for_each(const Iter first, const Iter last, T &result, const F &fu
     }
     for (size_t t = 0; t < nthreads; t++)
     {
-      threads.emplace_back(std::thread([&, t] { std::for_each(iters[t], iters[t + 1], [&](auto &x) { f(x, rr[t]); }); }));
+      threads.emplace_back(std::thread([&, t]
+                                       { std::for_each(iters[t], iters[t + 1], [&](auto &x)
+                                                       { f(x, rr[t]); }); }));
     }
-    std::for_each(threads.begin(), threads.end(), [&](std::thread &x) { x.join(); });
+    std::for_each(threads.begin(), threads.end(), [&](std::thread &x)
+                  { x.join(); });
     threads.clear();
     std::vector<std::thread>().swap(threads);
     iters.clear();
@@ -71,9 +74,12 @@ void parallel_for_each(const Iter first, const Iter last, const F &func)
     iters.emplace_back(last);
     for (size_t t = 0; t < nthreads; t++)
     {
-      threads.emplace_back(std::thread([&, t] { std::for_each(iters[t], iters[t + 1], [&](auto &x) { f(x); }); }));
+      threads.emplace_back(std::thread([&, t]
+                                       { std::for_each(iters[t], iters[t + 1], [&](auto &x)
+                                                       { f(x); }); }));
     }
-    std::for_each(threads.begin(), threads.end(), [&](std::thread &x) { x.join(); });
+    std::for_each(threads.begin(), threads.end(), [&](std::thread &x)
+                  { x.join(); });
     threads.clear();
     std::vector<std::thread>().swap(threads);
     iters.clear();
