@@ -943,6 +943,7 @@ public:
         ee = std::move(tmp.second);
       }
     }
+    clean_data<T, D>(bb, ee);
     if (unlikely(prev_nodes.size() != 1))
     {
       throw std::runtime_error("#roots is not 1.");
