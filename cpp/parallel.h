@@ -37,20 +37,13 @@ void parallel_for_each(const Iter first, const Iter last, T &result, const F &fu
     }
     std::for_each(threads.begin(), threads.end(), [&](std::thread &x)
                   { x.join(); });
-    threads.clear();
-    std::vector<std::thread>().swap(threads);
-    iters.clear();
-    std::vector<Iter>().swap(iters);
   }
   for (size_t t = 0; t < nthreads; t++)
   {
     result.insert(result.end(),
                   std::make_move_iterator(rr[t].begin()),
                   std::make_move_iterator(rr[t].end()));
-    rr[t].clear();
-    T().swap(rr[t]);
   }
-  std::vector<T>().swap(rr);
 }
 
 template <typename F, typename Iter>
@@ -80,9 +73,5 @@ void parallel_for_each(const Iter first, const Iter last, const F &func)
     }
     std::for_each(threads.begin(), threads.end(), [&](std::thread &x)
                   { x.join(); });
-    threads.clear();
-    std::vector<std::thread>().swap(threads);
-    iters.clear();
-    std::vector<Iter>().swap(iters);
   }
 }

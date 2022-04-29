@@ -42,7 +42,6 @@
 using Real = float;
 
 namespace py = pybind11;
-using std::swap;
 
 template <class T, class U>
 using pair = std::pair<T, U>;
@@ -87,7 +86,7 @@ Iter select_randomly(Iter start, Iter end)
   std::uniform_int_distribution<> dis(0, std::distance(start, end) - 1);
   std::advance(start, dis(rand_src));
   return start;
-};
+}
 
 template <int D = 2>
 class BB
@@ -245,6 +244,15 @@ public:
   void serialize(Archive &ar) { ar(first, second); }
 };
 
+template <class T, int D = 2>
+void clean_data(DataType<T, D> *b, DataType<T, D> *e)
+{
+  for (DataType<T, D> *it = e - 1; it >= b; --it)
+  {
+    it->~DataType<T, D>();
+  }
+}
+
 template <class T, int B = 6, int D = 2>
 class Leaf
 {
@@ -294,11 +302,10 @@ public:
   bool filter(DataType<T, D> &value,
               const F &comp)
   { // false means given value is ignored
-    if (unlikely(data.size() <
-                 B))
+    if (unlikely(data.size() < B))
     { // if there is room, just push the candidate
       mbb += value.second;
-      data.push_back(std::move(value));
+      data.push_back(value);
       return true;
     }
     else
@@ -306,7 +313,7 @@ public:
       auto iter = std::upper_bound(data.begin(), data.end(), value, comp);
       if (unlikely(iter != data.end()))
       {
-        swap(*iter, value);
+        std::swap(*iter, value);
         update_mbb();
       }
       return false;
@@ -373,7 +380,7 @@ public:
   }
 
   template <class iterator>
-  auto filter(iterator &b, iterator &e)
+  auto filter(const iterator &b, const iterator &e)
   {
     vec<std::function<bool(const DataType<T, D> &, const DataType<T, D> &)>>
         comps;
@@ -409,20 +416,13 @@ public:
   PseudoPRTree() { root = std::make_unique<PseudoPRTreeNode<T, B, D>>(); }
 
   template <class iterator>
-  PseudoPRTree(iterator &b, iterator &e)
+  PseudoPRTree(const iterator &b, const iterator &e)
   {
     if (likely(!root))
     {
       root = std::make_unique<PseudoPRTreeNode<T, B, D>>();
     }
     construct(root.get(), b, e, 0);
-
-    for (DataType<T, D> *it = e - 1; it >= b; --it)
-    {
-      it->~DataType<T, D>();
-    }
-    b = nullptr;
-    e = nullptr;
   }
 
   template <class Archive>
@@ -433,7 +433,7 @@ public:
   }
 
   template <class iterator>
-  void construct(PseudoPRTreeNode<T, B, D> *node, iterator &b, iterator &e,
+  void construct(PseudoPRTreeNode<T, B, D> *node, const iterator &b, const iterator &e,
                  const size_t depth)
   {
     if (e - b > 0 && node != nullptr)
@@ -448,7 +448,6 @@ public:
       auto ee = node->filter(b, e);
       auto m = b;
       std::advance(m, (ee - b) / 2);
-      auto mm = m;
       std::nth_element(b, m, ee,
                        [axis](const DataType<T, D> &lhs,
                               const DataType<T, D> &rhs) noexcept
@@ -471,7 +470,7 @@ public:
           construct(node_left, b, m, depth + 1);
         }
       }
-      if (ee - mm > 0)
+      if (ee - m > 0)
       {
         node->right = std::make_unique<PseudoPRTreeNode<T, B, D>>();
         node_right = node->right.get();
@@ -479,18 +478,16 @@ public:
         {
           threads.push_back(
               std::thread([&]()
-                          { construct(node_right, mm, ee, depth + 1); }));
+                          { construct(node_right, m, ee, depth + 1); }));
         }
         else
         {
-          construct(node_right, mm, ee, depth + 1);
+          construct(node_right, m, ee, depth + 1);
         }
       }
       std::for_each(threads.begin(), threads.end(),
                     [&](std::thread &x)
                     { x.join(); });
-      threads.clear();
-      vec<std::thread>().swap(threads);
     }
   }
 
@@ -510,33 +507,28 @@ public:
         node = que.front();
         que.pop();
         leaf_nodes.emplace_back(node);
+        node->address_of_leaves(cache_children);
         if (node->left)
           que.emplace(node->left.get());
         if (node->right)
           que.emplace(node->right.get());
       }
-
-      parallel_for_each(leaf_nodes.begin(), leaf_nodes.end(), cache_children,
-                        [&](auto &node, auto &o)
-                        {
-                          node->address_of_leaves(o);
-                        });
     }
     return cache_children;
   }
 
-  std::pair<DataType<int, D> *, DataType<int, D> *> as_X(void *placement,
-                                                         const int hint)
+  std::pair<DataType<T, D> *, DataType<T, D> *> as_X(void *placement,
+                                                     const int hint)
   {
-    DataType<int, D> *b, *e;
+    DataType<T, D> *b, *e;
     auto children = get_all_leaves(hint);
-    int total = children.size();
-    b = (DataType<int, D> *)placement;
+    T total = children.size();
+    b = reinterpret_cast<DataType<T, D> *>(placement);
     e = b + total;
-    parallel_for_each(b, e, [&](auto &p)
-                      {
-      int i = &p - b;
-      new (b + i) DataType<int, D>{i, children[i]->mbb}; });
+    for (T i = 0; i < total; i++)
+    {
+      new (b + i) DataType<T, D>{i, children[i]->mbb};
+    }
     return {b, e};
   }
 };
@@ -552,7 +544,7 @@ public:
   PRTreeNode() {}
   PRTreeNode(const BB<D> &_mbb) { mbb = _mbb; }
 
-  PRTreeNode(BB<D> &&_mbb) { mbb = std::move(_mbb); }
+  PRTreeNode(BB<D> &&_mbb) noexcept { mbb = std::move(_mbb); }
 
   PRTreeNode(Leaf<T, B, D> *l)
   {
@@ -651,22 +643,23 @@ public:
     idx2bb.reserve(length);
 
     DataType<T, D> *b, *e;
-    void *placement = std::malloc(
-        std::max(sizeof(DataType<T, D>), sizeof(DataType<int, D>)) * length);
+    void *placement = std::malloc(sizeof(DataType<T, D>) * length);
     b = reinterpret_cast<DataType<T, D> *>(placement);
     e = b + length;
 
-    parallel_for_each(b, e, [&](auto &it)
-                      {
-      int i = &it - b;
+    for (T i = 0; i < length; i++)
+    {
       std::array<Real, D> minima;
       std::array<Real, D> maxima;
-      for (int j = 0; j < D; ++j) {
+      for (int j = 0; j < D; ++j)
+      {
         minima[j] = rx(i, j);
         maxima[j] = rx(i, j + D);
       }
       auto bb = BB<D>(minima, maxima);
-      new (b + i) DataType<T, D>{ri(i), std::move(bb)}; });
+      auto ri_i = ri(i);
+      new (b + i) DataType<T, D>{std::move(ri_i), std::move(bb)};
+    }
 
     for (size_t i = 0; i < length; i++)
     {
@@ -678,7 +671,8 @@ public:
         maxima[j] = rx(i, j + D);
       }
       auto bb = BB<D>(minima, maxima);
-      idx2bb.emplace_hint(idx2bb.end(), ri(i), std::move(bb));
+      auto ri_i = ri(i);
+      idx2bb.emplace_hint(idx2bb.end(), std::move(ri_i), std::move(bb));
     }
     build(b, e, placement);
     std::free(placement);
@@ -848,12 +842,11 @@ public:
     size_t length = idx2bb.size();
     DataType<T, D> *b, *e;
 
-    void *placement = std::malloc(
-        std::max(sizeof(DataType<T, D>), sizeof(DataType<int, D>)) * length);
+    void *placement = std::malloc(sizeof(DataType<T, D>) * length);
     b = reinterpret_cast<DataType<T, D> *>(placement);
     e = b + length;
 
-    int i = 0;
+    T i = 0;
     sta.push(root.get());
     while (unlikely(!sta.empty()))
     {
@@ -888,7 +881,7 @@ public:
   }
 
   template <class iterator>
-  void build(iterator &b, iterator &e, void *placement)
+  void build(const iterator &b, const iterator &e, void *placement)
   {
     n_at_build = size();
     vec<std::unique_ptr<PRTreeNode<T, B, D>>> prev_nodes;
@@ -896,50 +889,52 @@ public:
 
     auto first_tree = PseudoPRTree<T, B, D>(b, e);
     auto first_leaves = first_tree.get_all_leaves(e - b);
-    parallel_for_each(first_leaves.begin(), first_leaves.end(), prev_nodes,
-                      [&](auto &leaf, auto &o)
-                      {
-                        auto pp = std::make_unique<PRTreeNode<T, B, D>>(leaf);
-                        o.push_back(std::move(pp));
-                      });
+    clean_data<T, D>(b, e);
+    for (auto &leaf : first_leaves)
+    {
+      auto pp = std::make_unique<PRTreeNode<T, B, D>>(leaf);
+      prev_nodes.push_back(std::move(pp));
+    }
     auto [bb, ee] = first_tree.as_X(placement, e - b);
     while (likely(prev_nodes.size() > 1))
     {
-      auto tree = PseudoPRTree<int, B, D>(bb, ee);
-      vec<Leaf<int, B, D> *> leaves = tree.get_all_leaves(ee - bb);
+      auto tree = PseudoPRTree<T, B, D>(bb, ee);
+      auto leaves = tree.get_all_leaves(ee - bb);
+      clean_data<T, D>(bb, ee);
       auto leaves_size = leaves.size();
 
       vec<std::unique_ptr<PRTreeNode<T, B, D>>> tmp_nodes;
       tmp_nodes.reserve(leaves_size);
 
-      parallel_for_each(
-          leaves.begin(), leaves.end(), tmp_nodes, [&](auto &leaf, auto &o)
+      for (auto &leaf : leaves)
+      {
+        int idx, jdx;
+        int len = leaf->data.size();
+        auto pp = std::make_unique<PRTreeNode<T, B, D>>(leaf->mbb);
+        if (likely(!leaf->data.empty()))
+        {
+          for (int i = 1; i < len; i++)
           {
-            int idx, jdx;
-            int len = leaf->data.size();
-            auto pp = std::make_unique<PRTreeNode<T, B, D>>(leaf->mbb);
-            if (likely(!leaf->data.empty())) {
-              for (int i = 1; i < len; i++) {
-                idx = leaf->data[len - i - 1].first; // reversed way
-                jdx = leaf->data[len - i].first;
-                prev_nodes[idx]->next = std::move(prev_nodes[jdx]);
-              }
-              idx = leaf->data[0].first;
-              pp->head = std::move(prev_nodes[idx]);
-              if (!pp->head) {
-                throw std::runtime_error("ppp");
-              }
-              o.push_back(std::move(pp));
-            } else {
-              throw std::runtime_error("what????");
-            } });
+            idx = leaf->data[len - i - 1].first; // reversed way
+            jdx = leaf->data[len - i].first;
+            prev_nodes[idx]->next = std::move(prev_nodes[jdx]);
+          }
+          idx = leaf->data[0].first;
+          pp->head = std::move(prev_nodes[idx]);
+          if (!pp->head)
+          {
+            throw std::runtime_error("ppp");
+          }
+          tmp_nodes.push_back(std::move(pp));
+        }
+        else
+        {
+          throw std::runtime_error("what????");
+        }
+      }
 
-      leaves.clear();
-      vec<Leaf<int, B, D> *>().swap(leaves);
       prev_nodes.swap(tmp_nodes);
-      tmp_nodes.clear();
-      vec<std::unique_ptr<PRTreeNode<T, B, D>>>().swap(tmp_nodes);
-
+      if (likely(prev_nodes.size() > 1))
       {
         auto tmp = tree.as_X(placement, ee - bb);
         bb = std::move(tmp.first);
@@ -951,8 +946,6 @@ public:
       throw std::runtime_error("#roots is not 1.");
     }
     root = std::move(prev_nodes[0]);
-    prev_nodes.clear();
-    vec<std::unique_ptr<PRTreeNode<T, B, D>>>().swap(prev_nodes);
   }
 
   auto find_all(const py::array_t<float> &x)
