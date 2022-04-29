@@ -87,7 +87,7 @@ Iter select_randomly(Iter start, Iter end)
   std::uniform_int_distribution<> dis(0, std::distance(start, end) - 1);
   std::advance(start, dis(rand_src));
   return start;
-};
+}
 
 template <int D = 2>
 class BB
@@ -244,6 +244,15 @@ public:
   template <class Archive>
   void serialize(Archive &ar) { ar(first, second); }
 };
+
+template <class T, int D = 2>
+void clean_data(DataType<T, D> *b, DataType<T, D> *e)
+{
+  for (DataType<T, D> *it = e - 1; it >= b; --it)
+  {
+    it->~DataType<T, D>();
+  }
+}
 
 template <class T, int B = 6, int D = 2>
 class Leaf
@@ -416,13 +425,6 @@ public:
       root = std::make_unique<PseudoPRTreeNode<T, B, D>>();
     }
     construct(root.get(), b, e, 0);
-
-    for (DataType<T, D> *it = e - 1; it >= b; --it)
-    {
-      it->~DataType<T, D>();
-    }
-    b = nullptr;
-    e = nullptr;
   }
 
   template <class Archive>
@@ -525,18 +527,18 @@ public:
     return cache_children;
   }
 
-  std::pair<DataType<int, D> *, DataType<int, D> *> as_X(void *placement,
-                                                         const int hint)
+  std::pair<DataType<T, D> *, DataType<T, D> *> as_X(void *placement,
+                                                     const int hint)
   {
-    DataType<int, D> *b, *e;
+    DataType<T, D> *b, *e;
     auto children = get_all_leaves(hint);
     int total = children.size();
-    b = (DataType<int, D> *)placement;
+    b = (DataType<T, D> *)placement;
     e = b + total;
     parallel_for_each(b, e, [&](auto &p)
                       {
-      int i = &p - b;
-      new (b + i) DataType<int, D>{i, children[i]->mbb}; });
+      T i = &p - b;
+      new (b + i) DataType<T, D>{i, children[i]->mbb}; });
     return {b, e};
   }
 };
@@ -651,14 +653,13 @@ public:
     idx2bb.reserve(length);
 
     DataType<T, D> *b, *e;
-    void *placement = std::malloc(
-        std::max(sizeof(DataType<T, D>), sizeof(DataType<int, D>)) * length);
+    void *placement = std::malloc(sizeof(DataType<T, D>) * length);
     b = reinterpret_cast<DataType<T, D> *>(placement);
     e = b + length;
 
     parallel_for_each(b, e, [&](auto &it)
                       {
-      int i = &it - b;
+      T i = &it - b;
       std::array<Real, D> minima;
       std::array<Real, D> maxima;
       for (int j = 0; j < D; ++j) {
@@ -681,6 +682,7 @@ public:
       idx2bb.emplace_hint(idx2bb.end(), ri(i), std::move(bb));
     }
     build(b, e, placement);
+    clean_data<T, D>(b, e);
     std::free(placement);
   }
 
@@ -848,12 +850,11 @@ public:
     size_t length = idx2bb.size();
     DataType<T, D> *b, *e;
 
-    void *placement = std::malloc(
-        std::max(sizeof(DataType<T, D>), sizeof(DataType<int, D>)) * length);
+    void *placement = std::malloc(sizeof(DataType<T, D>) * length);
     b = reinterpret_cast<DataType<T, D> *>(placement);
     e = b + length;
 
-    int i = 0;
+    T i = 0;
     sta.push(root.get());
     while (unlikely(!sta.empty()))
     {
@@ -884,6 +885,7 @@ public:
     }
 
     build(b, e, placement);
+    clean_data<T, D>(b, e);
     std::free(placement);
   }
 
@@ -902,11 +904,12 @@ public:
                         auto pp = std::make_unique<PRTreeNode<T, B, D>>(leaf);
                         o.push_back(std::move(pp));
                       });
+    clean_data<T, D>(b, e);
     auto [bb, ee] = first_tree.as_X(placement, e - b);
     while (likely(prev_nodes.size() > 1))
     {
-      auto tree = PseudoPRTree<int, B, D>(bb, ee);
-      vec<Leaf<int, B, D> *> leaves = tree.get_all_leaves(ee - bb);
+      auto tree = PseudoPRTree<T, B, D>(bb, ee);
+      vec<Leaf<T, B, D> *> leaves = tree.get_all_leaves(ee - bb);
       auto leaves_size = leaves.size();
 
       vec<std::unique_ptr<PRTreeNode<T, B, D>>> tmp_nodes;
@@ -935,11 +938,12 @@ public:
             } });
 
       leaves.clear();
-      vec<Leaf<int, B, D> *>().swap(leaves);
+      vec<Leaf<T, B, D> *>().swap(leaves);
       prev_nodes.swap(tmp_nodes);
       tmp_nodes.clear();
       vec<std::unique_ptr<PRTreeNode<T, B, D>>>().swap(tmp_nodes);
 
+      clean_data<T, D>(bb, ee);
       {
         auto tmp = tree.as_X(placement, ee - bb);
         bb = std::move(tmp.first);
