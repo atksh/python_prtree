@@ -9,7 +9,8 @@ using T = int64_t; // is a temporary type of template. You can change it and
                    // recompile this.
 const int B = 6;   // the number of children of tree.
 
-PYBIND11_MODULE(PRTree, m) {
+PYBIND11_MODULE(PRTree, m)
+{
   m.doc() = R"pbdoc(
         INCOMPLETE Priority R-Tree
         Only supports for construct and find
