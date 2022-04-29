@@ -73,9 +73,5 @@ void parallel_for_each(const Iter first, const Iter last, const F &func)
     }
     std::for_each(threads.begin(), threads.end(), [&](std::thread &x)
                   { x.join(); });
-    threads.clear();
-    std::vector<std::thread>().swap(threads);
-    iters.clear();
-    std::vector<Iter>().swap(iters);
   }
 }
