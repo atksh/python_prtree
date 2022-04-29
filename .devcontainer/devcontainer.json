@@ -1,0 +1,13 @@
+{
+  "name": "python_prtree",
+  "dockerFile": "../Dockerfile",
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash",
+    "python.pythonPath": "/usr/local/bin/python"
+  },
+  "extensions": [
+    "ms-python.python",
+    "ms-vscode.cpptools"
+  ],
+  "postCreateCommand": "sh init_develop.sh"
+}
