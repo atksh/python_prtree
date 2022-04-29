@@ -488,8 +488,6 @@ public:
       std::for_each(threads.begin(), threads.end(),
                     [&](std::thread &x)
                     { x.join(); });
-      threads.clear();
-      vec<std::thread>().swap(threads);
     }
   }
 
@@ -940,11 +938,7 @@ public:
         }
       }
 
-      leaves.clear();
-      vec<Leaf<T, B, D> *>().swap(leaves);
       prev_nodes.swap(tmp_nodes);
-      tmp_nodes.clear();
-      vec<std::unique_ptr<PRTreeNode<T, B, D>>>().swap(tmp_nodes);
       if (likely(prev_nodes.size() > 1))
       {
         auto tmp = tree.as_X(placement, ee - bb);
@@ -957,8 +951,6 @@ public:
       throw std::runtime_error("#roots is not 1.");
     }
     root = std::move(prev_nodes[0]);
-    prev_nodes.clear();
-    vec<std::unique_ptr<PRTreeNode<T, B, D>>>().swap(prev_nodes);
   }
 
   auto find_all(const py::array_t<float> &x)
