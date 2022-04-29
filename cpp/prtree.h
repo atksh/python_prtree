@@ -515,6 +515,12 @@ public:
         if (node->right)
           que.emplace(node->right.get());
       }
+
+      parallel_for_each(leaf_nodes.begin(), leaf_nodes.end(), cache_children,
+                        [&](auto &node, auto &o)
+                        {
+                          node->address_of_leaves(o);
+                        });
     }
     return cache_children;
   }
