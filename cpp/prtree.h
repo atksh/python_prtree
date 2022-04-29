@@ -499,6 +499,7 @@ public:
     if (cache_children.empty())
     {
       using U = PseudoPRTreeNode<T, B, D>;
+      vec<U *> leaf_nodes;
       cache_children.reserve(hint);
       auto node = root.get();
       queue<U *> que;
@@ -508,12 +509,18 @@ public:
       {
         node = que.front();
         que.pop();
-        node->address_of_leaves(cache_children);
+        leaf_nodes.emplace_back(node);
         if (node->left)
           que.emplace(node->left.get());
         if (node->right)
           que.emplace(node->right.get());
       }
+
+      parallel_for_each(leaf_nodes.begin(), leaf_nodes.end(), cache_children,
+                        [&](auto &node, auto &o)
+                        {
+                          node->address_of_leaves(o);
+                        });
     }
     return cache_children;
   }
