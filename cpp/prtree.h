@@ -450,7 +450,6 @@ public:
       auto ee = node->filter(b, e);
       auto m = b;
       std::advance(m, (ee - b) / 2);
-      auto mm = m;
       std::nth_element(b, m, ee,
                        [axis](const DataType<T, D> &lhs,
                               const DataType<T, D> &rhs) noexcept
@@ -473,7 +472,7 @@ public:
           construct(node_left, b, m, depth + 1);
         }
       }
-      if (ee - mm > 0)
+      if (ee - m > 0)
       {
         node->right = std::make_unique<PseudoPRTreeNode<T, B, D>>();
         node_right = node->right.get();
@@ -481,11 +480,11 @@ public:
         {
           threads.push_back(
               std::thread([&]()
-                          { construct(node_right, mm, ee, depth + 1); }));
+                          { construct(node_right, m, ee, depth + 1); }));
         }
         else
         {
-          construct(node_right, mm, ee, depth + 1);
+          construct(node_right, m, ee, depth + 1);
         }
       }
       std::for_each(threads.begin(), threads.end(),
