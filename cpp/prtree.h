@@ -494,7 +494,6 @@ public:
     if (cache_children.empty())
     {
       using U = PseudoPRTreeNode<T, B, D>;
-      vec<U *> leaf_nodes;
       cache_children.reserve(hint);
       auto node = root.get();
       queue<U *> que;
@@ -504,7 +503,6 @@ public:
       {
         node = que.front();
         que.pop();
-        leaf_nodes.emplace_back(node);
         node->address_of_leaves(cache_children);
         if (node->left)
           que.emplace(node->left.get());
