@@ -43,9 +43,6 @@ using Real = float;
 
 namespace py = pybind11;
 
-template <class T, class U>
-using pair = std::pair<T, U>;
-
 template <class T>
 using vec = std::vector<T>;
 
@@ -423,6 +420,7 @@ public:
       root = std::make_unique<PseudoPRTreeNode<T, B, D>>();
     }
     construct(root.get(), b, e, 0);
+    clean_data<T, D>(b, e);
   }
 
   template <class Archive>
@@ -517,8 +515,7 @@ public:
     return cache_children;
   }
 
-  std::pair<DataType<T, D> *, DataType<T, D> *> as_X(void *placement,
-                                                     const int hint)
+  std::pair<DataType<T, D> *, DataType<T, D> *> as_X(void *placement, const int hint)
   {
     DataType<T, D> *b, *e;
     auto children = get_all_leaves(hint);
@@ -889,7 +886,6 @@ public:
 
     auto first_tree = PseudoPRTree<T, B, D>(b, e);
     auto first_leaves = first_tree.get_all_leaves(e - b);
-    clean_data<T, D>(b, e);
     for (auto &leaf : first_leaves)
     {
       auto pp = std::make_unique<PRTreeNode<T, B, D>>(leaf);
@@ -900,7 +896,6 @@ public:
     {
       auto tree = PseudoPRTree<T, B, D>(bb, ee);
       auto leaves = tree.get_all_leaves(ee - bb);
-      clean_data<T, D>(bb, ee);
       auto leaves_size = leaves.size();
 
       vec<std::unique_ptr<PRTreeNode<T, B, D>>> tmp_nodes;
