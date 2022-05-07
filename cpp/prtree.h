@@ -89,37 +89,35 @@ template <int D = 2>
 class BB
 {
 private:
-  std::array<Real, 2 * D> values;
+  Real values[2 * D];
 
 public:
   BB() { clear(); }
 
-  template <typename Iter>
-  BB(const Iter &minima, const Iter &maxima)
+  BB(const Real (&minima)[D], const Real (&maxima)[D])
   {
-    std::array<Real, 2 * D> v;
-    if (unlikely(minima.size() != maxima.size()))
-    {
-      throw std::runtime_error("Invalid size");
-    }
-    const int n = minima.size();
-    if (unlikely(n != D))
-    {
-      throw std::runtime_error("Invalid size");
-    }
-    for (int i = 0; i < n; ++i)
+    Real v[2 * D];
+    for (int i = 0; i < D; ++i)
     {
       v[i] = -minima[i];
       v[i + D] = maxima[i];
     }
     validate(v);
-    values = v;
+    for (int i = 0; i < D; ++i)
+    {
+      values[i] = v[i];
+      values[i + D] = v[i + D];
+    }
   }
 
-  BB(const std::array<Real, 2 * D> v)
+  BB(const Real (&v)[2 * D])
   {
     validate(v);
-    values = v;
+    for (int i = 0; i < D; ++i)
+    {
+      values[i] = v[i];
+      values[i + D] = v[i + D];
+    }
   }
 
   Real min(const int dim) const
@@ -139,7 +137,7 @@ public:
     return values[dim + D];
   }
 
-  bool validate(const std::array<Real, 2 * D> &v) const
+  bool validate(const Real (&v)[2 * D]) const
   {
     bool flag = false;
     for (int i = 0; i < 2; ++i)
@@ -156,11 +154,17 @@ public:
     }
     return flag;
   }
-  void clear() { std::fill_n(values.begin(), 2 * D, -1e100); }
+  void clear()
+  {
+    for (int i = 0; i < 2 * D; ++i)
+    {
+      values[i] = -1e100;
+    }
+  }
 
   BB operator+(const BB &rhs) const
   {
-    std::array<Real, 2 * D> result;
+    Real result[2 * D];
     for (int i = 0; i < 2 * D; ++i)
     {
       result[i] = std::max(values[i], rhs.values[i]);
@@ -177,7 +181,7 @@ public:
     return *this;
   }
 
-  void expand(const std::array<Real, D> &delta)
+  void expand(const Real (&delta)[D])
   {
     for (int i = 0; i < D; ++i)
     {
@@ -189,7 +193,7 @@ public:
   bool operator()(
       const BB &target) const
   { // whether this and target has any intersect
-    std::array<Real, 2 * D> result;
+    Real result[2 * D];
     for (int i = 0; i < 2 * D; ++i)
     {
       result[i] = std::min(values[i], target.values[i]);
@@ -347,7 +351,7 @@ template <class T, int B = 6, int D = 2>
 class PseudoPRTreeNode
 {
 public:
-  std::array<Leaf<T, B, D>, 2 * D> leaves;
+  Leaf<T, B, D> leaves[2 * D];
   std::unique_ptr<PseudoPRTreeNode> left, right;
 
   PseudoPRTreeNode()
@@ -644,8 +648,8 @@ public:
 
     for (T i = 0; i < length; i++)
     {
-      std::array<Real, D> minima;
-      std::array<Real, D> maxima;
+      Real minima[D];
+      Real maxima[D];
       for (int j = 0; j < D; ++j)
       {
         minima[j] = rx(i, j);
@@ -658,8 +662,8 @@ public:
 
     for (size_t i = 0; i < length; i++)
     {
-      std::array<Real, D> minima;
-      std::array<Real, D> maxima;
+      Real minima[D];
+      Real maxima[D];
       for (int j = 0; j < D; ++j)
       {
         minima[j] = rx(i, j);
@@ -715,8 +719,8 @@ public:
       throw std::runtime_error("Given index is already included.");
     }
     {
-      std::array<Real, D> minima;
-      std::array<Real, D> maxima;
+      Real minima[D];
+      Real maxima[D];
       for (int i = 0; i < D; ++i)
       {
         minima[i] = *x.data(i);
@@ -727,7 +731,7 @@ public:
     idx2bb.emplace(idx, bb);
     set_obj(idx, objdumps);
 
-    std::array<Real, D> delta;
+    Real delta[D];
     for (int i = 0; i < D; ++i)
     {
       delta[i] = bb.max(i) - bb.min(i) + 0.00000001;
@@ -746,7 +750,7 @@ public:
 
     while (likely(cands.size() == 0))
     {
-      std::array<Real, D> d;
+      Real d[D];
       for (int i = 0; i < D; ++i)
       {
         d[i] = delta[i] * c;
@@ -981,8 +985,8 @@ public:
     if (ndim == 1)
     {
       {
-        std::array<Real, D> minima;
-        std::array<Real, D> maxima;
+        Real minima[D];
+        Real maxima[D];
         for (int i = 0; i < D; ++i)
         {
           minima[i] = *x.data(i);
@@ -1005,8 +1009,8 @@ public:
       for (long int i = 0; i < shape_x[0]; i++)
       {
         {
-          std::array<Real, D> minima;
-          std::array<Real, D> maxima;
+          Real minima[D];
+          Real maxima[D];
           for (int j = 0; j < D; ++j)
           {
             minima[j] = *x.data(i, j);
@@ -1040,8 +1044,8 @@ public:
     {
       throw std::runtime_error("invalid shape");
     }
-    std::array<Real, D> minima;
-    std::array<Real, D> maxima;
+    Real minima[D];
+    Real maxima[D];
     if (x.size() == D)
     {
       is_point = true;
