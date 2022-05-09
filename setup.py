@@ -12,6 +12,7 @@ from setuptools.command.build_ext import build_ext
 from version import version
 
 sys.path.append("./tests")
+version = "v0.5.13"
 
 here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
