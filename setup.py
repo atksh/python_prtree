@@ -9,10 +9,9 @@ from multiprocessing import cpu_count
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
-from version import version
+version = "v0.5.14"
 
 sys.path.append("./tests")
-version = "v0.5.14"
 
 here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
