@@ -9,6 +9,7 @@ ARG GID=1000
 
 RUN groupadd -g $GID $GROUPNAME && \
     useradd -m -s /bin/bash -u $UID -g $GID $USERNAME
+RUN apt-get update && apt-get install -y git openssh-client vim wget curl
 
 USER $USERNAME
 ENV PATH $PATH:/home/user/.local/bin
