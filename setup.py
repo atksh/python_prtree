@@ -89,7 +89,7 @@ class CMakeBuild(build_ext):
 
 setup(
     name="python_prtree",
-    version="0.5.11",
+    version="0.5.12",
     license="MIT",
     description="Python implementation of Priority R-Tree",
     author="atksh",
