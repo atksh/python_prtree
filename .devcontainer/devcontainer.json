@@ -7,7 +7,9 @@
   },
   "extensions": [
     "ms-python.python",
-    "ms-vscode.cpptools"
+    "ms-vscode.cpptools",
+    "mhutchie.git-graph",
+    "twxs.cmake"
   ],
   "postCreateCommand": "sh init_develop.sh"
 }
