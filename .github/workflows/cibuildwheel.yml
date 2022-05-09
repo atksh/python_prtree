@@ -125,23 +125,6 @@ jobs:
             macosx_deployment_target: 10.14
             arch: x86_64
 
-          # MacOS universal2
-          - os: macos-latest
-            python: 38
-            platform_id: macosx_universal2
-            macosx_deployment_target: 12.0
-            arch: universal2
-          - os: macos-latest
-            python: 39
-            platform_id: macosx_universal2
-            macosx_deployment_target: 12.0
-            arch: universal2
-          - os: macos-latest
-            python: 310
-            platform_id: macosx_universal2
-            macosx_deployment_target: 12.0
-            arch: universal2
-
     steps:
       - uses: actions/checkout@v2
         with:
