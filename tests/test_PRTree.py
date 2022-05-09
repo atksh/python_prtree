@@ -1,7 +1,7 @@
-import pytest
-from python_prtree import PRTree2D, PRTree3D, PRTree4D
 import numpy as np
+import pytest
 
+from python_prtree import PRTree2D, PRTree3D, PRTree4D
 
 N_SEED = 5
 

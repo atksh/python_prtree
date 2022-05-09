@@ -1,14 +1,14 @@
 import os
-import re
-import sys
 import platform
+import re
 import subprocess
+import sys
+from distutils.version import LooseVersion
 from multiprocessing import cpu_count
 
-from setuptools import setup, Extension
-from setuptools import find_packages
+from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
-from distutils.version import LooseVersion
+from version import version
 
 sys.path.append("./tests")
 
@@ -89,7 +89,7 @@ class CMakeBuild(build_ext):
 
 setup(
     name="python_prtree",
-    version="0.5.12",
+    version=version,
     license="MIT",
     description="Python implementation of Priority R-Tree",
     author="atksh",
