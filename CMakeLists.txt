@@ -28,13 +28,9 @@ set_target_properties(snappy PROPERTIES
 )
 
 target_link_libraries(PRTree PRIVATE
-  pybind11::module pybind11::lto pybind11::windows_extras
   cereal
   snappy
 )
-
-pybind11_extension(PRTree)
-pybind11_strip(PRTree)
 
 set_target_properties(PRTree PROPERTIES
   CXX_STANDARD 17
