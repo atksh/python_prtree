@@ -263,9 +263,9 @@ class Leaf
 {
 public:
   int axis = 0;
+  Real min_val = 1e100;
   BB<D> mbb;
   vec<DataType<T, D>> data; // You can swap when filtering
-  Real min_val = 1e100;
   // T is type of keys(ids) which will be returned when you post a query.
   Leaf()
   {
@@ -705,6 +705,10 @@ public:
 
   void insert(const T &idx, const py::array_t<float> &x, const std::optional<std::string> objdumps = std::nullopt)
   {
+#ifdef MY_DEBUG
+    ProfilerStart("insert.prof");
+    std::cout << "profiler start of insert" << std::endl;
+#endif
     vec<Leaf<T, B, D> *> cands;
     queue<PRTreeNode<T, B, D> *> que;
     std::stack<PRTreeNode<T, B, D> *> sta;
@@ -794,6 +798,9 @@ public:
     // Now cands is the list of candidate leaf nodes to insert
     bb = idx2bb.at(idx);
     Leaf<T, B, D> *min_leaf = nullptr;
+    if (likely(cands.size() == 1)){
+      min_leaf = cands[0];
+    } else
     {
       Real min_diff_area = 1e100;
       for (const auto &leaf : cands)
@@ -837,6 +844,10 @@ public:
     {
       rebuild();
     }
+#ifdef MY_DEBUG
+    ProfilerStop();
+    std::cout << "profiler end of insert" << std::endl;
+#endif
   }
 
   void rebuild()
