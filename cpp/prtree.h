@@ -740,7 +740,7 @@ public:
     const auto &buff_info_x = x.request();
     const auto &shape_x = buff_info_x.shape;
     const auto &ndim = buff_info_x.ndim;
-    if (unlikely((shape_x[0] != 2 * D || ndim != 1))
+    if (unlikely((shape_x[0] != 2 * D || ndim != 1)))
     {
       throw std::runtime_error("invalid shape.");
     }
@@ -1007,7 +1007,7 @@ public:
     {
       throw std::runtime_error("Invalid Bounding box size");
     }
-    if (unlikely((ndim == 2 && (!(shape_x[1] == 2 * D || shape_x[1] == D))))
+    if (unlikely((ndim == 2 && (!(shape_x[1] == 2 * D || shape_x[1] == D)))))
     {
       throw std::runtime_error(
           "Bounding box must have the shape (length, 2 * dim)");
@@ -1086,11 +1086,13 @@ public:
 #ifdef MY_DEBUG
     std::for_each(X.begin(), X.end(),
                   [&](const BB<D> &x)
-                  { out.push_back(find(x)); });
+                  {
+      out.push_back(find(x)); });
 #else
     parallel_for_each(X.begin(), X.end(), out,
                       [&](const BB<D> &x, auto &o)
-                      { o.push_back(find(x)); });
+                      {
+      o.push_back(find(x)); });
 #endif
 #ifdef MY_DEBUG
     ProfilerStop();
