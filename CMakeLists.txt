@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
 
+set(CMAKE_CXX_FLAGS_DEBUG_INIT "-Wall -g -lprofiler -ltcmalloc")
+set(CMAKE_CXX_FLAGS_RELEASE_INIT "")
+
 if(WIN32)
   set(CMAKE_CXX_FLAGS "/O3 /pthread")
 elseif(APPLE)
@@ -35,8 +38,11 @@ set_target_properties(snappy PROPERTIES
 )
 
 target_link_libraries(PRTree PRIVATE
-  pybind11::module pybind11::lto pybind11::windows_extras
-  cereal snappy
+  pybind11::module
+  pybind11::lto
+  pybind11::windows_extras
+  cereal
+  snappy
 )
 
 pybind11_extension(PRTree)
