@@ -39,6 +39,10 @@
 #include <snappy.h>
 #include "parallel.h"
 
+#ifdef MY_DEBUG
+#include <gperftools/profiler.h>
+#endif
+
 using Real = float;
 
 namespace py = pybind11;
@@ -211,7 +215,7 @@ public:
     Real result = 1;
     for (int i = 0; i < D; ++i)
     {
-      result *= values[i + D] - values[i];
+      result *= values[i + D] + values[i];
     }
     return result;
   }
@@ -299,9 +303,14 @@ public:
     }
   }
 
-  template <typename F>
-  bool filter(DataType<T, D> &value,
-              const F &comp)
+  auto find_swapee(const int axis)
+  {
+    auto it = std::min_element(data.begin(), data.end(), [&](const auto &a, const auto &b)
+                               { return a.second[axis] < b.second[axis]; });
+    return it;
+  }
+
+  bool filter(DataType<T, D> &value, const int axis)
   { // false means given value is ignored
     if (unlikely(data.size() < B))
     { // if there is room, just push the candidate
@@ -311,9 +320,9 @@ public:
     }
     else
     { // if there is no room, check the priority and swap if needed
-      auto iter = std::upper_bound(data.begin(), data.end(), value, comp);
-      if (unlikely(iter != data.end()))
+      if (unlikely(mbb[axis] < value.second[axis]))
       {
+        auto iter = find_swapee(axis);
         std::swap(*iter, value);
         update_mbb();
       }
@@ -383,21 +392,10 @@ public:
   template <class iterator>
   auto filter(const iterator &b, const iterator &e)
   {
-    vec<std::function<bool(const DataType<T, D> &, const DataType<T, D> &)>>
-        comps;
-    for (int axis = 0; axis < 2 * D; ++axis)
-    {
-      comps.emplace_back(
-          [axis](const DataType<T, D> &lhs, const DataType<T, D> &rhs)
-          {
-            return lhs.second[axis] < rhs.second[axis];
-          });
-    }
-
     auto out = std::remove_if(b, e, [&](auto &x)
                               {
       for (auto &l : leaves) {
-        if (unlikely(l.filter(x, comps[l.axis]))) {
+        if (unlikely(l.filter(x, l.axis))) {
           return true;
         }
       }
@@ -436,11 +434,14 @@ public:
 
   template <class iterator>
   void construct(PseudoPRTreeNode<T, B, D> *node, const iterator &b, const iterator &e,
-                 const size_t depth)
+                 const int depth)
   {
     if (e - b > 0 && node != nullptr)
     {
       bool use_recursive_threads = std::pow(2, depth + 1) <= nthreads;
+#ifdef MY_DEBUG
+      use_recursive_threads = false;
+#endif
 
       vec<std::thread> threads;
       threads.reserve(2);
@@ -638,7 +639,7 @@ public:
 
     auto ri = idx.template unchecked<1>();
     auto rx = x.template unchecked<2>();
-    size_t length = shape_idx[0];
+    T length = shape_idx[0];
     idx2bb.reserve(length);
 
     DataType<T, D> *b, *e;
@@ -660,7 +661,7 @@ public:
       new (b + i) DataType<T, D>{std::move(ri_i), std::move(bb)};
     }
 
-    for (size_t i = 0; i < length; i++)
+    for (T i = 0; i < length; i++)
     {
       Real minima[D];
       Real maxima[D];
@@ -838,7 +839,7 @@ public:
   {
     std::stack<PRTreeNode<T, B, D> *> sta;
     PRTreeNode<T, B, D> *p, *q;
-    size_t length = idx2bb.size();
+    T length = idx2bb.size();
     DataType<T, D> *b, *e;
 
     void *placement = std::malloc(sizeof(DataType<T, D>) * length);
@@ -882,6 +883,10 @@ public:
   template <class iterator>
   void build(const iterator &b, const iterator &e, void *placement)
   {
+#ifdef MY_DEBUG
+    ProfilerStart("build.prof");
+    std::cout << "profiler start of build" << std::endl;
+#endif
     n_at_build = size();
     vec<std::unique_ptr<PRTreeNode<T, B, D>>> prev_nodes;
     std::unique_ptr<PRTreeNode<T, B, D>> p, q, r;
@@ -943,10 +948,18 @@ public:
       throw std::runtime_error("#roots is not 1.");
     }
     root = std::move(prev_nodes[0]);
+#ifdef MY_DEBUG
+    ProfilerStop();
+    std::cout << "profiler end of build" << std::endl;
+#endif
   }
 
   auto find_all(const py::array_t<float> &x)
   {
+#ifdef MY_DEBUG
+    ProfilerStart("find_all.prof");
+    std::cout << "profiler start of find_all" << std::endl;
+#endif
     const auto &buff_info_x = x.request();
     const auto &ndim = buff_info_x.ndim;
     const auto &shape_x = buff_info_x.shape;
@@ -1028,12 +1041,22 @@ public:
         X.push_back(std::move(bb));
       }
     }
-    size_t length = X.size();
+    T length = X.size();
     vec<vec<T>> out;
     out.reserve(length);
+#ifdef MY_DEBUG
+    std::for_each(X.begin(), X.end(),
+                  [&](const BB<D> &x)
+                  { out.push_back(find(x)); });
+#else
     parallel_for_each(X.begin(), X.end(), out,
                       [&](const BB<D> &x, auto &o)
                       { o.push_back(find(x)); });
+#endif
+#ifdef MY_DEBUG
+    ProfilerStop();
+    std::cout << "profiler end of find_all" << std::endl;
+#endif
     return out;
   }
 
