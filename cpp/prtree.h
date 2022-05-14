@@ -265,13 +265,14 @@ public:
   int axis = 0;
   BB<D> mbb;
   vec<DataType<T, D>> data; // You can swap when filtering
+  Real min_val = 1e100;
   // T is type of keys(ids) which will be returned when you post a query.
   Leaf()
   {
     mbb = BB<D>();
     data.reserve(B);
   }
-  Leaf(int &_axis)
+  Leaf(int _axis)
   {
     axis = _axis;
     mbb = BB<D>();
@@ -297,32 +298,35 @@ public:
   void update_mbb()
   {
     mbb.clear();
+    min_val = 1e100;
     for (const auto &datum : data)
     {
       mbb += datum.second;
+      min_val = std::min(min_val, datum.second[axis]);
     }
   }
 
-  auto find_swapee(const int axis)
+  auto find_swapee()
   {
     auto it = std::min_element(data.begin(), data.end(), [&](const auto &a, const auto &b)
                                { return a.second[axis] < b.second[axis]; });
     return it;
   }
 
-  bool filter(DataType<T, D> &value, const int axis)
+  bool filter(DataType<T, D> &value)
   { // false means given value is ignored
     if (unlikely(data.size() < B))
     { // if there is room, just push the candidate
       mbb += value.second;
+      min_val = std::min(min_val, value.second[axis]);
       data.push_back(value);
       return true;
     }
     else
     { // if there is no room, check the priority and swap if needed
-      if (unlikely(mbb[axis] < value.second[axis]))
+      if (unlikely(min_val < value.second[axis]))
       {
-        auto iter = find_swapee(axis);
+        auto iter = find_swapee();
         std::swap(*iter, value);
         update_mbb();
       }
@@ -395,7 +399,7 @@ public:
     auto out = std::remove_if(b, e, [&](auto &x)
                               {
       for (auto &l : leaves) {
-        if (unlikely(l.filter(x, l.axis))) {
+        if (unlikely(l.filter(x))) {
           return true;
         }
       }

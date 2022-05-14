@@ -1,13 +1,11 @@
 cmake_minimum_required(VERSION 3.0)
 
-set(CMAKE_CXX_FLAGS_DEBUG_INIT "-Wall -g -lprofiler -ltcmalloc -DMY_DEBUG -fno-inline-functions")
-set(CMAKE_CXX_FLAGS_RELEASE_INIT "")
-
 if(WIN32)
   set(CMAKE_CXX_FLAGS "/O3 /pthread")
 elseif(APPLE)
   set(CMAKE_CXX_FLAGS "-O3 -pthread")
 else()
+  set(CMAKE_CXX_FLAGS_DEBUG_INIT "-Wall -g -lprofiler -ltcmalloc -DMY_DEBUG -fno-inline-functions")
   set(CMAKE_CXX_FLAGS "-O3 -pthread")
 endif()
 
