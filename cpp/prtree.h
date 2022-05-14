@@ -57,7 +57,7 @@ template <class T>
 using queue = std::queue<T, deque<T>>;
 
 static std::mt19937 rand_src(42);
-static const float REBUILD_THRE = 1.5;
+static const float REBUILD_THRE = 1.25;
 
 #if defined(__GNUC__) || defined(__clang__)
 #define likely(x) __builtin_expect(!!(x), 1)
@@ -194,32 +194,17 @@ public:
     }
   }
 
-  bool operator()(
-      const BB &target) const
+  inline bool operator()(const BB &target) const
   { // whether this and target has any intersect
-    Real minima[D];
-    Real maxima[D];
     for (int i = 0; i < D; ++i)
     {
-      minima[i] = std::min(values[i], target.values[i]);
+      Real m = std::min(values[i], target.values[i]);
+      Real M = std::min(values[i + D], target.values[i + D]);
+      if (-m > M){
+        return false;
+      }
     }
-    for (int i = 0; i < D; ++i)
-    {
-      maxima[i] = std::min(values[i + D], target.values[i + D]);
-    }
-
-    bool flags[D];
-    for (int i = 0; i < D; ++i)
-    {
-      flags[i] = -minima[i] <= maxima[i];
-    }
-
-    bool flag = true;
-    for (int i = 0; i < D; ++i)
-    {
-      flag = flag && flags[i];
-    }
-    return flag;
+    return true;
   }
 
   Real area() const
@@ -232,7 +217,8 @@ public:
     return result;
   }
 
-  Real operator[](const int i) const { return values[i]; }
+  inline Real operator[](const int i) const { return values[i]; }
+
   template <class Archive>
   void serialize(Archive &ar) { ar(values); }
 };
@@ -319,7 +305,7 @@ public:
     }
   }
 
-  auto find_swapee()
+  inline auto find_swapee()
   {
     auto it = std::min_element(data.begin(), data.end(), [&](const auto &a, const auto &b) noexcept
                                { return a.second[axis] < b.second[axis]; });
@@ -330,14 +316,18 @@ public:
   { // false means given value is ignored
     if (data.size() < B)
     { // if there is room, just push the candidate
+      data.push_back(value);
       mbb += value.second;
       min_val = std::min(min_val, value.second[axis]);
-      auto _value = DataType<T, D>(value);
-      data.push_back(std::move(_value));
       return true;
     }
     else
     { // if there is no room, check the priority and swap if needed
+      /* 
+      auto iter = std::upper_bound(data.begin(), data.end(), value, [&](const auto &a, const auto &b) noexcept
+                                { return a.second[axis] < b.second[axis]; });
+      if (iter != data.end())
+      */
       if (min_val < value.second[axis])
       {
         auto iter = find_swapee();
