@@ -9,7 +9,7 @@ from multiprocessing import cpu_count
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
-version = "v0.5.14"
+version = "v0.5.15"
 
 sys.path.append("./tests")
 
@@ -59,7 +59,8 @@ class CMakeBuild(build_ext):
             "-DPYTHON_EXECUTABLE=" + sys.executable,
         ]
 
-        cfg = "Debug" if self.debug else "Release"
+        debug = os.getenv("DEBUG", 0) in {"1", "y", "yes", "true"}
+        cfg = "Debug" if debug else "Release"
         build_args = ["--config", cfg]
 
         if platform.system() == "Windows":

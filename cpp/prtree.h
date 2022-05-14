@@ -39,6 +39,10 @@
 #include <snappy.h>
 #include "parallel.h"
 
+#ifdef MY_DEBUG
+#include <gperftools/profiler.h>
+#endif
+
 using Real = float;
 
 namespace py = pybind11;
@@ -53,7 +57,7 @@ template <class T>
 using queue = std::queue<T, deque<T>>;
 
 static std::mt19937 rand_src(42);
-static const float REBUILD_THRE = 1.5;
+static const float REBUILD_THRE = 1.25;
 
 #if defined(__GNUC__) || defined(__clang__)
 #define likely(x) __builtin_expect(!!(x), 1)
@@ -140,15 +144,15 @@ public:
   bool validate(const Real (&v)[2 * D]) const
   {
     bool flag = false;
-    for (int i = 0; i < 2; ++i)
+    for (int i = 0; i < D; ++i)
     {
-      if (-v[i] > v[i + D])
+      if (unlikely(-v[i] > v[i + D]))
       {
         flag = true;
         break;
       }
     }
-    if (flag)
+    if (unlikely(flag))
     {
       throw std::runtime_error("Invalid Bounding Box");
     }
@@ -190,20 +194,17 @@ public:
     }
   }
 
-  bool operator()(
-      const BB &target) const
+  inline bool operator()(const BB &target) const
   { // whether this and target has any intersect
-    Real result[2 * D];
-    for (int i = 0; i < 2 * D; ++i)
-    {
-      result[i] = std::min(values[i], target.values[i]);
-    }
-    bool flag = true;
     for (int i = 0; i < D; ++i)
     {
-      flag = flag && (-result[i] <= result[i + D]);
+      Real m = std::min(values[i], target.values[i]);
+      Real M = std::min(values[i + D], target.values[i + D]);
+      if (-m > M){
+        return false;
+      }
     }
-    return flag;
+    return true;
   }
 
   Real area() const
@@ -211,12 +212,13 @@ public:
     Real result = 1;
     for (int i = 0; i < D; ++i)
     {
-      result *= values[i + D] - values[i];
+      result *= max(i) - min(i);
     }
     return result;
   }
 
-  Real operator[](const int i) const { return values[i]; }
+  inline Real operator[](const int i) const { return values[i]; }
+
   template <class Archive>
   void serialize(Archive &ar) { ar(values); }
 };
@@ -225,8 +227,9 @@ template <class T, int D = 2>
 class DataType
 {
 public:
-  T first;
   BB<D> second;
+  T first;
+
   DataType(){};
 
   DataType(const T &f, const BB<D> &s)
@@ -259,6 +262,7 @@ class Leaf
 {
 public:
   int axis = 0;
+  Real min_val = 1e100;
   BB<D> mbb;
   vec<DataType<T, D>> data; // You can swap when filtering
   // T is type of keys(ids) which will be returned when you post a query.
@@ -267,7 +271,7 @@ public:
     mbb = BB<D>();
     data.reserve(B);
   }
-  Leaf(int &_axis)
+  Leaf(const int _axis)
   {
     axis = _axis;
     mbb = BB<D>();
@@ -280,7 +284,7 @@ public:
   }
 
   template <class Archive>
-  void serialize(Archive &ar) { ar(axis, mbb, data); }
+  void serialize(Archive &ar) { ar(axis, min_val, mbb, data); }
 
   void set_axis(const int &_axis) { axis = _axis; }
 
@@ -293,27 +297,40 @@ public:
   void update_mbb()
   {
     mbb.clear();
+    min_val = 1e100;
     for (const auto &datum : data)
     {
       mbb += datum.second;
+      min_val = std::min(min_val, datum.second[axis]);
     }
   }
 
-  template <typename F>
-  bool filter(DataType<T, D> &value,
-              const F &comp)
+  inline auto find_swapee()
+  {
+    auto it = std::min_element(data.begin(), data.end(), [&](const auto &a, const auto &b) noexcept
+                               { return a.second[axis] < b.second[axis]; });
+    return it;
+  }
+
+  bool filter(DataType<T, D> &value)
   { // false means given value is ignored
-    if (unlikely(data.size() < B))
+    if (data.size() < B)
     { // if there is room, just push the candidate
-      mbb += value.second;
       data.push_back(value);
+      mbb += value.second;
+      min_val = std::min(min_val, value.second[axis]);
       return true;
     }
     else
     { // if there is no room, check the priority and swap if needed
-      auto iter = std::upper_bound(data.begin(), data.end(), value, comp);
-      if (unlikely(iter != data.end()))
+      /* 
+      auto iter = std::upper_bound(data.begin(), data.end(), value, [&](const auto &a, const auto &b) noexcept
+                                { return a.second[axis] < b.second[axis]; });
+      if (iter != data.end())
+      */
+      if (min_val < value.second[axis])
       {
+        auto iter = find_swapee();
         std::swap(*iter, value);
         update_mbb();
       }
@@ -323,11 +340,11 @@ public:
 
   void operator()(const BB<D> &target, vec<T> &out) const
   {
-    if (unlikely(mbb(target)))
+    if (mbb(target))
     {
       for (const auto &x : data)
       {
-        if (unlikely(x.second(target)))
+        if (x.second(target))
         {
           out.emplace_back(x.first);
         }
@@ -337,7 +354,7 @@ public:
 
   void del(const T &key, const BB<D> &target)
   {
-    if (unlikely(mbb(target)))
+    if (mbb(target))
     {
       auto remove_it =
           std::remove_if(data.begin(), data.end(), [&](auto &datum)
@@ -361,6 +378,14 @@ public:
       leaves[i].set_axis(i);
     }
   }
+  PseudoPRTreeNode(const int axis)
+  {
+    for (int i = 0; i < 2 * D; i++)
+    {
+      const int j = (axis + i) % (2 * D);
+      leaves[i].set_axis(j);
+    }
+  }
 
   template <class Archive>
   void serialize(Archive &archive)
@@ -373,7 +398,7 @@ public:
   {
     for (auto &leaf : leaves)
     {
-      if (likely(leaf.data.size() > 0))
+      if (leaf.data.size() > 0)
       {
         out.emplace_back(&leaf);
       }
@@ -383,21 +408,10 @@ public:
   template <class iterator>
   auto filter(const iterator &b, const iterator &e)
   {
-    vec<std::function<bool(const DataType<T, D> &, const DataType<T, D> &)>>
-        comps;
-    for (int axis = 0; axis < 2 * D; ++axis)
-    {
-      comps.emplace_back(
-          [axis](const DataType<T, D> &lhs, const DataType<T, D> &rhs)
-          {
-            return lhs.second[axis] < rhs.second[axis];
-          });
-    }
-
     auto out = std::remove_if(b, e, [&](auto &x)
                               {
       for (auto &l : leaves) {
-        if (unlikely(l.filter(x, comps[l.axis]))) {
+        if (l.filter(x)) {
           return true;
         }
       }
@@ -419,7 +433,7 @@ public:
   template <class iterator>
   PseudoPRTree(const iterator &b, const iterator &e)
   {
-    if (likely(!root))
+    if (!root)
     {
       root = std::make_unique<PseudoPRTreeNode<T, B, D>>();
     }
@@ -436,11 +450,14 @@ public:
 
   template <class iterator>
   void construct(PseudoPRTreeNode<T, B, D> *node, const iterator &b, const iterator &e,
-                 const size_t depth)
+                 const int depth)
   {
     if (e - b > 0 && node != nullptr)
     {
       bool use_recursive_threads = std::pow(2, depth + 1) <= nthreads;
+#ifdef MY_DEBUG
+      use_recursive_threads = false;
+#endif
 
       vec<std::thread> threads;
       threads.reserve(2);
@@ -459,7 +476,7 @@ public:
 
       if (m - b > 0)
       {
-        node->left = std::make_unique<PseudoPRTreeNode<T, B, D>>();
+        node->left = std::make_unique<PseudoPRTreeNode<T, B, D>>(axis);
         node_left = node->left.get();
         if (use_recursive_threads)
         {
@@ -474,7 +491,7 @@ public:
       }
       if (ee - m > 0)
       {
-        node->right = std::make_unique<PseudoPRTreeNode<T, B, D>>();
+        node->right = std::make_unique<PseudoPRTreeNode<T, B, D>>(axis);
         node_right = node->right.get();
         if (use_recursive_threads)
         {
@@ -503,7 +520,7 @@ public:
       queue<U *> que;
       que.emplace(node);
 
-      while (likely(!que.empty()))
+      while (!que.empty())
       {
         node = que.front();
         que.pop();
@@ -625,12 +642,12 @@ public:
     const auto &shape_idx = buff_info_idx.shape;
     const auto &buff_info_x = x.request();
     const auto &shape_x = buff_info_x.shape;
-    if (shape_idx[0] != shape_x[0])
+    if (unlikely(shape_idx[0] != shape_x[0]))
     {
       throw std::runtime_error(
           "Both index and boudning box must have the same length");
     }
-    else if (shape_x[1] != 2 * D)
+    if (unlikely(shape_x[1] != 2 * D))
     {
       throw std::runtime_error(
           "Bounding box must have the shape (length, 2 * dim)");
@@ -638,7 +655,7 @@ public:
 
     auto ri = idx.template unchecked<1>();
     auto rx = x.template unchecked<2>();
-    size_t length = shape_idx[0];
+    T length = shape_idx[0];
     idx2bb.reserve(length);
 
     DataType<T, D> *b, *e;
@@ -660,7 +677,7 @@ public:
       new (b + i) DataType<T, D>{std::move(ri_i), std::move(bb)};
     }
 
-    for (size_t i = 0; i < length; i++)
+    for (T i = 0; i < length; i++)
     {
       Real minima[D];
       Real maxima[D];
@@ -700,6 +717,10 @@ public:
 
   void insert(const T &idx, const py::array_t<float> &x, const std::optional<std::string> objdumps = std::nullopt)
   {
+#ifdef MY_DEBUG
+    ProfilerStart("insert.prof");
+    std::cout << "profiler start of insert" << std::endl;
+#endif
     vec<Leaf<T, B, D> *> cands;
     queue<PRTreeNode<T, B, D> *> que;
     std::stack<PRTreeNode<T, B, D> *> sta;
@@ -709,7 +730,7 @@ public:
     const auto &buff_info_x = x.request();
     const auto &shape_x = buff_info_x.shape;
     const auto &ndim = buff_info_x.ndim;
-    if (shape_x[0] != 2 * D || ndim != 1)
+    if (unlikely((shape_x[0] != 2 * D || ndim != 1)))
     {
       throw std::runtime_error("invalid shape.");
     }
@@ -741,14 +762,14 @@ public:
     Real c = 0.0;
     auto qpush_if_intersect = [&](PRTreeNode<T, B, D> *r)
     {
-      if (unlikely((*r)(bb)))
+      if ((*r)(bb))
       {
         que.emplace(r);
         sta.push(r);
       }
     };
 
-    while (likely(cands.size() == 0))
+    while (cands.size() == 0)
     {
       Real d[D];
       for (int i = 0; i < D; ++i)
@@ -761,23 +782,23 @@ public:
       // depth first search
       p = root.get();
       qpush_if_intersect(p);
-      while (likely(!que.empty()))
+      while (!que.empty())
       {
         p = que.front();
         que.pop();
 
-        if (unlikely(p->leaf))
+        if (p->leaf)
         {
           // if p is leaf, then it is the leaf node to insert if it intersects
           cands.push_back(p->leaf.get());
         }
         else
         {
-          if (likely(p->head))
+          if (p->head)
           {
             q = p->head.get();
             qpush_if_intersect(q);
-            while (likely(q->next))
+            while (q->next)
             {
               q = q->next.get();
               qpush_if_intersect(q);
@@ -789,6 +810,11 @@ public:
     // Now cands is the list of candidate leaf nodes to insert
     bb = idx2bb.at(idx);
     Leaf<T, B, D> *min_leaf = nullptr;
+    if (cands.size() == 1)
+    {
+      min_leaf = cands[0];
+    }
+    else
     {
       Real min_diff_area = 1e100;
       for (const auto &leaf : cands)
@@ -806,20 +832,20 @@ public:
     }
     min_leaf->push(idx, bb);
     // update mbbs of all cands and their parents
-    while (likely(!sta.empty()))
+    while (!sta.empty())
     {
       p = sta.top();
       sta.pop();
-      if (unlikely(p->leaf))
+      if (p->leaf)
       {
         p->mbb = p->leaf->mbb;
       }
-      else if (likely(p->head))
+      else if (p->head)
       {
         BB<D> mbb;
         q = p->head.get();
         mbb += q->mbb;
-        while (likely(q->next))
+        while (q->next)
         {
           q = q->next.get();
           mbb += q->mbb;
@@ -832,13 +858,17 @@ public:
     {
       rebuild();
     }
+#ifdef MY_DEBUG
+    ProfilerStop();
+    std::cout << "profiler end of insert" << std::endl;
+#endif
   }
 
   void rebuild()
   {
     std::stack<PRTreeNode<T, B, D> *> sta;
     PRTreeNode<T, B, D> *p, *q;
-    size_t length = idx2bb.size();
+    T length = idx2bb.size();
     DataType<T, D> *b, *e;
 
     void *placement = std::malloc(sizeof(DataType<T, D>) * length);
@@ -847,12 +877,12 @@ public:
 
     T i = 0;
     sta.push(root.get());
-    while (unlikely(!sta.empty()))
+    while (!sta.empty())
     {
       p = sta.top();
       sta.pop();
 
-      if (unlikely(p->leaf))
+      if (p->leaf)
       {
         for (const auto &datum : p->leaf->data)
         {
@@ -862,11 +892,11 @@ public:
       }
       else
       {
-        if (likely(p->head))
+        if (p->head)
         {
           q = p->head.get();
           sta.push(q);
-          while (likely(q->next))
+          while (q->next)
           {
             q = q->next.get();
             sta.push(q);
@@ -882,6 +912,10 @@ public:
   template <class iterator>
   void build(const iterator &b, const iterator &e, void *placement)
   {
+#ifdef MY_DEBUG
+    ProfilerStart("build.prof");
+    std::cout << "profiler start of build" << std::endl;
+#endif
     n_at_build = size();
     vec<std::unique_ptr<PRTreeNode<T, B, D>>> prev_nodes;
     std::unique_ptr<PRTreeNode<T, B, D>> p, q, r;
@@ -894,7 +928,7 @@ public:
       prev_nodes.push_back(std::move(pp));
     }
     auto [bb, ee] = first_tree.as_X(placement, e - b);
-    while (likely(prev_nodes.size() > 1))
+    while (prev_nodes.size() > 1)
     {
       auto tree = PseudoPRTree<T, B, D>(bb, ee);
       auto leaves = tree.get_all_leaves(ee - bb);
@@ -918,7 +952,7 @@ public:
           }
           idx = leaf->data[0].first;
           pp->head = std::move(prev_nodes[idx]);
-          if (!pp->head)
+          if (unlikely(!pp->head))
           {
             throw std::runtime_error("ppp");
           }
@@ -931,7 +965,7 @@ public:
       }
 
       prev_nodes.swap(tmp_nodes);
-      if (likely(prev_nodes.size() > 1))
+      if (prev_nodes.size() > 1)
       {
         auto tmp = tree.as_X(placement, ee - bb);
         bb = std::move(tmp.first);
@@ -943,24 +977,32 @@ public:
       throw std::runtime_error("#roots is not 1.");
     }
     root = std::move(prev_nodes[0]);
+#ifdef MY_DEBUG
+    ProfilerStop();
+    std::cout << "profiler end of build" << std::endl;
+#endif
   }
 
   auto find_all(const py::array_t<float> &x)
   {
+#ifdef MY_DEBUG
+    ProfilerStart("find_all.prof");
+    std::cout << "profiler start of find_all" << std::endl;
+#endif
     const auto &buff_info_x = x.request();
     const auto &ndim = buff_info_x.ndim;
     const auto &shape_x = buff_info_x.shape;
     bool is_point = false;
-    if (ndim == 1 && (!(shape_x[0] == 2 * D || shape_x[0] == D)))
+    if (unlikely(ndim == 1 && (!(shape_x[0] == 2 * D || shape_x[0] == D))))
     {
       throw std::runtime_error("Invalid Bounding box size");
     }
-    else if (ndim == 2 && (!(shape_x[1] == 2 * D || shape_x[1] == D)))
+    if (unlikely((ndim == 2 && (!(shape_x[1] == 2 * D || shape_x[1] == D)))))
     {
       throw std::runtime_error(
           "Bounding box must have the shape (length, 2 * dim)");
     }
-    else if (ndim > 3)
+    if (unlikely(ndim > 3))
     {
       throw std::runtime_error("invalid shape");
     }
@@ -1028,12 +1070,24 @@ public:
         X.push_back(std::move(bb));
       }
     }
-    size_t length = X.size();
+    T length = X.size();
     vec<vec<T>> out;
     out.reserve(length);
+#ifdef MY_DEBUG
+    std::for_each(X.begin(), X.end(),
+                  [&](const BB<D> &x)
+                  {
+      out.push_back(find(x)); });
+#else
     parallel_for_each(X.begin(), X.end(), out,
                       [&](const BB<D> &x, auto &o)
-                      { o.push_back(find(x)); });
+                      {
+      o.push_back(find(x)); });
+#endif
+#ifdef MY_DEBUG
+    ProfilerStop();
+    std::cout << "profiler end of find_all" << std::endl;
+#endif
     return out;
   }
 
@@ -1074,7 +1128,7 @@ public:
     PRTreeNode<T, B, D> *p, *q;
     auto qpush_if_intersect = [&](PRTreeNode<T, B, D> *r)
     {
-      if (unlikely((*r)(target)))
+      if ((*r)(target))
       {
         que.emplace(r);
       }
@@ -1082,22 +1136,22 @@ public:
 
     p = root.get();
     qpush_if_intersect(p);
-    while (likely(!que.empty()))
+    while (!que.empty())
     {
       p = que.front();
       que.pop();
 
-      if (unlikely(p->leaf))
+      if (p->leaf)
       {
         (*p->leaf)(target, out);
       }
       else
       {
-        if (likely(p->head))
+        if (p->head)
         {
           q = p->head.get();
           qpush_if_intersect(q);
-          while (likely(q->next))
+          while (q->next)
           {
             q = q->next.get();
             qpush_if_intersect(q);
@@ -1120,7 +1174,7 @@ public:
     PRTreeNode<T, B, D> *p, *q;
     auto qpush_if_intersect = [&](PRTreeNode<T, B, D> *r)
     {
-      if (unlikely((*r)(target)))
+      if ((*r)(target))
       {
         que.emplace(r);
       }
@@ -1128,22 +1182,22 @@ public:
 
     p = root.get();
     qpush_if_intersect(p);
-    while (likely(!que.empty()))
+    while (!que.empty())
     {
       p = que.front();
       que.pop();
 
-      if (unlikely(p->leaf))
+      if (p->leaf)
       {
         p->leaf->del(idx, target);
       }
       else
       {
-        if (likely(p->head))
+        if (p->head)
         {
           q = p->head.get();
           qpush_if_intersect(q);
-          while (likely(q->next))
+          while (q->next)
           {
             q = q->next.get();
             qpush_if_intersect(q);
