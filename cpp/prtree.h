@@ -212,7 +212,7 @@ public:
     Real result = 1;
     for (int i = 0; i < D; ++i)
     {
-      result *= values[i + D] + values[i];
+      result *= max(i) - min(i);
     }
     return result;
   }
