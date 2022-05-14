@@ -144,9 +144,9 @@ public:
   bool validate(const Real (&v)[2 * D]) const
   {
     bool flag = false;
-    for (int i = 0; i < 2; ++i)
+    for (int i = 0; i < D; ++i)
     {
-      if (-v[i] > v[i + D])
+      if (unlikely(-v[i] > v[i + D]))
       {
         flag = true;
         break;
