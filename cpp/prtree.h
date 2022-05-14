@@ -152,7 +152,7 @@ public:
         break;
       }
     }
-    if (flag)
+    if (unlikely(flag))
     {
       throw std::runtime_error("Invalid Bounding Box");
     }
@@ -408,7 +408,7 @@ public:
   {
     for (auto &leaf : leaves)
     {
-      if (likely(leaf.data.size() > 0))
+      if (leaf.data.size() > 0)
       {
         out.emplace_back(&leaf);
       }
@@ -652,12 +652,12 @@ public:
     const auto &shape_idx = buff_info_idx.shape;
     const auto &buff_info_x = x.request();
     const auto &shape_x = buff_info_x.shape;
-    if (shape_idx[0] != shape_x[0])
+    if (unlikely(shape_idx[0] != shape_x[0]))
     {
       throw std::runtime_error(
           "Both index and boudning box must have the same length");
     }
-    else if (shape_x[1] != 2 * D)
+    if (unlikely(shape_x[1] != 2 * D))
     {
       throw std::runtime_error(
           "Bounding box must have the shape (length, 2 * dim)");
@@ -740,7 +740,7 @@ public:
     const auto &buff_info_x = x.request();
     const auto &shape_x = buff_info_x.shape;
     const auto &ndim = buff_info_x.ndim;
-    if (shape_x[0] != 2 * D || ndim != 1)
+    if (unlikely((shape_x[0] != 2 * D || ndim != 1))
     {
       throw std::runtime_error("invalid shape.");
     }
@@ -952,7 +952,7 @@ public:
         int idx, jdx;
         int len = leaf->data.size();
         auto pp = std::make_unique<PRTreeNode<T, B, D>>(leaf->mbb);
-        if (!leaf->data.empty())
+        if (likely(!leaf->data.empty()))
         {
           for (int i = 1; i < len; i++)
           {
@@ -962,7 +962,7 @@ public:
           }
           idx = leaf->data[0].first;
           pp->head = std::move(prev_nodes[idx]);
-          if (!pp->head)
+          if (unlikely(!pp->head))
           {
             throw std::runtime_error("ppp");
           }
@@ -1003,16 +1003,16 @@ public:
     const auto &ndim = buff_info_x.ndim;
     const auto &shape_x = buff_info_x.shape;
     bool is_point = false;
-    if (ndim == 1 && (!(shape_x[0] == 2 * D || shape_x[0] == D)))
+    if (unlikely(ndim == 1 && (!(shape_x[0] == 2 * D || shape_x[0] == D))))
     {
       throw std::runtime_error("Invalid Bounding box size");
     }
-    else if (ndim == 2 && (!(shape_x[1] == 2 * D || shape_x[1] == D)))
+    if (unlikely((ndim == 2 && (!(shape_x[1] == 2 * D || shape_x[1] == D))))
     {
       throw std::runtime_error(
           "Bounding box must have the shape (length, 2 * dim)");
     }
-    else if (ndim > 3)
+    if (unlikely(ndim > 3))
     {
       throw std::runtime_error("invalid shape");
     }
