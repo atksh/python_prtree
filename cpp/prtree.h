@@ -265,13 +265,11 @@ public:
   Leaf()
   {
     mbb = BB<D>();
-    data.reserve(B);
   }
   Leaf(const int _axis)
   {
     axis = _axis;
     mbb = BB<D>();
-    data.reserve(B);
   }
 
   Real area() const
