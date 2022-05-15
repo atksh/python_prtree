@@ -13,7 +13,6 @@
 #include <mutex>
 #include <numeric>
 #include <queue>
-#include <random>
 #include <stack>
 #include <thread>
 #include <unordered_map>
@@ -21,6 +20,7 @@
 #include <string>
 #include <utility>
 #include <optional>
+#include <functional>
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -38,6 +38,7 @@
 
 #include <snappy.h>
 #include "parallel.h"
+#include "small_vector.h"
 
 #ifdef MY_DEBUG
 #include <gperftools/profiler.h>
@@ -50,13 +51,15 @@ namespace py = pybind11;
 template <class T>
 using vec = std::vector<T>;
 
+template <class T, size_t StaticCapacity>
+using svec = itlib::small_vector<T, StaticCapacity>;
+
 template <class T>
 using deque = std::deque<T>;
 
 template <class T>
 using queue = std::queue<T, deque<T>>;
 
-static std::mt19937 rand_src(42);
 static const float REBUILD_THRE = 1.25;
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -79,14 +82,6 @@ std::string decompress(std::string &data)
   std::string output;
   snappy::Uncompress(data.data(), data.size(), &output);
   return output;
-}
-
-template <typename Iter>
-Iter select_randomly(Iter start, Iter end)
-{
-  std::uniform_int_distribution<> dis(0, std::distance(start, end) - 1);
-  std::advance(start, dis(rand_src));
-  return start;
 }
 
 template <int D = 2>
@@ -200,7 +195,8 @@ public:
     {
       Real m = std::min(values[i], target.values[i]);
       Real M = std::min(values[i + D], target.values[i + D]);
-      if (-m > M){
+      if (-m > M)
+      {
         return false;
       }
     }
@@ -264,18 +260,16 @@ public:
   int axis = 0;
   Real min_val = 1e100;
   BB<D> mbb;
-  vec<DataType<T, D>> data; // You can swap when filtering
+  svec<DataType<T, D>, B> data; // You can swap when filtering
   // T is type of keys(ids) which will be returned when you post a query.
   Leaf()
   {
     mbb = BB<D>();
-    data.reserve(B);
   }
   Leaf(const int _axis)
   {
     axis = _axis;
     mbb = BB<D>();
-    data.reserve(B);
   }
 
   Real area() const
@@ -284,7 +278,26 @@ public:
   }
 
   template <class Archive>
-  void serialize(Archive &ar) { ar(axis, min_val, mbb, data); }
+  void save(Archive &ar) const
+  {
+    vec<DataType<T, D>> _data;
+    for (const auto &datum : data)
+    {
+      _data.push_back(datum);
+    }
+    ar(axis, min_val, mbb, _data);
+  }
+
+  template <class Archive>
+  void load(Archive &ar)
+  {
+    vec<DataType<T, D>> _data;
+    ar(axis, min_val, mbb, _data);
+    for (const auto &datum : _data)
+    {
+      data.push_back(datum);
+    }
+  }
 
   void set_axis(const int &_axis) { axis = _axis; }
 
@@ -323,7 +336,7 @@ public:
     }
     else
     { // if there is no room, check the priority and swap if needed
-      /* 
+      /*
       auto iter = std::upper_bound(data.begin(), data.end(), value, [&](const auto &a, const auto &b) noexcept
                                 { return a.second[axis] < b.second[axis]; });
       if (iter != data.end())
@@ -579,6 +592,46 @@ public:
     archive(mbb, leaf, head, next);
   }
 };
+
+template <class T, int B = 6, int D = 2>
+void bfs(const std::function<void(std::unique_ptr<Leaf<T, B, D>> &)> &func, PRTreeNode<T, B, D> *root, const BB<D> target)
+{
+  queue<PRTreeNode<T, B, D> *> que;
+  PRTreeNode<T, B, D> *p, *q;
+  auto qpush_if_intersect = [&](PRTreeNode<T, B, D> *r)
+  {
+    if ((*r)(target))
+    {
+      que.emplace(r);
+    }
+  };
+
+  p = root;
+  qpush_if_intersect(p);
+  while (!que.empty())
+  {
+    p = que.front();
+    que.pop();
+
+    if (p->leaf)
+    {
+      func(p->leaf);
+    }
+    else
+    {
+      if (p->head)
+      {
+        q = p->head.get();
+        qpush_if_intersect(q);
+        while (q->next)
+        {
+          q = q->next.get();
+          qpush_if_intersect(q);
+        }
+      }
+    }
+  }
+}
 
 template <class T, int B = 6, int D = 2>
 class PRTree
@@ -1076,13 +1129,11 @@ public:
 #ifdef MY_DEBUG
     std::for_each(X.begin(), X.end(),
                   [&](const BB<D> &x)
-                  {
-      out.push_back(find(x)); });
+                  { out.push_back(find(x)); });
 #else
     parallel_for_each(X.begin(), X.end(), out,
                       [&](const BB<D> &x, auto &o)
-                      {
-      o.push_back(find(x)); });
+                      { o.push_back(find(x)); });
 #endif
 #ifdef MY_DEBUG
     ProfilerStop();
@@ -1124,41 +1175,12 @@ public:
   vec<T> find(const BB<D> &target)
   {
     vec<T> out;
-    queue<PRTreeNode<T, B, D> *> que;
-    PRTreeNode<T, B, D> *p, *q;
-    auto qpush_if_intersect = [&](PRTreeNode<T, B, D> *r)
+    auto func = [&](std::unique_ptr<Leaf<T, B, D>> &leaf)
     {
-      if ((*r)(target))
-      {
-        que.emplace(r);
-      }
+      (*leaf)(target, out);
     };
 
-    p = root.get();
-    qpush_if_intersect(p);
-    while (!que.empty())
-    {
-      p = que.front();
-      que.pop();
-
-      if (p->leaf)
-      {
-        (*p->leaf)(target, out);
-      }
-      else
-      {
-        if (p->head)
-        {
-          q = p->head.get();
-          qpush_if_intersect(q);
-          while (q->next)
-          {
-            q = q->next.get();
-            qpush_if_intersect(q);
-          }
-        }
-      }
-    }
+    bfs<T, B, D>(func, root.get(), target);
     return out;
   }
 
@@ -1170,41 +1192,13 @@ public:
       throw std::runtime_error("Given index is not found.");
     }
     BB<D> target = it->second;
-    queue<PRTreeNode<T, B, D> *> que;
-    PRTreeNode<T, B, D> *p, *q;
-    auto qpush_if_intersect = [&](PRTreeNode<T, B, D> *r)
+
+    auto func = [&](std::unique_ptr<Leaf<T, B, D>> &leaf)
     {
-      if ((*r)(target))
-      {
-        que.emplace(r);
-      }
+      leaf->del(idx, target);
     };
 
-    p = root.get();
-    qpush_if_intersect(p);
-    while (!que.empty())
-    {
-      p = que.front();
-      que.pop();
-
-      if (p->leaf)
-      {
-        p->leaf->del(idx, target);
-      }
-      else
-      {
-        if (p->head)
-        {
-          q = p->head.get();
-          qpush_if_intersect(q);
-          while (q->next)
-          {
-            q = q->next.get();
-            qpush_if_intersect(q);
-          }
-        }
-      }
-    }
+    bfs<T, B, D>(func, root.get(), target);
 
     idx2bb.erase(idx);
     idx2data.erase(idx);
