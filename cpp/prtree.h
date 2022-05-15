@@ -1126,7 +1126,7 @@ public:
     vec<T> out;
     queue<PRTreeNode<T, B, D> *> que;
     PRTreeNode<T, B, D> *p, *q;
-    auto qpush_if_intersect = [&](PRTreeNode<T, B, D> *r)
+    auto qii = [&](PRTreeNode<T, B, D> *r)
     {
       if ((*r)(target))
       {
@@ -1135,7 +1135,7 @@ public:
     };
 
     p = root.get();
-    qpush_if_intersect(p);
+    qii(p);
     while (!que.empty())
     {
       p = que.front();
@@ -1150,11 +1150,11 @@ public:
         if (p->head)
         {
           q = p->head.get();
-          qpush_if_intersect(q);
+          qii(q);
           while (q->next)
           {
             q = q->next.get();
-            qpush_if_intersect(q);
+            qii(q);
           }
         }
       }
