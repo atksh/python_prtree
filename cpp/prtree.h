@@ -38,6 +38,7 @@
 
 #include <snappy.h>
 #include "parallel.h"
+#include "small_vector.h"
 
 #ifdef MY_DEBUG
 #include <gperftools/profiler.h>
@@ -49,6 +50,9 @@ namespace py = pybind11;
 
 template <class T>
 using vec = std::vector<T>;
+
+template <class T, size_t StaticCapacity>
+using svec = itlib::small_vector<T, StaticCapacity>;
 
 template <class T>
 using deque = std::deque<T>;
@@ -256,7 +260,7 @@ public:
   int axis = 0;
   Real min_val = 1e100;
   BB<D> mbb;
-  vec<DataType<T, D>> data; // You can swap when filtering
+  svec<DataType<T, D>, B> data; // You can swap when filtering
   // T is type of keys(ids) which will be returned when you post a query.
   Leaf()
   {
@@ -276,7 +280,26 @@ public:
   }
 
   template <class Archive>
-  void serialize(Archive &ar) { ar(axis, min_val, mbb, data); }
+  void save(Archive &ar) const
+  {
+    vec<DataType<T, D>> _data;
+    for (const auto &datum : data)
+    {
+      _data.push_back(datum);
+    }
+    ar(axis, min_val, mbb, _data);
+  }
+
+  template <class Archive>
+  void load(Archive &ar)
+  {
+    vec<DataType<T, D>> _data;
+    ar(axis, min_val, mbb, _data);
+    for (const auto &datum : _data)
+    {
+      data.push_back(datum);
+    }
+  }
 
   void set_axis(const int &_axis) { axis = _axis; }
 
