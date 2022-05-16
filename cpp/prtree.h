@@ -645,12 +645,12 @@ public:
     is_used = true;
   }
 
-  bool operator()(const BB<D> &target) { return mbb(target); }
+  bool operator()(const BB<D> &target) { return is_used && mbb(target); }
 
   template <class Archive>
   void serialize(Archive &archive)
   {
-    archive(mbb, leaf);
+    archive(mbb, leaf, is_used);
   }
 };
 
