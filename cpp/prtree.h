@@ -304,11 +304,6 @@ public:
     }
     else
     { // if there is no room, check the priority and swap if needed
-      /*
-      auto iter = std::upper_bound(data.begin(), data.end(), value, [&](const auto &a, const auto &b) noexcept
-                                { return a.second[axis] < b.second[axis]; });
-      if (iter != data.end())
-      */
       if (data[0].second[axis] < value.second[axis])
       {
         size_t n_swap = std::lower_bound(data.begin(), data.end(), value, comp) - data.begin();
