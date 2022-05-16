@@ -272,33 +272,6 @@ public:
     mbb = BB<D>();
   }
 
-  Real area() const
-  {
-    return mbb.area();
-  }
-
-  template <class Archive>
-  void save(Archive &ar) const
-  {
-    vec<DataType<T, D>> _data;
-    for (const auto &datum : data)
-    {
-      _data.push_back(datum);
-    }
-    ar(axis, min_val, mbb, _data);
-  }
-
-  template <class Archive>
-  void load(Archive &ar)
-  {
-    vec<DataType<T, D>> _data;
-    ar(axis, min_val, mbb, _data);
-    for (const auto &datum : _data)
-    {
-      data.push_back(datum);
-    }
-  }
-
   void set_axis(const int &_axis) { axis = _axis; }
 
   void push(const T &key, const BB<D> &target)
@@ -348,31 +321,6 @@ public:
         update_mbb();
       }
       return false;
-    }
-  }
-
-  void operator()(const BB<D> &target, vec<T> &out) const
-  {
-    if (mbb(target))
-    {
-      for (const auto &x : data)
-      {
-        if (x.second(target))
-        {
-          out.emplace_back(x.first);
-        }
-      }
-    }
-  }
-
-  void del(const T &key, const BB<D> &target)
-  {
-    if (mbb(target))
-    {
-      auto remove_it =
-          std::remove_if(data.begin(), data.end(), [&](auto &datum)
-                         { return datum.second(target) && datum.first == key; });
-      data.erase(remove_it, data.end());
     }
   }
 };
@@ -563,6 +511,92 @@ public:
 };
 
 template <class T, int B = 6, int D = 2>
+class PRTreeLeaf
+{
+public:
+  BB<D> mbb;
+  svec<DataType<T, D>, B> data;
+
+  PRTreeLeaf()
+  {
+    mbb = BB<D>();
+  }
+
+  PRTreeLeaf(const Leaf<T, B, D> &leaf)
+  {
+    mbb = leaf.mbb;
+    data = leaf.data;
+  }
+
+  Real area() const
+  {
+    return mbb.area();
+  }
+
+  void update_mbb()
+  {
+    mbb.clear();
+    for (const auto &datum : data)
+    {
+      mbb += datum.second;
+    }
+  }
+
+  void operator()(const BB<D> &target, vec<T> &out) const
+  {
+    if (mbb(target))
+    {
+      for (const auto &x : data)
+      {
+        if (x.second(target))
+        {
+          out.emplace_back(x.first);
+        }
+      }
+    }
+  }
+
+  void del(const T &key, const BB<D> &target)
+  {
+    if (mbb(target))
+    {
+      auto remove_it =
+          std::remove_if(data.begin(), data.end(), [&](auto &datum)
+                         { return datum.second(target) && datum.first == key; });
+      data.erase(remove_it, data.end());
+    }
+  }
+
+  void push(const T &key, const BB<D> &target)
+  {
+    data.emplace_back(key, target);
+    update_mbb();
+  }
+
+  template <class Archive>
+  void save(Archive &ar) const
+  {
+    vec<DataType<T, D>> _data;
+    for (const auto &datum : data)
+    {
+      _data.push_back(datum);
+    }
+    ar(mbb, _data);
+  }
+
+  template <class Archive>
+  void load(Archive &ar)
+  {
+    vec<DataType<T, D>> _data;
+    ar(mbb, _data);
+    for (const auto &datum : _data)
+    {
+      data.push_back(datum);
+    }
+  }
+};
+
+template <class T, int B = 6, int D = 2>
 class PRTreeNode
 {
 public:
@@ -584,50 +618,77 @@ public:
   }
 
   bool operator()(const BB<D> &target) { return mbb(target); }
+};
+
+template <class T, int B = 6, int D = 2>
+class PRTreeElement
+{
+public:
+  BB<D> mbb;
+  std::unique_ptr<PRTreeLeaf<T, B, D>> leaf;
+  bool is_used = false;
+
+  PRTreeElement()
+  {
+    mbb = BB<D>();
+    is_used = false;
+  }
+
+  PRTreeElement(const PRTreeNode<T, B, D> &node)
+  {
+    mbb = BB<D>(node.mbb);
+    if (node.leaf)
+    {
+      Leaf<T, B, D> tmp_leaf = Leaf<T, B, D>(*node.leaf.get());
+      leaf = std::make_unique<PRTreeLeaf<T, B, D>>(tmp_leaf);
+    }
+    is_used = true;
+  }
+
+  bool operator()(const BB<D> &target) { return mbb(target); }
 
   template <class Archive>
   void serialize(Archive &archive)
   {
-    // archive(cereal::defer(leaf), cereal::defer(head), cereal::defer(next));
-    archive(mbb, leaf, head, next);
+    archive(mbb, leaf);
   }
 };
 
 template <class T, int B = 6, int D = 2>
-void bfs(const std::function<void(std::unique_ptr<Leaf<T, B, D>> &)> &func, PRTreeNode<T, B, D> *root, const BB<D> target)
+void bfs(const std::function<void(std::unique_ptr<PRTreeLeaf<T, B, D>> &)> &func, vec<PRTreeElement<T, B, D>> &flat_tree, const BB<D> target)
 {
-  queue<PRTreeNode<T, B, D> *> que;
-  PRTreeNode<T, B, D> *p, *q;
-  auto qpush_if_intersect = [&](PRTreeNode<T, B, D> *r)
+  queue<size_t> que;
+  auto qpush_if_intersect = [&](const size_t &i)
   {
-    if ((*r)(target))
+    PRTreeElement<T, B, D> &r = flat_tree.at(i);
+    // std::cout << "i " << (long int) i << " : " << (bool) r.leaf << std::endl;
+    if (r(target))
     {
-      que.emplace(r);
+      // std::cout << " is pushed" << std::endl;
+      que.emplace(i);
     }
   };
 
-  p = root;
-  qpush_if_intersect(p);
+  // std::cout << "size: " << flat_tree.size() << std::endl;
+  qpush_if_intersect(0);
   while (!que.empty())
   {
-    p = que.front();
+    size_t idx = que.front();
+    // std::cout << "idx: " << (long int) idx << std::endl;
     que.pop();
+    PRTreeElement<T, B, D> &elem = flat_tree.at(idx);
 
-    if (p->leaf)
+    if (elem.leaf)
     {
-      func(p->leaf);
+      // std::cout << "func called for " << (long int) idx << std::endl;
+      func(elem.leaf);
     }
     else
     {
-      if (p->head)
+      for (size_t offset = 0; offset < B; offset++)
       {
-        q = p->head.get();
-        qpush_if_intersect(q);
-        while (q->next)
-        {
-          q = q->next.get();
-          qpush_if_intersect(q);
-        }
+        size_t jdx = idx * B + offset + 1;
+        qpush_if_intersect(jdx);
       }
     }
   }
@@ -637,7 +698,7 @@ template <class T, int B = 6, int D = 2>
 class PRTree
 {
 private:
-  std::unique_ptr<PRTreeNode<T, B, D>> root;
+  vec<PRTreeElement<T, B, D>> flat_tree;
   std::unordered_map<T, BB<D>> idx2bb;
   std::unordered_map<T, std::string> idx2data;
   int64_t n_at_build = 0;
@@ -647,8 +708,7 @@ public:
   template <class Archive>
   void serialize(Archive &archive)
   {
-    archive(root, idx2bb, idx2data, global_idx, n_at_build);
-    // archive.serializeDeferments();
+    archive(flat_tree, idx2bb, idx2data, global_idx, n_at_build);
   }
 
   void save(std::string fname)
@@ -657,7 +717,7 @@ public:
       {
         std::ofstream ofs(fname, std::ios::binary);
         cereal::PortableBinaryOutputArchive o_archive(ofs);
-        o_archive(cereal::make_nvp("root", root),
+        o_archive(cereal::make_nvp("flat_tree", flat_tree),
                   cereal::make_nvp("idx2bb", idx2bb),
                   cereal::make_nvp("idx2data", idx2data),
                   cereal::make_nvp("global_idx", global_idx),
@@ -665,13 +725,6 @@ public:
       }
     }
   }
-
-  PRTree()
-  {
-    root = std::make_unique<PRTreeNode<T, B, D>>();
-  }
-
-  PRTree(std::string fname) { load(fname); }
 
   void load(std::string fname)
   {
@@ -679,8 +732,7 @@ public:
       {
         std::ifstream ifs(fname, std::ios::binary);
         cereal::PortableBinaryInputArchive i_archive(ifs);
-        // cereal::JSONInputArchive i_archive(ifs);
-        i_archive(cereal::make_nvp("root", root),
+        i_archive(cereal::make_nvp("flat_tree", flat_tree),
                   cereal::make_nvp("idx2bb", idx2bb),
                   cereal::make_nvp("idx2data", idx2data),
                   cereal::make_nvp("global_idx", global_idx),
@@ -688,6 +740,10 @@ public:
       }
     }
   }
+
+  PRTree() {}
+
+  PRTree(std::string fname) { load(fname); }
 
   PRTree(const py::array_t<T> &idx, const py::array_t<float> &x)
   {
@@ -774,11 +830,8 @@ public:
     ProfilerStart("insert.prof");
     std::cout << "profiler start of insert" << std::endl;
 #endif
-    vec<Leaf<T, B, D> *> cands;
-    queue<PRTreeNode<T, B, D> *> que;
-    std::stack<PRTreeNode<T, B, D> *> sta;
+    vec<size_t> cands;
     BB<D> bb;
-    PRTreeNode<T, B, D> *p, *q;
 
     const auto &buff_info_x = x.request();
     const auto &shape_x = buff_info_x.shape;
@@ -813,16 +866,8 @@ public:
 
     // find the leaf node to insert
     Real c = 0.0;
-    auto qpush_if_intersect = [&](PRTreeNode<T, B, D> *r)
-    {
-      if ((*r)(bb))
-      {
-        que.emplace(r);
-        sta.push(r);
-      }
-    };
-
-    while (cands.size() == 0)
+    size_t count = flat_tree.size();
+    while (cands.empty())
     {
       Real d[D];
       for (int i = 0; i < D; ++i)
@@ -832,37 +877,44 @@ public:
       bb.expand(d);
       c = (c + 1) * 2;
 
-      // depth first search
-      p = root.get();
-      qpush_if_intersect(p);
+      queue<size_t> que;
+      auto qpush_if_intersect = [&](const size_t &i)
+      {
+        if (flat_tree.at(i)(bb))
+        {
+          que.emplace(i);
+        }
+      };
+
+      qpush_if_intersect(0);
       while (!que.empty())
       {
-        p = que.front();
+        size_t i = que.front();
         que.pop();
+        PRTreeElement<T, B, D> &elem = flat_tree.at(i);
 
-        if (p->leaf)
+        if (elem.leaf && elem.leaf->mbb(bb))
         {
-          // if p is leaf, then it is the leaf node to insert if it intersects
-          cands.push_back(p->leaf.get());
+          cands.push_back(i);
         }
         else
         {
-          if (p->head)
+          for (size_t offset = 0; offset < B; offset++)
           {
-            q = p->head.get();
-            qpush_if_intersect(q);
-            while (q->next)
-            {
-              q = q->next.get();
-              qpush_if_intersect(q);
-            }
+            size_t j = i * B + offset + 1;
+            if (j < count)
+              qpush_if_intersect(j);
           }
         }
       }
     }
+
+    if (unlikely(cands.empty()))
+      throw std::runtime_error("cannnot determine where to insert");
+
     // Now cands is the list of candidate leaf nodes to insert
     bb = idx2bb.at(idx);
-    Leaf<T, B, D> *min_leaf = nullptr;
+    size_t min_leaf = 0;
     if (cands.size() == 1)
     {
       min_leaf = cands[0];
@@ -870,41 +922,38 @@ public:
     else
     {
       Real min_diff_area = 1e100;
-      for (const auto &leaf : cands)
+      for (const auto &i : cands)
       {
-        Leaf<T, B, D> tmp_leaf = Leaf<T, B, D>(*leaf);
+        PRTreeLeaf<T, B, D> *leaf = flat_tree.at(i).leaf.get();
+        PRTreeLeaf<T, B, D> tmp_leaf = PRTreeLeaf<T, B, D>(*leaf);
         Real diff_area = -tmp_leaf.area();
         tmp_leaf.push(idx, bb);
         diff_area += tmp_leaf.area();
-        if (min_leaf == nullptr || diff_area < min_diff_area)
+        if (diff_area < min_diff_area)
         {
           min_diff_area = diff_area;
-          min_leaf = leaf;
+          min_leaf = i;
         }
       }
     }
-    min_leaf->push(idx, bb);
+    flat_tree.at(min_leaf).leaf->push(idx, bb);
     // update mbbs of all cands and their parents
-    while (!sta.empty())
+    size_t i = min_leaf;
+    while (true)
     {
-      p = sta.top();
-      sta.pop();
-      if (p->leaf)
+      PRTreeElement<T, B, D> &elem = flat_tree.at(i);
+
+      if (elem.leaf)
+        elem.mbb += elem.leaf->mbb;
+
+      if (i > 0)
       {
-        p->mbb = p->leaf->mbb;
+        size_t j = (i - 1) / B;
+        flat_tree.at(j).mbb += flat_tree.at(i).mbb;
       }
-      else if (p->head)
-      {
-        BB<D> mbb;
-        q = p->head.get();
-        mbb += q->mbb;
-        while (q->next)
-        {
-          q = q->next.get();
-          mbb += q->mbb;
-        }
-        p->mbb = mbb;
-      }
+      if (i == 0)
+        break;
+      i = (i - 1) / B;
     }
 
     if (size() > REBUILD_THRE * n_at_build)
@@ -919,8 +968,7 @@ public:
 
   void rebuild()
   {
-    std::stack<PRTreeNode<T, B, D> *> sta;
-    PRTreeNode<T, B, D> *p, *q;
+    std::stack<size_t> sta;
     T length = idx2bb.size();
     DataType<T, D> *b, *e;
 
@@ -929,15 +977,17 @@ public:
     e = b + length;
 
     T i = 0;
-    sta.push(root.get());
+    sta.push(0);
     while (!sta.empty())
     {
-      p = sta.top();
+      size_t idx = sta.top();
       sta.pop();
 
-      if (p->leaf)
+      PRTreeElement<T, B, D> &elem = flat_tree.at(idx);
+
+      if (elem.leaf)
       {
-        for (const auto &datum : p->leaf->data)
+        for (const auto &datum : elem.leaf->data)
         {
           new (b + i) DataType<T, D>{datum.first, datum.second};
           i++;
@@ -945,14 +995,12 @@ public:
       }
       else
       {
-        if (p->head)
+        for (size_t offset = 0; offset < B; offset++)
         {
-          q = p->head.get();
-          sta.push(q);
-          while (q->next)
+          size_t jdx = idx * B + offset + 1;
+          if (flat_tree.at(jdx).is_used)
           {
-            q = q->next.get();
-            sta.push(q);
+            sta.push(jdx);
           }
         }
       }
@@ -969,67 +1017,131 @@ public:
     ProfilerStart("build.prof");
     std::cout << "profiler start of build" << std::endl;
 #endif
-    n_at_build = size();
-    vec<std::unique_ptr<PRTreeNode<T, B, D>>> prev_nodes;
-    std::unique_ptr<PRTreeNode<T, B, D>> p, q, r;
-
-    auto first_tree = PseudoPRTree<T, B, D>(b, e);
-    auto first_leaves = first_tree.get_all_leaves(e - b);
-    for (auto &leaf : first_leaves)
+    std::unique_ptr<PRTreeNode<T, B, D>> root;
     {
-      auto pp = std::make_unique<PRTreeNode<T, B, D>>(leaf);
-      prev_nodes.push_back(std::move(pp));
-    }
-    auto [bb, ee] = first_tree.as_X(placement, e - b);
-    while (prev_nodes.size() > 1)
-    {
-      auto tree = PseudoPRTree<T, B, D>(bb, ee);
-      auto leaves = tree.get_all_leaves(ee - bb);
-      auto leaves_size = leaves.size();
+      n_at_build = size();
+      vec<std::unique_ptr<PRTreeNode<T, B, D>>> prev_nodes;
+      std::unique_ptr<PRTreeNode<T, B, D>> p, q, r;
 
-      vec<std::unique_ptr<PRTreeNode<T, B, D>>> tmp_nodes;
-      tmp_nodes.reserve(leaves_size);
-
-      for (auto &leaf : leaves)
+      auto first_tree = PseudoPRTree<T, B, D>(b, e);
+      auto first_leaves = first_tree.get_all_leaves(e - b);
+      for (auto &leaf : first_leaves)
       {
-        int idx, jdx;
-        int len = leaf->data.size();
-        auto pp = std::make_unique<PRTreeNode<T, B, D>>(leaf->mbb);
-        if (likely(!leaf->data.empty()))
+        auto pp = std::make_unique<PRTreeNode<T, B, D>>(leaf);
+        prev_nodes.push_back(std::move(pp));
+      }
+      auto [bb, ee] = first_tree.as_X(placement, e - b);
+      while (prev_nodes.size() > 1)
+      {
+        auto tree = PseudoPRTree<T, B, D>(bb, ee);
+        auto leaves = tree.get_all_leaves(ee - bb);
+        auto leaves_size = leaves.size();
+
+        vec<std::unique_ptr<PRTreeNode<T, B, D>>> tmp_nodes;
+        tmp_nodes.reserve(leaves_size);
+
+        for (auto &leaf : leaves)
         {
-          for (int i = 1; i < len; i++)
+          int idx, jdx;
+          int len = leaf->data.size();
+          auto pp = std::make_unique<PRTreeNode<T, B, D>>(leaf->mbb);
+          if (likely(!leaf->data.empty()))
           {
-            idx = leaf->data[len - i - 1].first; // reversed way
-            jdx = leaf->data[len - i].first;
-            prev_nodes[idx]->next = std::move(prev_nodes[jdx]);
+            for (int i = 1; i < len; i++)
+            {
+              idx = leaf->data[len - i - 1].first; // reversed way
+              jdx = leaf->data[len - i].first;
+              prev_nodes[idx]->next = std::move(prev_nodes[jdx]);
+            }
+            idx = leaf->data[0].first;
+            pp->head = std::move(prev_nodes[idx]);
+            if (unlikely(!pp->head))
+            {
+              throw std::runtime_error("ppp");
+            }
+            tmp_nodes.push_back(std::move(pp));
           }
-          idx = leaf->data[0].first;
-          pp->head = std::move(prev_nodes[idx]);
-          if (unlikely(!pp->head))
+          else
           {
-            throw std::runtime_error("ppp");
+            throw std::runtime_error("what????");
           }
-          tmp_nodes.push_back(std::move(pp));
         }
-        else
+
+        prev_nodes.swap(tmp_nodes);
+        if (prev_nodes.size() > 1)
         {
-          throw std::runtime_error("what????");
+          auto tmp = tree.as_X(placement, ee - bb);
+          bb = std::move(tmp.first);
+          ee = std::move(tmp.second);
         }
       }
-
-      prev_nodes.swap(tmp_nodes);
-      if (prev_nodes.size() > 1)
+      if (unlikely(prev_nodes.size() != 1))
       {
-        auto tmp = tree.as_X(placement, ee - bb);
-        bb = std::move(tmp.first);
-        ee = std::move(tmp.second);
+        throw std::runtime_error("#roots is not 1.");
+      }
+      root = std::move(prev_nodes[0]);
+    }
+    // flatten built tree
+    {
+      queue<std::pair<PRTreeNode<T, B, D> *, size_t>> que;
+      PRTreeNode<T, B, D> *p, *q;
+
+      int depth = 0;
+
+      p = root.get();
+      while (p->head)
+      {
+        p = p->head.get();
+        depth++;
+      }
+
+      // resize
+      {
+        flat_tree.clear();
+        size_t count = 1;
+        for (int i = 0; i < depth; i++)
+        {
+          count += B * std::pow(B, depth);
+        }
+        flat_tree.resize(count);
+      }
+
+      // assign
+      que.emplace(root.get(), 0);
+      size_t count = flat_tree.size();
+      while (!que.empty())
+      {
+        auto tmp = que.front();
+        que.pop();
+        p = tmp.first;
+        size_t idx = tmp.second;
+
+        if (unlikely(flat_tree.at(idx).is_used))
+        {
+          throw std::runtime_error("alreadly set");
+        }
+
+        flat_tree.at(idx) = PRTreeElement(*p);
+        size_t child_idx = 0;
+        if (p->head)
+        {
+          size_t jdx = idx * B + child_idx + 1;
+          ++child_idx;
+
+          q = p->head.get();
+          que.emplace(q, jdx);
+          while (q->next)
+          {
+            jdx = idx * B + child_idx + 1;
+            ++child_idx;
+
+            q = q->next.get();
+            que.emplace(q, jdx);
+          }
+        }
       }
     }
-    if (unlikely(prev_nodes.size() != 1))
-    {
-      throw std::runtime_error("#roots is not 1.");
-    }
-    root = std::move(prev_nodes[0]);
+
 #ifdef MY_DEBUG
     ProfilerStop();
     std::cout << "profiler end of build" << std::endl;
@@ -1175,12 +1287,12 @@ public:
   vec<T> find(const BB<D> &target)
   {
     vec<T> out;
-    auto func = [&](std::unique_ptr<Leaf<T, B, D>> &leaf)
+    auto func = [&](std::unique_ptr<PRTreeLeaf<T, B, D>> &leaf)
     {
       (*leaf)(target, out);
     };
 
-    bfs<T, B, D>(func, root.get(), target);
+    bfs<T, B, D>(func, flat_tree, target);
     return out;
   }
 
@@ -1193,12 +1305,12 @@ public:
     }
     BB<D> target = it->second;
 
-    auto func = [&](std::unique_ptr<Leaf<T, B, D>> &leaf)
+    auto func = [&](std::unique_ptr<PRTreeLeaf<T, B, D>> &leaf)
     {
       leaf->del(idx, target);
     };
 
-    bfs<T, B, D>(func, root.get(), target);
+    bfs<T, B, D>(func, flat_tree, target);
 
     idx2bb.erase(idx);
     idx2data.erase(idx);
