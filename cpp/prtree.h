@@ -1108,7 +1108,6 @@ public:
 
       // assign
       que.emplace(root.get(), 0);
-      size_t count = flat_tree.size();
       while (!que.empty())
       {
         auto tmp = que.front();
