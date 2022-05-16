@@ -257,10 +257,10 @@ template <class T, int B = 6, int D = 2>
 class Leaf
 {
 public:
-  int axis = 0;
-  Real min_val = 1e100;
   BB<D> mbb;
   svec<DataType<T, D>, B> data; // You can swap when filtering
+  int axis = 0;
+
   // T is type of keys(ids) which will be returned when you post a query.
   Leaf()
   {
@@ -283,28 +283,23 @@ public:
   void update_mbb()
   {
     mbb.clear();
-    min_val = 1e100;
     for (const auto &datum : data)
     {
       mbb += datum.second;
-      min_val = std::min(min_val, datum.second[axis]);
     }
-  }
-
-  inline auto find_swapee()
-  {
-    auto it = std::min_element(data.begin(), data.end(), [&](const auto &a, const auto &b) noexcept
-                               { return a.second[axis] < b.second[axis]; });
-    return it;
   }
 
   bool filter(DataType<T, D> &value)
   { // false means given value is ignored
+    auto comp = [=](const auto &a, const auto &b) noexcept
+    { return a.second[axis] < b.second[axis]; };
+
     if (data.size() < B)
     { // if there is room, just push the candidate
-      data.push_back(value);
+      auto iter = std::lower_bound(data.begin(), data.end(), value, comp);
+      DataType<T, D> tmp_value = DataType<T, D>(value);
+      data.insert(iter, std::move(tmp_value));
       mbb += value.second;
-      min_val = std::min(min_val, value.second[axis]);
       return true;
     }
     else
@@ -314,10 +309,15 @@ public:
                                 { return a.second[axis] < b.second[axis]; });
       if (iter != data.end())
       */
-      if (min_val < value.second[axis])
+      if (data[0].second[axis] < value.second[axis])
       {
-        auto iter = find_swapee();
-        std::swap(*iter, value);
+        size_t n_swap = std::lower_bound(data.begin(), data.end(), value, comp) - data.begin();
+        std::swap(*data.begin(), value);
+        auto iter = data.begin();
+        for (size_t i = 0; i < n_swap - 1; ++i)
+        {
+          std::swap(*(iter + i), *(iter + i + 1));
+        }
         update_mbb();
       }
       return false;
