@@ -5,7 +5,7 @@ if(WIN32)
 elseif(APPLE)
   set(CMAKE_CXX_FLAGS "-O3 -pthread")
 else()
-  set(CMAKE_CXX_FLAGS_DEBUG_INIT "-Wall -g -lprofiler -ltcmalloc -DMY_DEBUG -fno-inline")
+  set(CMAKE_CXX_FLAGS_DEBUG_INIT "-Wall -g -lprofiler -ltcmalloc -DMY_DEBUG")
   set(CMAKE_CXX_FLAGS "-O3 -pthread")
 endif()
 
