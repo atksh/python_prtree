@@ -1278,16 +1278,22 @@ public:
     return out;
   }
 
+  static void find_func(std::unique_ptr<PRTreeLeaf<T, B, D>> &leaf, const BB<D> &target, vec<T> &out)
+  {
+    (*leaf)(target, out);
+  }
+
   vec<T> find(const BB<D> &target)
   {
     vec<T> out;
-    auto find_func = [&](std::unique_ptr<PRTreeLeaf<T, B, D>> &leaf)
-    {
-      (*leaf)(target, out);
-    };
-
-    bfs<T, B, D>(std::move(find_func), flat_tree, target);
+    auto func = std::bind(find_func, std::placeholders::_1, target, std::ref(out));
+    bfs<T, B, D>(std::move(func), flat_tree, target);
     return out;
+  }
+
+  static void erase_func(std::unique_ptr<PRTreeLeaf<T, B, D>> &leaf, const BB<D> &target, const T &idx)
+  {
+    leaf->del(idx, target);
   }
 
   void erase(const T idx)
@@ -1299,12 +1305,8 @@ public:
     }
     BB<D> target = it->second;
 
-    auto erase_func = [&](std::unique_ptr<PRTreeLeaf<T, B, D>> &leaf)
-    {
-      leaf->del(idx, target);
-    };
-
-    bfs<T, B, D>(std::move(erase_func), flat_tree, target);
+    auto func = std::bind(erase_func, std::placeholders::_1, target, idx);
+    bfs<T, B, D>(std::move(func), flat_tree, target);
 
     idx2bb.erase(idx);
     idx2data.erase(idx);
