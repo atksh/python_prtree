@@ -161,6 +161,12 @@ public:
     }
   }
 
+  Real val_for_comp(const int &axis) const
+  {
+    const int axis2 = (axis + 1) % (2 * D);
+    return values[axis] + values[axis2];
+  }
+
   BB operator+(const BB &rhs) const
   {
     Real result[2 * D];
@@ -189,18 +195,28 @@ public:
     }
   }
 
-  inline bool operator()(const BB &target) const
+  bool operator()(const BB &target) const
   { // whether this and target has any intersect
+
+    Real minima[D];
+    Real maxima[D];
+    bool flags[D];
+    bool flag = true;
+
     for (int i = 0; i < D; ++i)
     {
-      Real m = std::min(values[i], target.values[i]);
-      Real M = std::min(values[i + D], target.values[i + D]);
-      if (-m > M)
-      {
-        return false;
-      }
+      minima[i] = std::min(values[i], target.values[i]);
+      maxima[i] = std::min(values[i + D], target.values[i + D]);
     }
-    return true;
+    for (int i = 0; i < D; ++i)
+    {
+      flags[i] = -minima[i] < maxima[i];
+    }
+    for (int i = 0; i < D; ++i)
+    {
+      flag &= flags[i];
+    }
+    return flag;
   }
 
   Real area() const
@@ -257,10 +273,10 @@ template <class T, int B = 6, int D = 2>
 class Leaf
 {
 public:
-  int axis = 0;
-  Real min_val = 1e100;
   BB<D> mbb;
   svec<DataType<T, D>, B> data; // You can swap when filtering
+  int axis = 0;
+
   // T is type of keys(ids) which will be returned when you post a query.
   Leaf()
   {
@@ -283,41 +299,36 @@ public:
   void update_mbb()
   {
     mbb.clear();
-    min_val = 1e100;
     for (const auto &datum : data)
     {
       mbb += datum.second;
-      min_val = std::min(min_val, datum.second[axis]);
     }
-  }
-
-  inline auto find_swapee()
-  {
-    auto it = std::min_element(data.begin(), data.end(), [&](const auto &a, const auto &b) noexcept
-                               { return a.second[axis] < b.second[axis]; });
-    return it;
   }
 
   bool filter(DataType<T, D> &value)
   { // false means given value is ignored
+    auto comp = [=](const auto &a, const auto &b) noexcept
+    { return a.second.val_for_comp(axis) < b.second.val_for_comp(axis); };
+
     if (data.size() < B)
     { // if there is room, just push the candidate
-      data.push_back(value);
+      auto iter = std::lower_bound(data.begin(), data.end(), value, comp);
+      DataType<T, D> tmp_value = DataType<T, D>(value);
+      data.insert(iter, std::move(tmp_value));
       mbb += value.second;
-      min_val = std::min(min_val, value.second[axis]);
       return true;
     }
     else
     { // if there is no room, check the priority and swap if needed
-      /*
-      auto iter = std::upper_bound(data.begin(), data.end(), value, [&](const auto &a, const auto &b) noexcept
-                                { return a.second[axis] < b.second[axis]; });
-      if (iter != data.end())
-      */
-      if (min_val < value.second[axis])
+      if (data[0].second.val_for_comp(axis) < value.second.val_for_comp(axis))
       {
-        auto iter = find_swapee();
-        std::swap(*iter, value);
+        size_t n_swap = std::lower_bound(data.begin(), data.end(), value, comp) - data.begin();
+        std::swap(*data.begin(), value);
+        auto iter = data.begin();
+        for (size_t i = 0; i < n_swap - 1; ++i)
+        {
+          std::swap(*(iter + i), *(iter + i + 1));
+        }
         update_mbb();
       }
       return false;
@@ -1230,9 +1241,8 @@ public:
         X.push_back(std::move(bb));
       }
     }
-    T length = X.size();
     vec<vec<T>> out;
-    out.reserve(length);
+    out.reserve(X.size());
 #ifdef MY_DEBUG
     std::for_each(X.begin(), X.end(),
                   [&](const BB<D> &x)
