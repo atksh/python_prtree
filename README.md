@@ -142,31 +142,31 @@ Note that cross-version compatibility is **NOT** guaranteed, so please reconstru
 
 #### 2d
 
-![2d_fig1](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/2d_fig1.png)
+![2d_fig1](https://raw.githubusercontent.com/atksh/python_prtree/main/docs/images/2d_fig1.png)
 
 #### 3d
 
-![3d_fig1](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/3d_fig1.png)
+![3d_fig1](https://raw.githubusercontent.com/atksh/python_prtree/main/docs/images/3d_fig1.png)
 
 ### Query and batch query
 
 #### 2d
 
-![2d_fig2](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/2d_fig2.png)
+![2d_fig2](https://raw.githubusercontent.com/atksh/python_prtree/main/docs/images/2d_fig2.png)
 
 #### 3d
 
-![3d_fig2](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/3d_fig2.png)
+![3d_fig2](https://raw.githubusercontent.com/atksh/python_prtree/main/docs/images/3d_fig2.png)
 
 ### Delete and insert
 
 #### 2d
 
-![2d_fig3](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/2d_fig3.png)
+![2d_fig3](https://raw.githubusercontent.com/atksh/python_prtree/main/docs/images/2d_fig3.png)
 
 #### 3d
 
-![3d_fig3](https://raw.githubusercontent.com/atksh/python_prtree/master/docs/images/3d_fig3.png)
+![3d_fig3](https://raw.githubusercontent.com/atksh/python_prtree/main/docs/images/3d_fig3.png)
 
 ## New Features and Changes
 
