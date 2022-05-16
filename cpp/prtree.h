@@ -1282,12 +1282,12 @@ public:
   vec<T> find(const BB<D> &target)
   {
     vec<T> out;
-    auto func = [&](std::unique_ptr<PRTreeLeaf<T, B, D>> &leaf)
+    auto find_func = [&](std::unique_ptr<PRTreeLeaf<T, B, D>> &leaf)
     {
       (*leaf)(target, out);
     };
 
-    bfs<T, B, D>(func, flat_tree, target);
+    bfs<T, B, D>(std::move(find_func), flat_tree, target);
     return out;
   }
 
@@ -1300,12 +1300,12 @@ public:
     }
     BB<D> target = it->second;
 
-    auto func = [&](std::unique_ptr<PRTreeLeaf<T, B, D>> &leaf)
+    auto erase_func = [&](std::unique_ptr<PRTreeLeaf<T, B, D>> &leaf)
     {
       leaf->del(idx, target);
     };
 
-    bfs<T, B, D>(func, flat_tree, target);
+    bfs<T, B, D>(std::move(erase_func), flat_tree, target);
 
     idx2bb.erase(idx);
     idx2data.erase(idx);
