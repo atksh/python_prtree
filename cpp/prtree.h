@@ -660,7 +660,7 @@ void bfs(const std::function<void(std::unique_ptr<PRTreeLeaf<T, B, D>> &)> &func
   queue<size_t> que;
   auto qpush_if_intersect = [&](const size_t &i)
   {
-    PRTreeElement<T, B, D> &r = flat_tree.at(i);
+    PRTreeElement<T, B, D> &r = flat_tree[i];
     // std::cout << "i " << (long int) i << " : " << (bool) r.leaf << std::endl;
     if (r(target))
     {
@@ -676,7 +676,7 @@ void bfs(const std::function<void(std::unique_ptr<PRTreeLeaf<T, B, D>> &)> &func
     size_t idx = que.front();
     // std::cout << "idx: " << (long int) idx << std::endl;
     que.pop();
-    PRTreeElement<T, B, D> &elem = flat_tree.at(idx);
+    PRTreeElement<T, B, D> &elem = flat_tree[idx];
 
     if (elem.leaf)
     {
@@ -880,7 +880,7 @@ public:
       queue<size_t> que;
       auto qpush_if_intersect = [&](const size_t &i)
       {
-        if (flat_tree.at(i)(bb))
+        if (flat_tree[i](bb))
         {
           que.emplace(i);
         }
@@ -891,7 +891,7 @@ public:
       {
         size_t i = que.front();
         que.pop();
-        PRTreeElement<T, B, D> &elem = flat_tree.at(i);
+        PRTreeElement<T, B, D> &elem = flat_tree[i];
 
         if (elem.leaf && elem.leaf->mbb(bb))
         {
@@ -924,7 +924,7 @@ public:
       Real min_diff_area = 1e100;
       for (const auto &i : cands)
       {
-        PRTreeLeaf<T, B, D> *leaf = flat_tree.at(i).leaf.get();
+        PRTreeLeaf<T, B, D> *leaf = flat_tree[i].leaf.get();
         PRTreeLeaf<T, B, D> tmp_leaf = PRTreeLeaf<T, B, D>(*leaf);
         Real diff_area = -tmp_leaf.area();
         tmp_leaf.push(idx, bb);
@@ -936,12 +936,12 @@ public:
         }
       }
     }
-    flat_tree.at(min_leaf).leaf->push(idx, bb);
+    flat_tree[min_leaf].leaf->push(idx, bb);
     // update mbbs of all cands and their parents
     size_t i = min_leaf;
     while (true)
     {
-      PRTreeElement<T, B, D> &elem = flat_tree.at(i);
+      PRTreeElement<T, B, D> &elem = flat_tree[i];
 
       if (elem.leaf)
         elem.mbb += elem.leaf->mbb;
@@ -949,7 +949,7 @@ public:
       if (i > 0)
       {
         size_t j = (i - 1) / B;
-        flat_tree.at(j).mbb += flat_tree.at(i).mbb;
+        flat_tree[j].mbb += flat_tree[i].mbb;
       }
       if (i == 0)
         break;
@@ -983,7 +983,7 @@ public:
       size_t idx = sta.top();
       sta.pop();
 
-      PRTreeElement<T, B, D> &elem = flat_tree.at(idx);
+      PRTreeElement<T, B, D> &elem = flat_tree[idx];
 
       if (elem.leaf)
       {
@@ -998,7 +998,7 @@ public:
         for (size_t offset = 0; offset < B; offset++)
         {
           size_t jdx = idx * B + offset + 1;
-          if (flat_tree.at(jdx).is_used)
+          if (likely(flat_tree[jdx].is_used))
           {
             sta.push(jdx);
           }
@@ -1098,10 +1098,11 @@ public:
       // resize
       {
         flat_tree.clear();
-        size_t count = 1;
-        for (int i = 0; i < depth; i++)
+        flat_tree.shrink_to_fit();
+        size_t count = 0;
+        for (int i = 0; i <= depth; i++)
         {
-          count += B * std::pow(B, depth);
+          count += std::pow(B, depth);
         }
         flat_tree.resize(count);
       }
@@ -1115,12 +1116,7 @@ public:
         p = tmp.first;
         size_t idx = tmp.second;
 
-        if (unlikely(flat_tree.at(idx).is_used))
-        {
-          throw std::runtime_error("alreadly set");
-        }
-
-        flat_tree.at(idx) = PRTreeElement(*p);
+        flat_tree[idx] = PRTreeElement(*p);
         size_t child_idx = 0;
         if (p->head)
         {
