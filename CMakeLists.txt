@@ -19,6 +19,7 @@ option(SNAPPY_INSTALL "" OFF)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/pybind11/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/cereal/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/snappy/)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/mimalloc/)
 
 pybind11_add_module(PRTree ${MYCPP})
 set_target_properties(snappy PROPERTIES
@@ -31,6 +32,7 @@ target_link_libraries(PRTree PRIVATE
   cereal
   snappy
 )
+target_link_libraries(PRTree PUBLIC mimalloc-static)
 
 set_target_properties(PRTree PROPERTIES
   CXX_STANDARD 17

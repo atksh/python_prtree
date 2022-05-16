@@ -36,6 +36,7 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/atomic.hpp>
 
+#include <mimalloc-new-delete.h>
 #include <snappy.h>
 #include "parallel.h"
 #include "small_vector.h"
@@ -49,13 +50,16 @@ using Real = float;
 namespace py = pybind11;
 
 template <class T>
-using vec = std::vector<T>;
-
-template <class T, size_t StaticCapacity>
-using svec = itlib::small_vector<T, StaticCapacity>;
+using Alloc = mi_stl_allocator<T>;
 
 template <class T>
-using deque = std::deque<T>;
+using vec = std::vector<T, Alloc<T>>;
+
+template <class T, size_t StaticCapacity>
+using svec = itlib::small_vector<T, StaticCapacity, 0, Alloc<T>>;
+
+template <class T>
+using deque = std::deque<T, Alloc<T>>;
 
 template <class T>
 using queue = std::queue<T, deque<T>>;
