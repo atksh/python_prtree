@@ -25,5 +25,5 @@ def f(N, PRTree, dim):
     
 
 if __name__ == "__main__":
-    f(10_000_000, PRTree2D, dim=2)
+    f(40_000_000, PRTree2D, dim=2)
     # f(40, PRTree2D, dim=2)
