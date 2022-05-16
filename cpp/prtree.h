@@ -163,9 +163,7 @@ public:
 
   Real val_for_comp(const int &axis) const
   {
-    const int d = axis % D;
-    const int s = axis >= D ? 1 : 0;
-    const int axis2 = (D * s) + ((d + 1) % D);
+    const int axis2 = (axis + 1) % (2 * D);
     return values[axis] + values[axis2];
   }
 
