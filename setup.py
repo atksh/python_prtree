@@ -9,7 +9,7 @@ from multiprocessing import cpu_count
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
-version = "v0.5.17"
+version = "v0.5.18"
 
 sys.path.append("./tests")
 
