@@ -161,6 +161,14 @@ public:
     }
   }
 
+  Real val_for_comp(const int &axis) const
+  {
+    const int d = axis % D;
+    const int s = axis >= D ? 1 : 0;
+    const int axis2 = (D * s) + ((d + 1) % D);
+    return values[axis] + values[axis2];
+  }
+
   BB operator+(const BB &rhs) const
   {
     Real result[2 * D];
@@ -302,7 +310,7 @@ public:
   bool filter(DataType<T, D> &value)
   { // false means given value is ignored
     auto comp = [=](const auto &a, const auto &b) noexcept
-    { return a.second[axis] < b.second[axis]; };
+    { return a.second.val_for_comp(axis) < b.second.val_for_comp(axis); };
 
     if (data.size() < B)
     { // if there is room, just push the candidate
@@ -314,7 +322,7 @@ public:
     }
     else
     { // if there is no room, check the priority and swap if needed
-      if (data[0].second[axis] < value.second[axis])
+      if (data[0].second.val_for_comp(axis) < value.second.val_for_comp(axis))
       {
         size_t n_swap = std::lower_bound(data.begin(), data.end(), value, comp) - data.begin();
         std::swap(*data.begin(), value);
