@@ -1230,9 +1230,8 @@ public:
         X.push_back(std::move(bb));
       }
     }
-    T length = X.size();
     vec<vec<T>> out;
-    out.reserve(length);
+    out.reserve(X.size());
 #ifdef MY_DEBUG
     std::for_each(X.begin(), X.end(),
                   [&](const BB<D> &x)

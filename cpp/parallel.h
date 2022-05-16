@@ -25,7 +25,7 @@ void parallel_for_each(const Iter first, const Iter last, T &result, const F &fu
     iters.emplace_back(last);
 
     result.reserve(total);
-    for (auto &&r : rr)
+    for (auto &r : rr)
     {
       r.reserve(total / nthreads + 1);
     }
