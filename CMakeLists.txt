@@ -28,11 +28,19 @@ set_target_properties(snappy PROPERTIES
 	CXX_VISIBILITY_PRESET hidden
 )
 
-target_link_libraries(PRTree PRIVATE
-  cereal
-  snappy
-  mimalloc
-)
+if(WIN32)
+  target_link_libraries(PRTree PRIVATE
+    cereal
+    snappy
+    mimalloc-static
+  )
+else()
+  target_link_libraries(PRTree PRIVATE
+    cereal
+    snappy
+    mimalloc
+  )
+endif()
 
 set_target_properties(PRTree PROPERTIES
   CXX_STANDARD 17
