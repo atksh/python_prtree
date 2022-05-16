@@ -189,18 +189,28 @@ public:
     }
   }
 
-  inline bool operator()(const BB &target) const
+  bool operator()(const BB &target) const
   { // whether this and target has any intersect
+
+    Real minima[D];
+    Real maxima[D];
+    bool flags[D];
+    bool flag = true;
+
     for (int i = 0; i < D; ++i)
     {
-      Real m = std::min(values[i], target.values[i]);
-      Real M = std::min(values[i + D], target.values[i + D]);
-      if (-m > M)
-      {
-        return false;
-      }
+      minima[i] = std::min(values[i], target.values[i]);
+      maxima[i] = std::min(values[i + D], target.values[i + D]);
     }
-    return true;
+    for (int i = 0; i < D; ++i)
+    {
+      flags[i] = -minima[i] < maxima[i];
+    }
+    for (int i = 0; i < D; ++i)
+    {
+      flag &= flags[i];
+    }
+    return flag;
   }
 
   Real area() const
