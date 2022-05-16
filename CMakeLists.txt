@@ -31,8 +31,8 @@ set_target_properties(snappy PROPERTIES
 target_link_libraries(PRTree PRIVATE
   cereal
   snappy
+  mimalloc
 )
-target_link_libraries(PRTree PUBLIC mimalloc-static)
 
 set_target_properties(PRTree PROPERTIES
   CXX_STANDARD 17
