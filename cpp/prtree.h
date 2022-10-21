@@ -754,8 +754,6 @@ public:
     archive(flat_tree, idx2bb, idx2data, global_idx, n_at_build);
   }
 
-
-
   void save(std::string fname)
   {
     {
