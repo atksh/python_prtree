@@ -88,6 +88,14 @@ class CMakeBuild(build_ext):
             ["cmake", "--build", "."] + build_args, cwd=self.build_temp
         )
 
+        if platform.system()=='Darwin':
+            from pathlib import Path
+            for p in Path(extdir).glob('*.so'):
+                subprocess.check_call(
+                    ["codesign","-s", "-", "-f", str(p)],
+                    cwd=self.build_temp,
+                )
+
 
 setup(
     name="python_prtree",

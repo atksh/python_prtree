@@ -51,6 +51,39 @@ namespace py = pybind11;
 template <class T>
 using vec = std::vector<T>;
 
+template <typename Sequence >
+inline py::array_t<typename Sequence::value_type> as_pyarray(Sequence& seq) {
+
+  auto size = seq.size();
+  auto data = seq.data();
+  std::unique_ptr<Sequence> seq_ptr = std::make_unique<Sequence>(std::move(seq));
+  auto capsule = py::capsule(seq_ptr.get(), [](void *p) { std::unique_ptr<Sequence>(reinterpret_cast<Sequence*>(p)); });
+  seq_ptr.release();
+  return py::array(size, data, capsule);
+}
+
+
+template <typename T>
+auto list_list_to_arrays(vec<vec<T>> out_ll){
+  vec<T> out_s;
+  out_s.reserve(out_ll.size());
+  std::size_t sum = 0;
+  for (auto &&i : out_ll) {
+    out_s.push_back(i.size());
+    sum += i.size();
+  }
+  vec<T> out;
+  out.reserve(sum);
+  for(const auto &v: out_ll)
+    out.insert(out.end(), v.begin(), v.end());
+
+  return make_tuple(
+      std::move(as_pyarray(out_s))
+      ,
+      std::move(as_pyarray(out))
+  );
+}
+
 template <class T, size_t StaticCapacity>
 using svec = itlib::small_vector<T, StaticCapacity>;
 
@@ -722,6 +755,8 @@ public:
     archive(flat_tree, idx2bb, idx2data, global_idx, n_at_build);
   }
 
+
+
   void save(std::string fname)
   {
     {
@@ -1258,6 +1293,13 @@ public:
 #endif
     return out;
   }
+
+
+  auto find_all_array(const py::array_t<float> &x){
+    return list_list_to_arrays(std::move(find_all(x)));
+  }
+
+
 
   auto find_one(const vec<float> &x)
   {

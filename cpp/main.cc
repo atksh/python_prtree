@@ -33,6 +33,9 @@ PYBIND11_MODULE(PRTree, m)
       .def("batch_query", &PRTree<T, B, 2>::find_all, R"pbdoc(
           parallel query with multi-thread
         )pbdoc")
+      .def("batch_query_array", &PRTree<T, B, 2>::find_all_array, R"pbdoc(
+          parallel query with multi-thread with array output
+        )pbdoc")
       .def("erase", &PRTree<T, B, 2>::erase, R"pbdoc(
           Delete from prtree
         )pbdoc")
@@ -74,6 +77,9 @@ PYBIND11_MODULE(PRTree, m)
       .def("batch_query", &PRTree<T, B, 3>::find_all, R"pbdoc(
           parallel query with multi-thread
         )pbdoc")
+      .def("batch_query_array", &PRTree<T, B, 3>::find_all_array, R"pbdoc(
+          parallel query with multi-thread with array output
+        )pbdoc")
       .def("erase", &PRTree<T, B, 3>::erase, R"pbdoc(
           Delete from prtree
         )pbdoc")
@@ -114,6 +120,9 @@ PYBIND11_MODULE(PRTree, m)
         )pbdoc")
       .def("batch_query", &PRTree<T, B, 4>::find_all, R"pbdoc(
           parallel query with multi-thread
+        )pbdoc")
+      .def("batch_query_array", &PRTree<T, B, 4>::find_all_array, R"pbdoc(
+          parallel query with multi-thread with array output
         )pbdoc")
       .def("erase", &PRTree<T, B, 4>::erase, R"pbdoc(
           Delete from prtree
