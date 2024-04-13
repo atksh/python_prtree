@@ -198,7 +198,7 @@ jobs:
       - uses: actions/setup-python@v5
         name: Install Python
         with:
-          python-version: 3.9
+          python-version: '3.10'
       - name: Set up QEMU
         if: runner.os == 'Linux'
         uses: docker/setup-qemu-action@v1
@@ -227,10 +227,10 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: recursive
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v5
         name: Install Python
         with:
-          python-version: 3.10
+          python-version: '3.10'
       - name: Build sdist
         run: python setup.py sdist
       - uses: actions/upload-artifact@v2
