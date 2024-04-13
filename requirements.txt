@@ -1,3 +1,1 @@
 numpy>=1.16,<2.0
-pybind11; platform_machine != "x86_64" and platform_machine != "amd64" and platform_machine != "AMD64" and sys_platform == 'darwin'  # for m1 mac
-cmake; platform_machine != "x86_64" and platform_machine != "amd64" and platform_machine != "AMD64" and sys_platform == 'darwin'  # for m1 mac
