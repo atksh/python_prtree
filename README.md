@@ -69,9 +69,13 @@ print(result)
 # [[1], [1, 3]]
 
 # Non-batch query is also supported.
-print(prtree.query(0.5, 0.5))
+print(prtree.query([0.5, 0.5, 1.0, 1.0]))
+# [1, 3]
+
+# Point query is also supported.
+print(prtree.query([0.5, 0.5]))
 # [1]
-print(prtree.query((0.5, 0.5)))
+print(prtree.query(0.5, 0.5))  # 1d-array
 # [1]
 ```
 
