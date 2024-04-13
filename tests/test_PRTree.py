@@ -139,3 +139,32 @@ def test_obj(seed, PRTree, dim, tmp_path):
     idx = prtree.query(q)
     return_obj = prtree2.query(q, return_obj=True)
     assert set(return_obj) == set([obj[i] for i in idx])
+
+
+def test_readme():
+    idxes = np.array([1, 2])
+    rects = np.array([[0.0, 0.0, 1.0, 0.5], [1.0, 1.5, 1.2, 3.0]])
+    prtree = PRTree2D(idxes, rects)
+
+    # batch query
+    q = np.array([[0.5, 0.2, 0.6, 0.3], [0.8, 0.5, 1.5, 3.5]])
+    result = prtree.batch_query(q)
+    assert result == [[1], [1, 2]]
+
+    # Insert
+    prtree.insert(3, [1.0, 1.0, 2.0, 2.0])
+    q = np.array([[0.5, 0.2, 0.6, 0.3], [0.8, 0.5, 1.5, 3.5]])
+    result = prtree.batch_query(q)
+    assert result == [[1], [1, 2, 3]]
+
+    # Erase
+    prtree.erase(2)
+    result = prtree.batch_query(q)
+    assert result == [[1], [1, 3]]
+
+    # non-batch query
+    assert prtree.query([0.5, 0.5, 1.0, 1.0]) == [1, 3]
+
+    # point query
+    assert prtree.query([0.5, 0.5]) == [1]
+    assert prtree.query(0.5, 0.5) == [1]

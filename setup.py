@@ -9,7 +9,7 @@ from multiprocessing import cpu_count
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
-version = "v0.6.0"
+version = "v0.6.1"
 
 sys.path.append("./tests")
 
@@ -109,6 +109,10 @@ setup(
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
     ],
 )
