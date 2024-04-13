@@ -163,32 +163,32 @@ jobs:
             macosx_deployment_target: 10.14
             arch: x86_64
 
-          # MacOS arm
+          # MacOS arm64
           - os: macos-14
             python: 38
-            platform_id: macosx_arm
+            platform_id: macosx_arm64
             macosx_deployment_target: 11.7
-            arch: arm
+            arch: arm64
           - os: macos-14
             python: 39
-            platform_id: macosx_arm
+            platform_id: macosx_arm64
             macosx_deployment_target: 11.7
-            arch: arm
+            arch: arm64
           - os: macos-14
             python: 310
-            platform_id: macosx_arm
+            platform_id: macosx_arm64
             macosx_deployment_target: 11.7
-            arch: arm
+            arch: arm64
           - os: macos-14
             python: 311
-            platform_id: macosx_arm
+            platform_id: macosx_arm64
             macosx_deployment_target: 11.7
-            arch: arm
+            arch: arm64
           - os: macos-14
             python: 312
-            platform_id: macosx_arm
+            platform_id: macosx_arm64
             macosx_deployment_target: 11.7
-            arch: arm
+            arch: arm64
 
 
     steps:
@@ -209,7 +209,6 @@ jobs:
         env:
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
-          CIBW_TEST_SKIP: "*-macosx_arm"
           CIBW_BEFORE_BUILD: pip install pybind11
           CIBW_TEST_COMMAND: pytest {project}/tests -vv
           CIBW_TEST_REQUIRES: pytest numpy
