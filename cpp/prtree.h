@@ -77,8 +77,10 @@ auto list_list_to_arrays(vec<vec<T>> out_ll)
   }
   vec<T> out;
   out.reserve(sum);
-  for (const auto &v : out_ll)
-    out.insert(out.end(), v.begin(), v.end());
+  for (auto &v : out_ll)
+    out.insert(out.end(),
+                std::make_move_iterator(v.begin()),
+                std::make_move_iterator(v.end()));
 
   return make_tuple(
       std::move(as_pyarray(out_s)),
@@ -104,14 +106,14 @@ static const float REBUILD_THRE = 1.25;
 #define unlikely(x) (x)
 #endif
 
-std::string compress(std::string &data)
+inline std::string compress(const std::string &data)
 {
   std::string output;
   snappy::Compress(data.data(), data.size(), &output);
   return output;
 }
 
-std::string decompress(std::string &data)
+inline std::string decompress(const std::string &data)
 {
   std::string output;
   snappy::Uncompress(data.data(), data.size(), &output);
@@ -702,25 +704,22 @@ public:
 template <class T, int B = 6, int D = 2>
 void bfs(const std::function<void(std::unique_ptr<PRTreeLeaf<T, B, D>> &)> &func, vec<PRTreeElement<T, B, D>> &flat_tree, const BB<D> target)
 {
-  queue<size_t> que;
-  auto qpush_if_intersect = [&](const size_t &i)
+  vec<size_t> que;
+  que.reserve(flat_tree.size());
+  auto qpush_if_intersect = [&](size_t i)
   {
     PRTreeElement<T, B, D> &r = flat_tree[i];
-    // std::cout << "i " << (long int) i << " : " << (bool) r.leaf << std::endl;
     if (r(target))
     {
-      // std::cout << " is pushed" << std::endl;
-      que.emplace(i);
+      que.push_back(i);
     }
   };
 
-  // std::cout << "size: " << flat_tree.size() << std::endl;
   qpush_if_intersect(0);
-  while (!que.empty())
+  size_t qhead = 0;
+  while (qhead < que.size())
   {
-    size_t idx = que.front();
-    // std::cout << "idx: " << (long int) idx << std::endl;
-    que.pop();
+    size_t idx = que[qhead++];
     PRTreeElement<T, B, D> &elem = flat_tree[idx];
 
     if (elem.leaf)
@@ -733,7 +732,8 @@ void bfs(const std::function<void(std::unique_ptr<PRTreeLeaf<T, B, D>> &)> &func
       for (size_t offset = 0; offset < B; offset++)
       {
         size_t jdx = idx * B + offset + 1;
-        qpush_if_intersect(jdx);
+        if (jdx < flat_tree.size())
+          qpush_if_intersect(jdx);
       }
     }
   }
