@@ -59,6 +59,8 @@ class CMakeBuild(build_ext):
             "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=" + extdir,
             "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=" + extdir,
             "-DPYTHON_EXECUTABLE=" + sys.executable,
+            "-DPython_EXECUTABLE=" + sys.executable,
+            "-DPYBIND11_FINDPYTHON=ON",
             "-DBUILD_SHARED_LIBS=OFF",
         ]
 
