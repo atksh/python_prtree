@@ -15,7 +15,7 @@ print()
 
 try:
     import python_prtree
-    print(f"✓ python_prtree imported successfully")
+    print(f"[OK] python_prtree imported successfully")
     print(f"  Location: {python_prtree.__file__}")
     
     pkg_dir = pathlib.Path(python_prtree.__file__).parent
@@ -28,7 +28,7 @@ try:
     print()
     
     from python_prtree import PRTree3D
-    print(f"✓ PRTree3D imported successfully")
+    print(f"[OK] PRTree3D imported successfully")
     print(f"  PRTree3D: {PRTree3D}")
     print()
     
@@ -38,7 +38,7 @@ try:
     sys.exit(0)
     
 except Exception as e:
-    print(f"✗ IMPORT FAILED: {repr(e)}")
+    print(f"[FAIL] IMPORT FAILED: {repr(e)}")
     print()
     traceback.print_exc()
     print()

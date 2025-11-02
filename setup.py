@@ -56,6 +56,8 @@ class CMakeBuild(build_ext):
 
         cmake_args = [
             "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=" + extdir,
+            "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=" + extdir,
+            "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=" + extdir,
             "-DPYTHON_EXECUTABLE=" + sys.executable,
             "-DBUILD_SHARED_LIBS=OFF",
         ]
@@ -106,6 +108,8 @@ class CMakeBuild(build_ext):
         )
         if not os.path.exists(self.build_temp):
             os.makedirs(self.build_temp)
+        if not os.path.exists(extdir):
+            os.makedirs(extdir)
 
         subprocess.check_call(
             ["cmake", ext.sourcedir] + cmake_args, cwd=self.build_temp, env=env
@@ -134,8 +138,17 @@ class CMakeBuild(build_ext):
                 
                 print(f"Copying extension from {src_file} to {extdir}")
                 shutil.copy2(src_file, extdir)
+                
+                if not os.path.exists(expected_file):
+                    raise RuntimeError(
+                        f"Failed to copy extension module to {expected_file}. "
+                        f"Source was {src_file}"
+                    )
             else:
-                print(f"Warning: Could not find {pattern} in build tree")
+                raise RuntimeError(
+                    f"Could not find compiled extension module {pattern} in build tree. "
+                    f"Build may have failed. Check build logs above."
+                )
 
 
 setup(
