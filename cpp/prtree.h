@@ -756,7 +756,7 @@ public:
   template <class Archive>
   void serialize(Archive &archive)
   {
-    archive(flat_tree, idx2bb, idx2data, global_idx, n_at_build);
+    archive(flat_tree, idx2bb, idx2data, global_idx, n_at_build, idx2exact);
   }
 
   void save(std::string fname)
@@ -769,7 +769,8 @@ public:
                   cereal::make_nvp("idx2bb", idx2bb),
                   cereal::make_nvp("idx2data", idx2data),
                   cereal::make_nvp("global_idx", global_idx),
-                  cereal::make_nvp("n_at_build", n_at_build));
+                  cereal::make_nvp("n_at_build", n_at_build),
+                  cereal::make_nvp("idx2exact", idx2exact));
       }
     }
   }
@@ -784,7 +785,8 @@ public:
                   cereal::make_nvp("idx2bb", idx2bb),
                   cereal::make_nvp("idx2data", idx2data),
                   cereal::make_nvp("global_idx", global_idx),
-                  cereal::make_nvp("n_at_build", n_at_build));
+                  cereal::make_nvp("n_at_build", n_at_build),
+                  cereal::make_nvp("idx2exact", idx2exact));
       }
     }
   }

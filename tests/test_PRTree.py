@@ -291,3 +291,93 @@ def test_query_vs_batch_query_consistency(PRTree, dim):
         single_result = tree.query(query)
         assert set(batch_results[i]) == set(single_result), \
             f"Query {i}: batch_query returned {batch_results[i]}, query returned {single_result}"
+
+
+def test_save_load_float64_matteo_case(tmp_path):
+    """Regression test: ensure idx2exact survives save/load for float64 input.
+    
+    This tests the fix for the serialization bug where idx2exact was not being
+    archived, causing trees built from float64 input to lose correctness after
+    save/load. The Matteo bug case has boxes separated by ~5.4e-6, which requires
+    double-precision refinement to correctly identify as disjoint.
+    """
+    import gc
+    
+    A = np.array([[72.47410062, 80.52848893, 54.68197159, 75.02750896, 85.40646976, 62.42859506]], dtype=np.float64)
+    B = np.array([[75.02751435, 74.65699325, 61.09751679, 78.71358218, 82.4585436, 67.24904609]], dtype=np.float64)
+    
+    assert A[0][3] < B[0][0], "Test setup error: boxes should be disjoint"
+    gap = B[0][0] - A[0][3]
+    assert 5e-6 < gap < 6e-6, f"Test setup error: expected gap ~5.4e-6, got {gap}"
+    
+    tree = PRTree3D(np.array([0], dtype=np.int64), A)
+    
+    result_before = tree.batch_query(B)
+    assert result_before == [[]], f"Before save: Expected [[]] (disjoint), got {result_before}"
+    
+    fname = tmp_path / "tree_float64.bin"
+    fname = str(fname)
+    tree.save(fname)
+    
+    del tree
+    gc.collect()
+    
+    tree_loaded = PRTree3D(fname)
+    
+    result_after = tree_loaded.batch_query(B)
+    assert result_after == [[]], f"After load: Expected [[]] (disjoint), got {result_after}"
+    
+    np.random.seed(42)
+    queries = np.random.rand(10, 6).astype(np.float64) * 100
+    for i in range(3):
+        queries[:, i + 3] += queries[:, i] + 1e-5  # Small gaps
+    
+    results_before_save = tree_loaded.batch_query(queries)
+    
+    fname2 = tmp_path / "tree_float64_2.bin"
+    fname2 = str(fname2)
+    tree_loaded.save(fname2)
+    del tree_loaded
+    gc.collect()
+    
+    tree_loaded2 = PRTree3D(fname2)
+    results_after_save = tree_loaded2.batch_query(queries)
+    
+    assert results_before_save == results_after_save, \
+        "Random queries: results changed after save/load cycle"
+
+
+def test_save_load_float32_no_regression(tmp_path):
+    """Regression test: ensure float32 path still works correctly after save/load.
+    
+    This tests that the serialization fix (adding idx2exact to archive) doesn't
+    break the float32 path, which doesn't use idx2exact.
+    """
+    import gc
+    
+    np.random.seed(42)
+    N = 100
+    idx = np.arange(N, dtype=np.int64)
+    x = np.random.rand(N, 6).astype(np.float32) * 100
+    for i in range(3):
+        x[:, i + 3] += x[:, i] + 1.0  # Ensure valid boxes
+    
+    tree = PRTree3D(idx, x)
+    
+    queries = np.random.rand(20, 6).astype(np.float32) * 100
+    for i in range(3):
+        queries[:, i + 3] += queries[:, i] + 1.0
+    
+    results_before = tree.batch_query(queries)
+    
+    fname = tmp_path / "tree_float32.bin"
+    fname = str(fname)
+    tree.save(fname)
+    del tree
+    gc.collect()
+    
+    tree_loaded = PRTree3D(fname)
+    results_after = tree_loaded.batch_query(queries)
+    
+    assert results_before == results_after, \
+        "Float32 path: results changed after save/load cycle"
