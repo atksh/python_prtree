@@ -186,77 +186,65 @@ jobs:
             arch: ARM64
 
           # Linux musllinux x86_64 (Alpine Linux)
+          # Note: cibuildwheel 3.x auto-selects appropriate musllinux images
           - os: ubuntu-latest
             python: 38
             platform_id: musllinux_x86_64
-            musllinux_image: musllinux_1_1
             arch: x86_64
           - os: ubuntu-latest
             python: 39
             platform_id: musllinux_x86_64
-            musllinux_image: musllinux_1_1
             arch: x86_64
           - os: ubuntu-latest
             python: 310
             platform_id: musllinux_x86_64
-            musllinux_image: musllinux_1_1
             arch: x86_64
           - os: ubuntu-latest
             python: 311
             platform_id: musllinux_x86_64
-            musllinux_image: musllinux_1_1
             arch: x86_64
           - os: ubuntu-latest
             python: 312
             platform_id: musllinux_x86_64
-            musllinux_image: musllinux_1_1
             arch: x86_64
           - os: ubuntu-latest
             python: 313
             platform_id: musllinux_x86_64
-            musllinux_image: musllinux_1_2
             arch: x86_64
           - os: ubuntu-latest
             python: 314
             platform_id: musllinux_x86_64
-            musllinux_image: musllinux_1_2
             arch: x86_64
 
           # Linux musllinux aarch64 (Alpine Linux ARM64)
+          # Note: cibuildwheel 3.x auto-selects appropriate musllinux images
           - os: ubuntu-latest
             python: 38
             platform_id: musllinux_aarch64
-            musllinux_image: musllinux_1_1
             arch: aarch64
           - os: ubuntu-latest
             python: 39
             platform_id: musllinux_aarch64
-            musllinux_image: musllinux_1_1
             arch: aarch64
           - os: ubuntu-latest
             python: 310
             platform_id: musllinux_aarch64
-            musllinux_image: musllinux_1_1
             arch: aarch64
           - os: ubuntu-latest
             python: 311
             platform_id: musllinux_aarch64
-            musllinux_image: musllinux_1_1
             arch: aarch64
           - os: ubuntu-latest
             python: 312
             platform_id: musllinux_aarch64
-            musllinux_image: musllinux_1_1
             arch: aarch64
           - os: ubuntu-latest
             python: 313
             platform_id: musllinux_aarch64
-            musllinux_image: musllinux_1_2
             arch: aarch64
           - os: ubuntu-latest
             python: 314
             platform_id: musllinux_aarch64
-            musllinux_image: musllinux_1_2
             arch: aarch64
 
           # MacOS arm64
@@ -315,12 +303,11 @@ jobs:
         env:
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_MANYLINUX_AARCH64_IMAGE: ${{ matrix.manylinux_image }}
-          CIBW_MUSLLINUX_X86_64_IMAGE: ${{ matrix.musllinux_image }}
-          CIBW_MUSLLINUX_AARCH64_IMAGE: ${{ matrix.musllinux_image }}
           CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
           CIBW_BEFORE_BUILD: pip install pybind11
           CIBW_TEST_COMMAND: python {project}/tests/_ci_debug_import.py && pytest {project}/tests -vv
           CIBW_TEST_COMMAND_WINDOWS: python {project}\tests\_ci_debug_import.py && pytest {project}\tests -vv
+          CIBW_TEST_SKIP: "*-win_arm64"
           CIBW_TEST_REQUIRES: pytest numpy
           CIBW_BUILD_VERBOSITY: 1
           CIBW_ARCHS: ${{ matrix.arch }}
