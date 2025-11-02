@@ -54,22 +54,15 @@ class CMakeBuild(build_ext):
         if not extdir.endswith(os.path.sep):
             extdir += os.path.sep
 
-        target_arch = os.getenv("CIBW_ARCHS", "")
-        is_cross_compile_arm64 = platform.system() == "Windows" and target_arch == "ARM64"
-        
         cmake_args = [
             "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=" + extdir,
             "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=" + extdir,
             "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=" + extdir,
+            "-DPYTHON_EXECUTABLE=" + sys.executable,
+            "-DPython_EXECUTABLE=" + sys.executable,
             "-DPYBIND11_FINDPYTHON=ON",
             "-DBUILD_SHARED_LIBS=OFF",
         ]
-        
-        if not is_cross_compile_arm64:
-            cmake_args += [
-                "-DPYTHON_EXECUTABLE=" + sys.executable,
-                "-DPython_EXECUTABLE=" + sys.executable,
-            ]
 
         debug = os.getenv("DEBUG", 0) in {"1", "y", "yes", "true"}
         cfg = "Debug" if debug else "Release"
@@ -77,17 +70,12 @@ class CMakeBuild(build_ext):
 
         if platform.system() == "Windows":
             cmake_args += [
-                "-G", "Visual Studio 17 2022",
                 "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}".format(cfg.upper(), extdir),
                 "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_{}={}".format(cfg.upper(), extdir),
                 "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{}={}".format(cfg.upper(), extdir),
                 "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
             ]
-            if target_arch == "ARM64":
-                cmake_args += ["-A", "ARM64"]
-            elif target_arch == "AMD64" or target_arch == "x86_64":
-                cmake_args += ["-A", "x64"]
-            elif sys.maxsize > 2**32:
+            if sys.maxsize > 2**32:
                 cmake_args += ["-A", "x64"]
             build_args += ["--", "/m"]
         elif platform.system() == "Darwin":

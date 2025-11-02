@@ -166,25 +166,6 @@ jobs:
             macosx_deployment_target: 10.14
             arch: x86_64
 
-          # Windows ARM64
-          # Note: Python 3.11+ only, as earlier versions lack official ARM64 builds
-          - os: windows-latest
-            python: 311
-            platform_id: win_arm64
-            arch: ARM64
-          - os: windows-latest
-            python: 312
-            platform_id: win_arm64
-            arch: ARM64
-          - os: windows-latest
-            python: 313
-            platform_id: win_arm64
-            arch: ARM64
-          - os: windows-latest
-            python: 314
-            platform_id: win_arm64
-            arch: ARM64
-
           # Linux musllinux x86_64 (Alpine Linux)
           # Note: cibuildwheel 3.x auto-selects appropriate musllinux images
           - os: ubuntu-latest
@@ -307,7 +288,6 @@ jobs:
           CIBW_BEFORE_BUILD: pip install pybind11
           CIBW_TEST_COMMAND: python {project}/tests/_ci_debug_import.py && pytest {project}/tests -vv
           CIBW_TEST_COMMAND_WINDOWS: python {project}\tests\_ci_debug_import.py && pytest {project}\tests -vv
-          CIBW_TEST_SKIP: "*-win_arm64"
           CIBW_TEST_REQUIRES: pytest numpy
           CIBW_BUILD_VERBOSITY: 1
           CIBW_ARCHS: ${{ matrix.arch }}
