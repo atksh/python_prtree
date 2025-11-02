@@ -216,7 +216,7 @@ jobs:
 
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: actions/setup-python@v5
@@ -225,7 +225,7 @@ jobs:
           python-version: '3.10'
       - name: Set up QEMU
         if: runner.os == 'Linux'
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: all
       - name: Build wheels
@@ -239,15 +239,16 @@ jobs:
           CIBW_BUILD_VERBOSITY: 1
           CIBW_ARCHS: ${{ matrix.arch }}
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macosx_deployment_target }}
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
+          name: wheels-${{ matrix.os }}-${{ matrix.python }}
           path: ./wheelhouse/*.whl
 
   build_sdist:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: actions/setup-python@v5
@@ -256,8 +257,9 @@ jobs:
           python-version: '3.10'
       - name: Build sdist
         run: python setup.py sdist
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
+          name: sdist
           path: dist/*.tar.gz
 
   upload_pypi:
@@ -266,10 +268,11 @@ jobs:
     # upload to PyPI on every tag starting with 'v'
     if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags/v')
     steps:
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
-          name: artifact
+          pattern: '*'
           path: dist
+          merge-multiple: true
       - uses: pypa/gh-action-pypi-publish@v1.4.2
         with:
           user: __token__

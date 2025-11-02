@@ -44,7 +44,7 @@
 #include <gperftools/profiler.h>
 #endif
 
-using Real = double;
+using Real = float;
 
 namespace py = pybind11;
 
@@ -748,6 +748,9 @@ private:
   std::unordered_map<T, std::string> idx2data;
   int64_t n_at_build = 0;
   std::atomic<T> global_idx = 0;
+  
+  // Double-precision storage for exact refinement (optional, only when built from float64)
+  std::unordered_map<T, std::array<double, 2 * D>> idx2exact;
 
 public:
   template <class Archive>
@@ -790,7 +793,31 @@ public:
 
   PRTree(std::string fname) { load(fname); }
 
-  PRTree(const py::array_t<T> &idx, const py::array_t<Real> &x)
+  // Helper: Validate bounding box coordinates (reject NaN/Inf, enforce min <= max)
+  template<typename CoordType>
+  void validate_box(const CoordType* coords, int dim_count) const
+  {
+    for (int i = 0; i < dim_count; ++i)
+    {
+      CoordType min_val = coords[i];
+      CoordType max_val = coords[i + dim_count];
+      
+      // Check for NaN or Inf
+      if (!std::isfinite(min_val) || !std::isfinite(max_val))
+      {
+        throw std::runtime_error("Bounding box coordinates must be finite (no NaN or Inf)");
+      }
+      
+      // Enforce min <= max
+      if (min_val > max_val)
+      {
+        throw std::runtime_error("Bounding box minimum must be <= maximum in each dimension");
+      }
+    }
+  }
+
+  // Constructor for float32 input (no refinement, pure float32 performance)
+  PRTree(const py::array_t<T> &idx, const py::array_t<float> &x)
   {
     const auto &buff_info_idx = idx.request();
     const auto &shape_idx = buff_info_idx.shape;
@@ -811,6 +838,7 @@ public:
     auto rx = x.template unchecked<2>();
     T length = shape_idx[0];
     idx2bb.reserve(length);
+    // Note: idx2exact is NOT populated for float32 input (no refinement)
 
     DataType<T, D> *b, *e;
     void *placement = std::malloc(sizeof(DataType<T, D>) * length);
@@ -821,11 +849,22 @@ public:
     {
       Real minima[D];
       Real maxima[D];
+      
       for (int j = 0; j < D; ++j)
       {
-        minima[j] = rx(i, j);
+        minima[j] = rx(i, j);  // Direct float32 assignment
         maxima[j] = rx(i, j + D);
       }
+      
+      // Validate bounding box (reject NaN/Inf, enforce min <= max)
+      float coords[2 * D];
+      for (int j = 0; j < D; ++j)
+      {
+        coords[j] = minima[j];
+        coords[j + D] = maxima[j];
+      }
+      validate_box(coords, D);
+      
       auto bb = BB<D>(minima, maxima);
       auto ri_i = ri(i);
       new (b + i) DataType<T, D>{std::move(ri_i), std::move(bb)};
@@ -839,6 +878,82 @@ public:
       {
         minima[j] = rx(i, j);
         maxima[j] = rx(i, j + D);
+      }
+      auto bb = BB<D>(minima, maxima);
+      auto ri_i = ri(i);
+      idx2bb.emplace_hint(idx2bb.end(), std::move(ri_i), std::move(bb));
+    }
+    build(b, e, placement);
+    std::free(placement);
+  }
+
+  // Constructor for float64 input (float32 tree + double refinement)
+  PRTree(const py::array_t<T> &idx, const py::array_t<double> &x)
+  {
+    const auto &buff_info_idx = idx.request();
+    const auto &shape_idx = buff_info_idx.shape;
+    const auto &buff_info_x = x.request();
+    const auto &shape_x = buff_info_x.shape;
+    if (unlikely(shape_idx[0] != shape_x[0]))
+    {
+      throw std::runtime_error(
+          "Both index and boudning box must have the same length");
+    }
+    if (unlikely(shape_x[1] != 2 * D))
+    {
+      throw std::runtime_error(
+          "Bounding box must have the shape (length, 2 * dim)");
+    }
+
+    auto ri = idx.template unchecked<1>();
+    auto rx = x.template unchecked<2>();
+    T length = shape_idx[0];
+    idx2bb.reserve(length);
+    idx2exact.reserve(length);  // Reserve space for exact coordinates
+
+    DataType<T, D> *b, *e;
+    void *placement = std::malloc(sizeof(DataType<T, D>) * length);
+    b = reinterpret_cast<DataType<T, D> *>(placement);
+    e = b + length;
+
+    for (T i = 0; i < length; i++)
+    {
+      Real minima[D];
+      Real maxima[D];
+      std::array<double, 2 * D> exact_coords;
+      
+      for (int j = 0; j < D; ++j)
+      {
+        double val_min = rx(i, j);
+        double val_max = rx(i, j + D);
+        exact_coords[j] = val_min;  // Store exact double for refinement
+        exact_coords[j + D] = val_max;
+      }
+      
+      // Validate bounding box with double precision (reject NaN/Inf, enforce min <= max)
+      validate_box(exact_coords.data(), D);
+      
+      // Convert to float32 for tree after validation
+      for (int j = 0; j < D; ++j)
+      {
+        minima[j] = static_cast<Real>(exact_coords[j]);
+        maxima[j] = static_cast<Real>(exact_coords[j + D]);
+      }
+      
+      auto bb = BB<D>(minima, maxima);
+      auto ri_i = ri(i);
+      idx2exact[ri_i] = exact_coords;  // Store exact coordinates
+      new (b + i) DataType<T, D>{std::move(ri_i), std::move(bb)};
+    }
+
+    for (T i = 0; i < length; i++)
+    {
+      Real minima[D];
+      Real maxima[D];
+      for (int j = 0; j < D; ++j)
+      {
+        minima[j] = static_cast<Real>(rx(i, j));
+        maxima[j] = static_cast<Real>(rx(i, j + D));
       }
       auto bb = BB<D>(minima, maxima);
       auto ri_i = ri(i);
@@ -869,7 +984,7 @@ public:
     return obj;
   }
 
-  void insert(const T &idx, const py::array_t<Real> &x, const std::optional<std::string> objdumps = std::nullopt)
+  void insert(const T &idx, const py::array_t<float> &x, const std::optional<std::string> objdumps = std::nullopt)
   {
 #ifdef MY_DEBUG
     ProfilerStart("insert.prof");
@@ -1275,16 +1390,82 @@ public:
         X.push_back(std::move(bb));
       }
     }
+    // Build exact query coordinates for refinement
+    vec<std::array<double, 2 * D>> queries_exact;
+    queries_exact.reserve(X.size());
+    
+    if (ndim == 1)
+    {
+      std::array<double, 2 * D> qe;
+      for (int i = 0; i < D; ++i)
+      {
+        qe[i] = static_cast<double>(*x.data(i));
+        if (is_point)
+        {
+          qe[i + D] = qe[i];
+        }
+        else
+        {
+          qe[i + D] = static_cast<double>(*x.data(i + D));
+        }
+      }
+      queries_exact.push_back(qe);
+    }
+    else
+    {
+      for (long int i = 0; i < shape_x[0]; i++)
+      {
+        std::array<double, 2 * D> qe;
+        for (int j = 0; j < D; ++j)
+        {
+          qe[j] = static_cast<double>(*x.data(i, j));
+          if (is_point)
+          {
+            qe[j + D] = qe[j];
+          }
+          else
+          {
+            qe[j + D] = static_cast<double>(*x.data(i, j + D));
+          }
+        }
+        queries_exact.push_back(qe);
+      }
+    }
+    
     vec<vec<T>> out;
-    out.reserve(X.size());
+    out.resize(X.size());  // Pre-size for index-based parallel access
 #ifdef MY_DEBUG
-    std::for_each(X.begin(), X.end(),
-                  [&](const BB<D> &x)
-                  { out.push_back(find(x)); });
+    for (size_t i = 0; i < X.size(); ++i)
+    {
+      auto candidates = find(X[i]);
+      out[i] = refine_candidates(candidates, queries_exact[i]);
+    }
 #else
-    parallel_for_each(X.begin(), X.end(), out,
-                      [&](const BB<D> &x, auto &o)
-                      { o.push_back(find(x)); });
+    // Index-based parallel loop (safe, no pointer arithmetic)
+    const size_t n_queries = X.size();
+    const size_t n_threads = std::thread::hardware_concurrency();
+    const size_t chunk_size = (n_queries + n_threads - 1) / n_threads;
+    
+    vec<std::thread> threads;
+    threads.reserve(n_threads);
+    
+    for (size_t t = 0; t < n_threads; ++t)
+    {
+      threads.emplace_back([&, t]() {
+        size_t start = t * chunk_size;
+        size_t end = std::min(start + chunk_size, n_queries);
+        for (size_t i = start; i < end; ++i)
+        {
+          auto candidates = find(X[i]);
+          out[i] = refine_candidates(candidates, queries_exact[i]);
+        }
+      });
+    }
+    
+    for (auto &thread : threads)
+    {
+      thread.join();
+    }
 #endif
 #ifdef MY_DEBUG
     ProfilerStop();
@@ -1307,6 +1488,8 @@ public:
     }
     Real minima[D];
     Real maxima[D];
+    std::array<double, 2 * D> query_exact;
+    
     if (x.size() == D)
     {
       is_point = true;
@@ -1314,18 +1497,78 @@ public:
     for (int i = 0; i < D; ++i)
     {
       minima[i] = x.at(i);
+      query_exact[i] = static_cast<double>(x.at(i));
+      
       if (is_point)
       {
         maxima[i] = minima[i];
+        query_exact[i + D] = query_exact[i];
       }
       else
       {
         maxima[i] = x.at(i + D);
+        query_exact[i + D] = static_cast<double>(x.at(i + D));
       }
     }
     const auto bb = BB<D>(minima, maxima);
-    auto out = find(bb);
+    auto candidates = find(bb);
+    
+    // Refine with double precision if exact coordinates are available
+    auto out = refine_candidates(candidates, query_exact);
     return out;
+  }
+
+  // Helper method: Check intersection with double precision (closed interval semantics)
+  bool intersects_exact(const std::array<double, 2 * D> &box_a, const std::array<double, 2 * D> &box_b) const
+  {
+    for (int i = 0; i < D; ++i)
+    {
+      double a_min = box_a[i];
+      double a_max = box_a[i + D];
+      double b_min = box_b[i];
+      double b_max = box_b[i + D];
+      
+      // Closed interval: boxes touch if a_max == b_min or b_max == a_min
+      if (a_min > b_max || b_min > a_max)
+      {
+        return false;
+      }
+    }
+    return true;
+  }
+  
+  // Refine candidates using double-precision coordinates
+  vec<T> refine_candidates(const vec<T> &candidates, const std::array<double, 2 * D> &query_exact) const
+  {
+    if (idx2exact.empty())
+    {
+      // No exact coordinates stored, return candidates as-is
+      return candidates;
+    }
+    
+    vec<T> refined;
+    refined.reserve(candidates.size());
+    
+    for (const T &idx : candidates)
+    {
+      auto it = idx2exact.find(idx);
+      if (it != idx2exact.end())
+      {
+        // Check with double precision
+        if (intersects_exact(it->second, query_exact))
+        {
+          refined.push_back(idx);
+        }
+        // else: false positive from float32, filter it out
+      }
+      else
+      {
+        // No exact coords for this item (e.g., inserted as float32), keep it
+        refined.push_back(idx);
+      }
+    }
+    
+    return refined;
   }
 
   vec<T> find(const BB<D> &target)
@@ -1359,6 +1602,7 @@ public:
 
     idx2bb.erase(idx);
     idx2data.erase(idx);
+    idx2exact.erase(idx);  // Also remove from exact coordinates if present
     if (unlikely(REBUILD_THRE * size() < n_at_build))
     {
       rebuild();
