@@ -99,6 +99,7 @@ setup(
     ext_modules=[CMakeExtension("python_prtree.PRTree")],
     cmdclass=dict(build_ext=CMakeBuild),
     zip_safe=False,
+    python_requires=">=3.8",
     install_requires=_requires_from_file("requirements.txt"),
     package_dir={"": "src"},
     packages=find_packages("src"),
@@ -115,5 +116,6 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
     ],
 )

@@ -178,15 +178,16 @@ Note that cross-version compatibility is **NOT** guaranteed, so please reconstru
 
 **BREAKING CHANGES:**
 
-- **Fixed critical intersection bug**: Boxes with small gaps (< 1e-5) were incorrectly reported as intersecting due to float32 precision loss. The internal `Real` type has been changed from `float` to `double` to preserve float64 precision from NumPy arrays.
+- **Fixed critical intersection bug**: Boxes with small gaps (< 1e-5) were incorrectly reported as intersecting due to float32 precision loss. Now uses precision-matching two-stage approach: float32 input → pure float32 performance, float64 input → float32 tree + double-precision refinement for correctness.
+- **Python version requirements**: Minimum Python version is now 3.8 (dropped 3.6 and 3.7 due to pybind11 v2.13.6 compatibility). Added support for Python 3.13 and 3.14.
 - **Serialization format changed**: Binary files saved with previous versions are incompatible with 0.7.0+. You must rebuild and re-save your trees after upgrading.
 - **Updated pybind11**: Upgraded from v2.12.0 to v2.13.6 for Python 3.13+ support.
-- **Python 3.13 support**: Added official support for Python 3.13.
+- **Input validation**: Added validation to reject NaN/Inf coordinates and enforce min <= max per dimension.
 - **Improved test coverage**: Added comprehensive tests for edge cases including disjoint boxes with small gaps, touching boxes, large magnitude coordinates, and degenerate boxes.
 
 **Bug Fix Details:**
 
-The bug occurred when two bounding boxes were separated by a very small gap (e.g., 5.39e-06). When converted from float64 to float32, the values would collapse to the same float32 value, causing the intersection check to incorrectly report them as intersecting. This has been fixed by using double precision throughout the library.
+The bug occurred when two bounding boxes were separated by a very small gap (e.g., 5.39e-06). When converted from float64 to float32, the values would collapse to the same float32 value, causing the intersection check to incorrectly report them as intersecting. This has been fixed by implementing a precision-matching approach: float32 input uses pure float32 for speed, while float64 input uses a two-stage filter-then-refine approach (float32 tree + double-precision refinement) for correctness.
 
 ### `python-prtree>=0.5.8`
 

@@ -21,17 +21,9 @@ jobs:
       matrix:
         include:
           # Window 64 bit
-          # Note: windows-2019 is needed for older Python versions:
-          # https://github.com/scikit-learn/scikit-learn/issues/22530
-          - os: windows-2019
-            python: 36
-            platform_id: win_amd64
-            arch: AMD64
-          - os: windows-2019
-            python: 37
-            platform_id: win_amd64
-            arch: AMD64
-          - os: windows-2019
+          # Note: Python 3.6 and 3.7 dropped due to pybind11 v2.13.6 requiring Python >=3.7
+          # and Python 3.7 being EOL (June 2023). Minimum supported version is now Python 3.8.
+          - os: windows-latest
             python: 38
             platform_id: win_amd64
             arch: AMD64
@@ -53,20 +45,15 @@ jobs:
             arch: AMD64
           - os: windows-latest
             python: 313
+            platform_id: win_amd64
+            arch: AMD64
+          - os: windows-latest
+            python: 314
             platform_id: win_amd64
             arch: AMD64
 
           # Linux 64 bit manylinux2014
-          - os: ubuntu-latest
-            python: 36
-            platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
-            arch: x86_64
-          - os: ubuntu-latest
-            python: 37
-            platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
-            arch: x86_64
+          # Python 3.6 and 3.7 dropped (see Windows section comment)
           - os: ubuntu-latest
             python: 38
             platform_id: manylinux_x86_64
@@ -94,21 +81,17 @@ jobs:
             arch: x86_64
           - os: ubuntu-latest
             python: 313
+            platform_id: manylinux_x86_64
+            manylinux_image: manylinux2014
+            arch: x86_64
+          - os: ubuntu-latest
+            python: 314
             platform_id: manylinux_x86_64
             manylinux_image: manylinux2014
             arch: x86_64
 
           # Linux 64 bit aarch64
-          - os: ubuntu-latest
-            python: 36
-            platform_id: manylinux_aarch64
-            manylinux_image: manylinux2014
-            arch: aarch64
-          - os: ubuntu-latest
-            python: 37
-            platform_id: manylinux_aarch64
-            manylinux_image: manylinux2014
-            arch: aarch64
+          # Python 3.6 and 3.7 dropped (see Windows section comment)
           - os: ubuntu-latest
             python: 38
             platform_id: manylinux_aarch64
@@ -136,21 +119,17 @@ jobs:
             arch: aarch64
           - os: ubuntu-latest
             python: 313
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+            arch: aarch64
+          - os: ubuntu-latest
+            python: 314
             platform_id: manylinux_aarch64
             manylinux_image: manylinux2014
             arch: aarch64
 
           # MacOS x86_64
-          - os: macos-13
-            python: 36
-            platform_id: macosx_x86_64
-            macosx_deployment_target: 10.14
-            arch: x86_64
-          - os: macos-13
-            python: 37
-            platform_id: macosx_x86_64
-            macosx_deployment_target: 10.14
-            arch: x86_64
+          # Python 3.6 and 3.7 dropped (see Windows section comment)
           - os: macos-13
             python: 38
             platform_id: macosx_x86_64
@@ -178,6 +157,11 @@ jobs:
             arch: x86_64
           - os: macos-13
             python: 313
+            platform_id: macosx_x86_64
+            macosx_deployment_target: 10.14
+            arch: x86_64
+          - os: macos-13
+            python: 314
             platform_id: macosx_x86_64
             macosx_deployment_target: 10.14
             arch: x86_64
@@ -210,6 +194,11 @@ jobs:
             arch: arm64
           - os: macos-14
             python: 313
+            platform_id: macosx_arm64
+            macosx_deployment_target: 11.7
+            arch: arm64
+          - os: macos-14
+            python: 314
             platform_id: macosx_arm64
             macosx_deployment_target: 11.7
             arch: arm64
