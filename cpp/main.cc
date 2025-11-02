@@ -18,11 +18,11 @@ PYBIND11_MODULE(PRTree, m)
     )pbdoc";
 
   py::class_<PRTree<T, B, 2>>(m, "_PRTree2D")
-      .def(py::init<py::array_t<T>, py::array_t<float>>(), R"pbdoc(
-          Construct PRTree with float32 input (no refinement, pure float32 performance).
-        )pbdoc")
       .def(py::init<py::array_t<T>, py::array_t<double>>(), R"pbdoc(
           Construct PRTree with float64 input (float32 tree + double refinement for precision).
+        )pbdoc")
+      .def(py::init<py::array_t<T>, py::array_t<float>>(), R"pbdoc(
+          Construct PRTree with float32 input (no refinement, pure float32 performance).
         )pbdoc")
       .def(py::init<>(), R"pbdoc(
           Construct PRTree with .
@@ -65,11 +65,11 @@ PYBIND11_MODULE(PRTree, m)
         )pbdoc");
 
   py::class_<PRTree<T, B, 3>>(m, "_PRTree3D")
-      .def(py::init<py::array_t<T>, py::array_t<float>>(), R"pbdoc(
-          Construct PRTree with float32 input (no refinement, pure float32 performance).
-        )pbdoc")
       .def(py::init<py::array_t<T>, py::array_t<double>>(), R"pbdoc(
           Construct PRTree with float64 input (float32 tree + double refinement for precision).
+        )pbdoc")
+      .def(py::init<py::array_t<T>, py::array_t<float>>(), R"pbdoc(
+          Construct PRTree with float32 input (no refinement, pure float32 performance).
         )pbdoc")
       .def(py::init<>(), R"pbdoc(
           Construct PRTree with .
@@ -112,11 +112,11 @@ PYBIND11_MODULE(PRTree, m)
         )pbdoc");
 
   py::class_<PRTree<T, B, 4>>(m, "_PRTree4D")
-      .def(py::init<py::array_t<T>, py::array_t<float>>(), R"pbdoc(
-          Construct PRTree with float32 input (no refinement, pure float32 performance).
-        )pbdoc")
       .def(py::init<py::array_t<T>, py::array_t<double>>(), R"pbdoc(
           Construct PRTree with float64 input (float32 tree + double refinement for precision).
+        )pbdoc")
+      .def(py::init<py::array_t<T>, py::array_t<float>>(), R"pbdoc(
+          Construct PRTree with float32 input (no refinement, pure float32 performance).
         )pbdoc")
       .def(py::init<>(), R"pbdoc(
           Construct PRTree with .
