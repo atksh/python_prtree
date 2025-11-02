@@ -57,6 +57,7 @@ class CMakeBuild(build_ext):
         cmake_args = [
             "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=" + extdir,
             "-DPYTHON_EXECUTABLE=" + sys.executable,
+            "-DBUILD_SHARED_LIBS=OFF",
         ]
 
         debug = os.getenv("DEBUG", 0) in {"1", "y", "yes", "true"}
@@ -74,8 +75,24 @@ class CMakeBuild(build_ext):
         elif platform.system() == "Darwin":
             cmake_args += [
                 "-DCMAKE_BUILD_TYPE=" + cfg,
-                "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}".format(cfg.upper(), extdir)
+                "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}".format(cfg.upper(), extdir),
+                "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_{}={}".format(cfg.upper(), extdir)
             ]
+            
+            archflags = os.getenv("ARCHFLAGS", "")
+            if archflags:
+                archs = []
+                parts = archflags.split()
+                for i, part in enumerate(parts):
+                    if part == "-arch" and i + 1 < len(parts):
+                        archs.append(parts[i + 1])
+                if archs:
+                    cmake_args.append("-DCMAKE_OSX_ARCHITECTURES=" + ";".join(archs))
+            
+            deployment_target = os.getenv("MACOSX_DEPLOYMENT_TARGET", "")
+            if deployment_target:
+                cmake_args.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=" + deployment_target)
+            
             build_args += ["--", "-j" + str(cpu_count())]
         else:
             cmake_args += ["-DCMAKE_BUILD_TYPE=" + cfg]
