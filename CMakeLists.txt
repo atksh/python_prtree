@@ -16,6 +16,11 @@ option(SNAPPY_BUILD_TESTS "" OFF)
 option(SNAPPY_BUILD_BENCHMARKS "" OFF)
 option(SNAPPY_INSTALL "" OFF)
 
+option(SKIP_PERFORMANCE_COMPARISON "" ON)
+option(BUILD_TESTS "" OFF)
+option(BUILD_SANDBOX "" OFF)
+option(BUILD_DOC "" OFF)
+
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/pybind11/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/cereal/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/snappy/)
