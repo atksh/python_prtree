@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 
 if(WIN32)
-  set(CMAKE_CXX_FLAGS "/O3 /pthread")
+  set(CMAKE_CXX_FLAGS "/O2 /EHsc")
 elseif(APPLE)
   set(CMAKE_CXX_FLAGS "-O3 -pthread")
 else()

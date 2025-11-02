@@ -225,6 +225,9 @@ jobs:
           CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
           CIBW_BEFORE_BUILD: pip install pybind11
           CIBW_TEST_COMMAND: pytest {project}/tests -vv
+          CIBW_TEST_COMMAND_WINDOWS: >-
+            python -c "import sys, importlib.util, pathlib, traceback; print('sys.version:', sys.version); print('sys.platform:', sys.platform); exec('try:\n    import python_prtree\n    p = pathlib.Path(python_prtree.__file__).parent\n    print(\"python_prtree dir:\", p)\n    print(\"contents:\", sorted(x.name for x in p.iterdir()))\n    print(\"find_spec(PRTree):\", importlib.util.find_spec(\"python_prtree.PRTree\"))\n    from python_prtree import PRTree3D\n    print(\"import PRTree3D ok\")\nexcept Exception as e:\n    print(\"IMPORT FAILED:\", repr(e))\n    traceback.print_exc()\n    raise')" &&
+            pytest {project}\\tests -vv
           CIBW_TEST_REQUIRES: pytest numpy
           CIBW_BUILD_VERBOSITY: 1
           CIBW_ARCHS: ${{ matrix.arch }}
