@@ -51,6 +51,7 @@ jobs:
             python: 314
             platform_id: win_amd64
             arch: AMD64
+            prerelease_pythons: 1
 
           # Linux 64 bit manylinux2014
           # Python 3.6 and 3.7 dropped (see Windows section comment)
@@ -82,13 +83,14 @@ jobs:
           - os: ubuntu-latest
             python: 313
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
             arch: x86_64
           - os: ubuntu-latest
             python: 314
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
             arch: x86_64
+            prerelease_pythons: 1
 
           # Linux 64 bit aarch64
           # Python 3.6 and 3.7 dropped (see Windows section comment)
@@ -120,13 +122,14 @@ jobs:
           - os: ubuntu-latest
             python: 313
             platform_id: manylinux_aarch64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
             arch: aarch64
           - os: ubuntu-latest
             python: 314
             platform_id: manylinux_aarch64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
             arch: aarch64
+            prerelease_pythons: 1
 
           # MacOS x86_64
           # Python 3.6 and 3.7 dropped (see Windows section comment)
@@ -165,6 +168,7 @@ jobs:
             platform_id: macosx_x86_64
             macosx_deployment_target: 10.14
             arch: x86_64
+            prerelease_pythons: 1
 
           # MacOS arm64
           - os: macos-14
@@ -202,6 +206,7 @@ jobs:
             platform_id: macosx_arm64
             macosx_deployment_target: 11.7
             arch: arm64
+            prerelease_pythons: 1
 
 
     steps:
@@ -218,15 +223,17 @@ jobs:
         with:
           platforms: all
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.17.0
+        uses: pypa/cibuildwheel@v2.20.0
         env:
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
+          CIBW_MANYLINUX_AARCH64_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
           CIBW_BEFORE_BUILD: pip install pybind11
           CIBW_TEST_COMMAND: pytest {project}/tests -vv
           CIBW_TEST_REQUIRES: pytest numpy
           CIBW_BUILD_VERBOSITY: 1
           CIBW_ARCHS: ${{ matrix.arch }}
+          CIBW_PRERELEASE_PYTHONS: ${{ matrix.prerelease_pythons || '0' }}
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macosx_deployment_target }}
       - uses: actions/upload-artifact@v4
         with:
