@@ -1443,7 +1443,18 @@ public:
 #else
     // Index-based parallel loop (safe, no pointer arithmetic)
     const size_t n_queries = X.size();
-    const size_t n_threads = std::thread::hardware_concurrency();
+    
+    // Early return if no queries
+    if (n_queries == 0)
+    {
+      return out;
+    }
+    
+    // Guard against hardware_concurrency() returning 0 (can happen on macOS)
+    size_t hw = std::thread::hardware_concurrency();
+    size_t n_threads = hw ? hw : 1;
+    n_threads = std::min(n_threads, n_queries);
+    
     const size_t chunk_size = (n_queries + n_threads - 1) / n_threads;
     
     vec<std::thread> threads;
