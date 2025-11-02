@@ -113,6 +113,29 @@ class CMakeBuild(build_ext):
         subprocess.check_call(
             ["cmake", "--build", "."] + build_args, cwd=self.build_temp
         )
+        
+        import glob
+        import shutil
+        ext_suffix = self.get_ext_filename(ext.name).split('.')[-1]
+        if platform.system() == "Windows":
+            pattern = f"PRTree*.pyd"
+        else:
+            pattern = f"PRTree*.so"
+        
+        expected_file = os.path.join(extdir, os.path.basename(self.get_ext_filename(ext.name)))
+        if not os.path.exists(expected_file):
+            found_files = glob.glob(os.path.join(self.build_temp, "**", pattern), recursive=True)
+            if found_files:
+                release_files = [f for f in found_files if "Release" in f or "release" in f]
+                if release_files:
+                    src_file = max(release_files, key=os.path.getmtime)
+                else:
+                    src_file = max(found_files, key=os.path.getmtime)
+                
+                print(f"Copying extension from {src_file} to {extdir}")
+                shutil.copy2(src_file, extdir)
+            else:
+                print(f"Warning: Could not find {pattern} in build tree")
 
 
 setup(
