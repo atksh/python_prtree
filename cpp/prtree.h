@@ -44,7 +44,7 @@
 #include <gperftools/profiler.h>
 #endif
 
-using Real = float;
+using Real = double;
 
 namespace py = pybind11;
 
@@ -790,7 +790,7 @@ public:
 
   PRTree(std::string fname) { load(fname); }
 
-  PRTree(const py::array_t<T> &idx, const py::array_t<float> &x)
+  PRTree(const py::array_t<T> &idx, const py::array_t<Real> &x)
   {
     const auto &buff_info_idx = idx.request();
     const auto &shape_idx = buff_info_idx.shape;
@@ -869,7 +869,7 @@ public:
     return obj;
   }
 
-  void insert(const T &idx, const py::array_t<float> &x, const std::optional<std::string> objdumps = std::nullopt)
+  void insert(const T &idx, const py::array_t<Real> &x, const std::optional<std::string> objdumps = std::nullopt)
   {
 #ifdef MY_DEBUG
     ProfilerStart("insert.prof");

@@ -18,7 +18,7 @@ PYBIND11_MODULE(PRTree, m)
     )pbdoc";
 
   py::class_<PRTree<T, B, 2>>(m, "_PRTree2D")
-      .def(py::init<py::array_t<T>, py::array_t<float>>(), R"pbdoc(
+      .def(py::init<py::array_t<T>, py::array_t<double>>(), R"pbdoc(
           Construct PRTree with init.
         )pbdoc")
       .def(py::init<>(), R"pbdoc(
@@ -62,7 +62,7 @@ PYBIND11_MODULE(PRTree, m)
         )pbdoc");
 
   py::class_<PRTree<T, B, 3>>(m, "_PRTree3D")
-      .def(py::init<py::array_t<T>, py::array_t<float>>(), R"pbdoc(
+      .def(py::init<py::array_t<T>, py::array_t<double>>(), R"pbdoc(
           Construct PRTree with init.
         )pbdoc")
       .def(py::init<>(), R"pbdoc(
@@ -106,7 +106,7 @@ PYBIND11_MODULE(PRTree, m)
         )pbdoc");
 
   py::class_<PRTree<T, B, 4>>(m, "_PRTree4D")
-      .def(py::init<py::array_t<T>, py::array_t<float>>(), R"pbdoc(
+      .def(py::init<py::array_t<T>, py::array_t<double>>(), R"pbdoc(
           Construct PRTree with init.
         )pbdoc")
       .def(py::init<>(), R"pbdoc(

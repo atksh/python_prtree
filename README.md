@@ -174,6 +174,20 @@ Note that cross-version compatibility is **NOT** guaranteed, so please reconstru
 
 ## New Features and Changes
 
+### `python-prtree>=0.7.0`
+
+**BREAKING CHANGES:**
+
+- **Fixed critical intersection bug**: Boxes with small gaps (< 1e-5) were incorrectly reported as intersecting due to float32 precision loss. The internal `Real` type has been changed from `float` to `double` to preserve float64 precision from NumPy arrays.
+- **Serialization format changed**: Binary files saved with previous versions are incompatible with 0.7.0+. You must rebuild and re-save your trees after upgrading.
+- **Updated pybind11**: Upgraded from v2.12.0 to v2.13.6 for Python 3.13+ support.
+- **Python 3.13 support**: Added official support for Python 3.13.
+- **Improved test coverage**: Added comprehensive tests for edge cases including disjoint boxes with small gaps, touching boxes, large magnitude coordinates, and degenerate boxes.
+
+**Bug Fix Details:**
+
+The bug occurred when two bounding boxes were separated by a very small gap (e.g., 5.39e-06). When converted from float64 to float32, the values would collapse to the same float32 value, causing the intersection check to incorrectly report them as intersecting. This has been fixed by using double precision throughout the library.
+
 ### `python-prtree>=0.5.8`
 
 - The insert method has been improved to select the node with the smallest mbb expansion.

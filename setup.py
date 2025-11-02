@@ -9,7 +9,7 @@ from multiprocessing import cpu_count
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
-version = "v0.6.1"
+version = "v0.7.0"
 
 sys.path.append("./tests")
 
@@ -114,5 +114,6 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
     ],
 )
