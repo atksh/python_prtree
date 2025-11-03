@@ -19,6 +19,15 @@ import pytest
 from python_prtree import PRTree2D, PRTree3D, PRTree4D
 
 
+# Module-level function for multiprocessing (must be picklable)
+def _process_query_helper(query_data):
+    """Helper function for multiprocessing tests."""
+    tree_class, idx_data, boxes_data, query_box = query_data
+    # Recreate tree in subprocess
+    tree = tree_class(idx_data, boxes_data)
+    return tree.query(query_box)
+
+
 class TestPythonThreading:
     """Test Python threading safety."""
 
@@ -202,12 +211,6 @@ class TestPythonMultiprocessing:
         for i in range(dim):
             boxes[:, i + dim] += boxes[:, i] + 1
 
-        def process_query(query_data):
-            tree_class, idx_data, boxes_data, query_box = query_data
-            # Recreate tree in subprocess
-            tree = tree_class(idx_data, boxes_data)
-            return tree.query(query_box)
-
         # Prepare queries
         queries = []
         for _ in range(20):
@@ -217,7 +220,7 @@ class TestPythonMultiprocessing:
             queries.append((PRTree, idx, boxes, query_box))
 
         with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
-            results = list(executor.map(process_query, queries))
+            results = list(executor.map(_process_query_helper, queries))
 
         assert len(results) == 20
         for result in results:
@@ -465,6 +468,7 @@ class TestDataRaceProtection:
         tree = PRTree(idx, boxes)
         lock = threading.Lock()
         errors = []
+        next_idx = [n]  # Shared counter for unique indices
 
         def reader():
             try:
@@ -479,13 +483,15 @@ class TestDataRaceProtection:
 
         def writer():
             try:
-                for i in range(50):
+                for _ in range(50):
                     box = np.random.rand(2 * dim) * 100
                     for d in range(dim):
                         box[d + dim] += box[d] + 1
 
                     with lock:
-                        tree.insert(idx=n + i, bb=box)
+                        insert_idx = next_idx[0]
+                        next_idx[0] += 1
+                        tree.insert(idx=insert_idx, bb=box)
                     time.sleep(0.001)
             except Exception as e:
                 errors.append(("writer", e))
