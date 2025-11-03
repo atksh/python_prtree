@@ -58,9 +58,24 @@ class PRTree2D:
 
         # Handle erasing the last element (library limitation workaround)
         if self.n == 1:
-            # Recreate an empty tree (workaround for C++ limitation)
-            self._tree = self.Klass()
-            return
+            # Call underlying erase to validate index, then handle the library bug
+            try:
+                self._tree.erase(idx)
+                # If we get here, erase succeeded (shouldn't happen with n==1)
+                return
+            except RuntimeError as e:
+                error_msg = str(e)
+                if "Given index is not found" in error_msg:
+                    # Index doesn't exist - re-raise the error
+                    raise
+                elif "#roots is not 1" in error_msg:
+                    # This is the library bug we're working around
+                    # Index was valid, so recreate empty tree
+                    self._tree = self.Klass()
+                    return
+                else:
+                    # Some other RuntimeError - re-raise it
+                    raise
 
         self._tree.erase(idx)
 
