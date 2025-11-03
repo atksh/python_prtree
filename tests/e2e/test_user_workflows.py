@@ -169,8 +169,8 @@ def test_object_storage_workflow_2d():
     query_region = [5, 5, 10, 10]
     results = tree.query(query_region, return_obj=True)
 
-    # Extract object data
-    found_objects = [item[1] for item in results]
+    # Extract object data (return_obj=True returns objects directly, not tuples)
+    found_objects = results
 
     # City Hall and Central Park should be found
     found_names = [obj["name"] for obj in found_objects]

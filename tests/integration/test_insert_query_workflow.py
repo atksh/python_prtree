@@ -49,16 +49,17 @@ def test_insert_with_objects_and_query(PRTree, dim):
         tree.insert(bb=box, obj=obj)
         objects.append((box, obj))
 
-    # Query and verify objects
+    # Query and verify objects (return_obj=True returns objects directly, not tuples)
     for i, (box, expected_obj) in enumerate(objects):
         result_obj = tree.query(box, return_obj=True)
         found = False
         for item in result_obj:
-            if item[1] == (i + 1, expected_obj):
+            if item == expected_obj:
                 found = True
                 break
-        # Object retrieval behavior depends on implementation
+        # Object retrieval should return the inserted object
         assert len(result_obj) > 0
+        assert found, f"Expected object {expected_obj} not found in results"
 
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])

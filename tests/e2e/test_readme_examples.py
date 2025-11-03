@@ -41,8 +41,10 @@ def test_basic_example():
     assert prtree.query(0.5, 0.5) == [1]
 
     # Find all pairs of intersecting rectangles
+    # Box 1: [0.0, 0.0, 1.0, 0.5], Box 3: [1.0, 1.0, 2.0, 2.0]
+    # No intersection: Box 1 ymax=0.5 < Box 3 ymin=1.0 (no Y overlap)
     pairs = prtree.query_intersections()
-    assert pairs.tolist() == [[1, 3]]
+    assert pairs.tolist() == []
 
 
 def test_object_example():
@@ -60,7 +62,7 @@ def test_object_example():
 
     # returns objects when you specify the keyword argument return_obj=True
     result = prtree.query((0, 0, 1, 1), return_obj=True)
-    assert result == [(1, {"name": "foo"})]
+    assert result == [{"name": "foo"}]
 
 
 def test_batch_vs_single_query_example():
