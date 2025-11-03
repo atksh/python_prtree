@@ -93,17 +93,23 @@ class TestNormalQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_point_query_with_varargs(self, PRTree, dim):
-        """可変引数でのポイントクエリが機能することを確認（2Dのみ）."""
-        if dim != 2:
-            pytest.skip("Varargs only supported for 2D point query")
-
+        """可変引数でのポイントクエリが機能することを確認."""
         idx = np.array([1, 2])
-        boxes = np.array([[0.0, 0.0, 1.0, 1.0], [2.0, 2.0, 3.0, 3.0]])
+        boxes = np.zeros((2, 2 * dim))
+        # Box 1: [0, 0, ..., 1, 1, ...]
+        for i in range(dim):
+            boxes[0, i] = 0.0
+            boxes[0, i + dim] = 1.0
+        # Box 2: [2, 2, ..., 3, 3, ...]
+        for i in range(dim):
+            boxes[1, i] = 2.0
+            boxes[1, i + dim] = 3.0
 
         tree = PRTree(idx, boxes)
 
-        # Query point with varargs
-        result = tree.query(0.5, 0.5)
+        # Query point with varargs (0.5, 0.5, ...) -> should find box 1
+        point_coords = [0.5] * dim
+        result = tree.query(*point_coords)
         assert set(result) == {1}
 
 
@@ -111,7 +117,6 @@ class TestErrorQuery:
     """Test query with invalid inputs."""
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
-    @pytest.mark.skip(reason="LIBRARY BUG: query() on empty tree causes segfault. Issue discovered during test execution.")
     def test_query_on_empty_tree_returns_empty(self, PRTree, dim):
         """空のツリーへのクエリが空のリストを返すことを確認."""
         tree = PRTree()

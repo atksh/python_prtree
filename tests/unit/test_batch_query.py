@@ -110,7 +110,6 @@ class TestEdgeCaseBatchQuery:
     """Test batch query with edge cases."""
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
-    @pytest.mark.skip(reason="LIBRARY BUG: batch_query() on empty tree causes segfault. Issue discovered during test execution.")
     def test_batch_query_on_empty_tree(self, PRTree, dim):
         """空のツリーへのバッチクエリが空のリストを返すことを確認."""
         tree = PRTree()
