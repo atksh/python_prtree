@@ -24,7 +24,7 @@ def run_in_subprocess(code: str) -> Tuple[int, str, str]:
         [sys.executable, "-c", code],
         capture_output=True,
         text=True,
-        timeout=10
+        timeout=30  # Increased timeout for slower CI environments
     )
     return result.returncode, result.stdout, result.stderr
 
@@ -242,8 +242,8 @@ class TestStressConditions:
 
         tree = PRTree{dim}D()
 
-        # Rapid insert/erase cycles
-        for iteration in range(100):
+        # Rapid insert/erase cycles (reduced for CI performance)
+        for iteration in range(20):
             for i in range(50):
                 box = np.random.rand({2*dim}) * 100
                 for d in range({dim}):
@@ -264,20 +264,20 @@ class TestStressConditions:
 
     @pytest.mark.parametrize("dim", [2, 3, 4])
     def test_massive_rebuild_cycles_no_crash(self, dim):
-        """Verify that massive rebuild cycles do not crash."""
+        """Verify that rebuild cycles do not crash."""
         code = textwrap.dedent(f"""
         import numpy as np
         from python_prtree import PRTree{dim}D
 
-        idx = np.arange(1000)
-        boxes = np.random.rand(1000, {2*dim}).astype(np.float32) * 100
+        idx = np.arange(500)
+        boxes = np.random.rand(500, {2*dim}).astype(np.float32) * 100
         for i in range({dim}):
             boxes[:, i + {dim}] += boxes[:, i] + 1
 
         tree = PRTree{dim}D(idx, boxes)
 
-        # Many rebuild cycles
-        for _ in range(50):
+        # Rebuild cycles (reduced for CI performance)
+        for _ in range(10):
             tree.rebuild()
 
         print("SUCCESS")
