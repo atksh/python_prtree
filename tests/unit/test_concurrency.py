@@ -19,7 +19,7 @@ import pytest
 from python_prtree import PRTree2D, PRTree3D, PRTree4D
 
 
-# Module-level function for multiprocessing (must be picklable)
+# Module-level functions for multiprocessing (must be picklable)
 def _process_query_helper(query_data):
     """Helper function for multiprocessing tests."""
     tree_class, idx_data, boxes_data, query_box = query_data
@@ -28,13 +28,41 @@ def _process_query_helper(query_data):
     return tree.query(query_box)
 
 
+def _concurrent_query_worker(proc_id, tree_class, dim):
+    """Worker function for concurrent multiprocessing tests."""
+    try:
+        np.random.seed(proc_id)
+        n = 500
+        idx = np.arange(n)
+        boxes = np.random.rand(n, 2 * dim) * 100
+        for i in range(dim):
+            boxes[:, i + dim] += boxes[:, i] + 1
+
+        # Each process creates its own tree
+        tree = tree_class(idx, boxes)
+
+        # Do queries
+        results = []
+        for i in range(50):
+            query_box = np.random.rand(2 * dim) * 100
+            for d in range(dim):
+                query_box[d + dim] += query_box[d] + 1
+
+            result = tree.query(query_box)
+            results.append(len(result))
+
+        return sum(results)
+    except Exception as e:
+        return f"ERROR: {e}"
+
+
 class TestPythonThreading:
     """Test Python threading safety."""
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     @pytest.mark.parametrize("num_threads", [2, 4, 8])
     def test_concurrent_queries_multiple_threads(self, PRTree, dim, num_threads):
-        """Verify safe concurrent queries from multiple Python threadsVerify that."""
+        """Verify safe concurrent queries from multiple Python threads."""
         np.random.seed(42)
         n = 1000
         idx = np.arange(n)
@@ -78,7 +106,7 @@ class TestPythonThreading:
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     @pytest.mark.parametrize("num_threads", [2, 4])
     def test_concurrent_batch_queries_multiple_threads(self, PRTree, dim, num_threads):
-        """Verify safe concurrent batch_query from multiple Python threadsVerify that."""
+        """Verify safe concurrent batch_query from multiple Python threads"""
         np.random.seed(42)
         n = 1000
         idx = np.arange(n)
@@ -118,7 +146,7 @@ class TestPythonThreading:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_read_only_concurrent_access(self, PRTree, dim):
-        """Verify that read-only concurrent access is safeVerify that."""
+        """Verify that read-only concurrent access is safe"""
         np.random.seed(42)
         n = 500
         idx = np.arange(n)
@@ -154,56 +182,30 @@ class TestPythonMultiprocessing:
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
     @pytest.mark.parametrize("num_processes", [2, 4])
     def test_concurrent_queries_multiple_processes(self, PRTree, dim, num_processes):
-        """Verify safe concurrent queries from multiple Python processesVerify that."""
+        """Verify safe concurrent queries from multiple Python processes"""
+        # Use ProcessPoolExecutor with module-level function for Windows compatibility
+        with concurrent.futures.ProcessPoolExecutor(max_workers=num_processes) as executor:
+            # Submit tasks for each process
+            futures = [executor.submit(_concurrent_query_worker, i, PRTree, dim)
+                      for i in range(num_processes)]
 
-        def query_worker(proc_id, return_dict):
-            try:
-                np.random.seed(proc_id)
-                n = 500
-                idx = np.arange(n)
-                boxes = np.random.rand(n, 2 * dim) * 100
-                for i in range(dim):
-                    boxes[:, i + dim] += boxes[:, i] + 1
+            # Collect results with timeout
+            results = []
+            for future in concurrent.futures.as_completed(futures, timeout=30):
+                result = future.result()
+                # Check for errors
+                assert not isinstance(result, str) or not result.startswith("ERROR"), f"Process failed: {result}"
+                results.append(result)
 
-                # Each process creates its own tree
-                tree = PRTree(idx, boxes)
-
-                # Do queries
-                results = []
-                for i in range(50):
-                    query_box = np.random.rand(2 * dim) * 100
-                    for d in range(dim):
-                        query_box[d + dim] += query_box[d] + 1
-
-                    result = tree.query(query_box)
-                    results.append(len(result))
-
-                return_dict[proc_id] = sum(results)
-            except Exception as e:
-                return_dict[proc_id] = f"ERROR: {e}"
-
-        manager = mp.Manager()
-        return_dict = manager.dict()
-        processes = []
-
-        for i in range(num_processes):
-            p = mp.Process(target=query_worker, args=(i, return_dict))
-            processes.append(p)
-            p.start()
-
-        for p in processes:
-            p.join(timeout=30)
-            if p.is_alive():
-                p.terminate()
-                pytest.fail("Process timed out")
-
-        assert len(return_dict) == num_processes
-        for proc_id, result in return_dict.items():
-            assert not isinstance(result, str) or not result.startswith("ERROR"), f"Process {proc_id} failed: {result}"
+        # Verify all processes completed
+        assert len(results) == num_processes
+        # Verify each process got some query results
+        for result in results:
+            assert isinstance(result, int) and result > 0
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2)])
     def test_process_pool_queries(self, PRTree, dim):
-        """Verify that queries with ProcessPoolExecutor are safeVerify that."""
+        """Verify that queries with ProcessPoolExecutor are safe"""
         np.random.seed(42)
         n = 500
         idx = np.arange(n)
@@ -310,7 +312,7 @@ class TestThreadPoolExecutor:
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     @pytest.mark.parametrize("max_workers", [2, 4, 8])
     def test_thread_pool_queries(self, PRTree, dim, max_workers):
-        """Verify that queries with ThreadPoolExecutor are safeVerify that."""
+        """Verify that queries with ThreadPoolExecutor are safe"""
         np.random.seed(42)
         n = 1000
         idx = np.arange(n)
@@ -341,7 +343,7 @@ class TestThreadPoolExecutor:
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
     @pytest.mark.parametrize("max_workers", [2, 4])
     def test_thread_pool_batch_queries(self, PRTree, dim, max_workers):
-        """Verify that batch_query with ThreadPoolExecutor is safeVerify that."""
+        """Verify that batch_query with ThreadPoolExecutor is safe"""
         np.random.seed(42)
         n = 1000
         idx = np.arange(n)
@@ -372,7 +374,7 @@ class TestConcurrentModification:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
     def test_insert_from_multiple_threads_sequential(self, PRTree, dim):
-        """Verify safe sequential insert from multiple threadsVerify that."""
+        """Verify safe sequential insert from multiple threads"""
         tree = PRTree()
         lock = threading.Lock()
         errors = []
@@ -403,7 +405,7 @@ class TestConcurrentModification:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2)])
     def test_query_during_save_load(self, PRTree, dim, tmp_path):
-        """Verify that queries during save/load are safeVerify that."""
+        """Verify that queries during save/load are safe"""
         np.random.seed(42)
         n = 500
         idx = np.arange(n)
