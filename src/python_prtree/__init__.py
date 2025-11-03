@@ -32,6 +32,14 @@ class PRTree2D:
 
     def __getattr__(self, name):
         def handler_function(*args, **kwargs):
+            # Handle empty tree cases for methods that cause segfaults
+            if self.n == 0 and name in ('rebuild', 'save'):
+                # These operations are not meaningful/safe on empty trees
+                if name == 'rebuild':
+                    return  # No-op for empty tree
+                elif name == 'save':
+                    raise ValueError("Cannot save empty tree")
+
             ret = getattr(self._tree, name)(*args, **kwargs)
             return ret
 
@@ -47,6 +55,13 @@ class PRTree2D:
     def erase(self, idx):
         if self.n == 0:
             raise ValueError("Nothing to erase")
+
+        # Handle erasing the last element (library limitation workaround)
+        if self.n == 1:
+            # Recreate an empty tree (workaround for C++ limitation)
+            self._tree = self.Klass()
+            return
+
         self._tree.erase(idx)
 
     def set_obj(self, idx, obj):
