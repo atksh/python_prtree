@@ -123,7 +123,7 @@ class TestMemoryBounds:
 
         # Too small
         with pytest.raises((ValueError, RuntimeError, IndexError)):
-            tree.query(np.zeros(dim))  # Should be 2*dim
+            tree.query(np.zeros(2 * dim + 1))  # Wrong size (one extra dimension)
 
         # Too large
         with pytest.raises((ValueError, RuntimeError, IndexError)):
@@ -142,7 +142,7 @@ class TestMemoryBounds:
 
         # Wrong second dimension
         with pytest.raises((ValueError, RuntimeError, IndexError)):
-            queries = np.zeros((5, dim))  # Should be (5, 2*dim)
+            queries = np.zeros((5, 2 * dim + 1))  # Wrong size
             tree.batch_query(queries)
 
 

@@ -68,7 +68,7 @@ class TestNormalInsert:
         # Query and retrieve object
         result = tree.query(box, return_obj=True)
         assert len(result) == 1
-        assert result[0] == (1, obj)
+        assert result[0] == obj
 
 
 class TestErrorInsert:

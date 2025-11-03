@@ -179,7 +179,9 @@ class TestErrorQuery:
 
         tree = PRTree(idx, boxes)
 
-        wrong_dim_query = np.zeros(dim)  # Should be 2*dim
+        # For 2D, np.zeros(dim) = np.zeros(2) is a valid point query
+        # So we need to test with a clearly wrong size
+        wrong_dim_query = np.zeros(2 * dim + 1)  # One extra dimension
 
         with pytest.raises((ValueError, RuntimeError, IndexError)):
             tree.query(wrong_dim_query)

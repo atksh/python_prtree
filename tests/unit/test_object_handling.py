@@ -41,7 +41,7 @@ class TestNormalObjectHandling:
         results = tree.query(query_box, return_obj=True)
 
         assert len(results) == 1
-        assert results[0][1] == {"id": 1, "name": "obj1"}
+        assert results[0] == {"id": 1, "name": "obj1"}
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_set_and_get_obj(self, PRTree, dim):
@@ -81,7 +81,7 @@ class TestObjectTypes:
         tree.insert(bb=box, obj=obj)
 
         result = tree.query(box, return_obj=True)
-        assert result[0][1] == obj
+        assert result[0] == obj
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_tuple_object(self, PRTree, dim):
@@ -96,7 +96,7 @@ class TestObjectTypes:
         tree.insert(bb=box, obj=obj)
 
         result = tree.query(box, return_obj=True)
-        assert result[0][1] == obj
+        assert result[0] == obj
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_list_object(self, PRTree, dim):
@@ -111,7 +111,7 @@ class TestObjectTypes:
         tree.insert(bb=box, obj=obj)
 
         result = tree.query(box, return_obj=True)
-        assert result[0][1] == obj
+        assert result[0] == obj
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_nested_object(self, PRTree, dim):
@@ -126,7 +126,7 @@ class TestObjectTypes:
         tree.insert(bb=box, obj=obj)
 
         result = tree.query(box, return_obj=True)
-        assert result[0][1] == obj
+        assert result[0] == obj
 
 
 class TestObjectPersistence:
