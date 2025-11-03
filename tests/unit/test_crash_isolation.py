@@ -9,10 +9,11 @@ Run with: pytest tests/unit/test_crash_isolation.py -v
 import subprocess
 import sys
 import textwrap
+from typing import Tuple
 import pytest
 
 
-def run_in_subprocess(code: str) -> tuple[int, str, str]:
+def run_in_subprocess(code: str) -> Tuple[int, str, str]:
     """Run code in a subprocess and return exit code, stdout, stderr.
 
     Returns:
