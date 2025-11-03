@@ -1420,8 +1420,11 @@ public:
     const size_t n_items = indices.size();
 
     // Use thread-local storage to collect pairs
-    const size_t n_threads = std::min(
-        static_cast<size_t>(std::thread::hardware_concurrency()), n_items);
+    // Guard against hardware_concurrency() returning 0 (can happen on some
+    // systems)
+    size_t hw = std::thread::hardware_concurrency();
+    size_t n_threads = hw ? hw : 1;
+    n_threads = std::min(n_threads, n_items);
     vec<vec<std::pair<T, T>>> thread_pairs(n_threads);
 
 #ifdef MY_PARALLEL
