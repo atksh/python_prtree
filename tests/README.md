@@ -129,6 +129,9 @@ The test suite covers:
 - ✅ Edge cases (degenerate boxes, touching boxes, etc.)
 - ✅ Consistency (query vs batch_query, save/load, etc.)
 - ✅ Known regressions (bugs from issues)
+- ✅ Memory safety (segfault prevention, bounds checking)
+- ✅ Concurrency (threading, multiprocessing, async)
+- ✅ Parallel execution (batch_query parallelization)
 
 ## Test Matrix
 
