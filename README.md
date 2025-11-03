@@ -9,6 +9,10 @@ _python_prtree_ is a python/c++ implementation of the Priority R-Tree (see refer
 - `query` and `batch_query`
   - `batch_query` is parallelized by `std::thread` and is much faster than the `query` method.
   - The `query` method has an optional keyword argument `return_obj`; if `return_obj=True`, a Python object is returned.
+- `query_intersections`
+  - Returns all pairs of intersecting AABBs as a numpy array of shape (n_pairs, 2).
+  - Optimized for performance with parallel processing and double-precision refinement.
+  - Similar to `scipy.spatial.cKDTree.query_pairs` but for bounding boxes instead of points.
 - `rebuild`
   - It improves performance when many insert/delete operations are called since the last rebuild.
   - Note that if the size changes more than 1.5 times, the insert/erase method also performs `rebuild`.
@@ -77,6 +81,11 @@ print(prtree.query([0.5, 0.5]))
 # [1]
 print(prtree.query(0.5, 0.5))  # 1d-array
 # [1]
+
+# Find all pairs of intersecting rectangles
+pairs = prtree.query_intersections()
+print(pairs)
+# [[1 3]]  # rectangles with index 1 and 3 intersect
 ```
 
 ```python

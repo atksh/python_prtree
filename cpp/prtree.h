@@ -1626,4 +1626,176 @@ public:
   {
     return static_cast<int64_t>(idx2bb.size());
   }
+
+  /**
+   * Find all pairs of intersecting AABBs in the tree.
+   * Returns a numpy array of shape (n_pairs, 2) where each row contains
+   * a pair of indices (i, j) with i < j representing intersecting AABBs.
+   *
+   * This method is optimized for performance by:
+   * - Using parallel processing for queries
+   * - Avoiding duplicate pairs by enforcing i < j
+   * - Performing intersection checks in C++ to minimize Python overhead
+   * - Using double-precision refinement when exact coordinates are available
+   *
+   * @return py::array_t<T> Array of shape (n_pairs, 2) containing index pairs
+   */
+  py::array_t<T> query_intersections()
+  {
+    // Collect all indices and bounding boxes
+    vec<T> indices;
+    vec<BB<D>> bboxes;
+    vec<std::array<double, 2 * D>> exact_coords;
+
+    if (unlikely(idx2bb.empty()))
+    {
+      // Return empty array of shape (0, 2)
+      vec<T> empty_data;
+      std::unique_ptr<vec<T>> data_ptr = std::make_unique<vec<T>>(std::move(empty_data));
+      auto capsule = py::capsule(data_ptr.get(), [](void *p)
+                                 { std::unique_ptr<vec<T>>(reinterpret_cast<vec<T> *>(p)); });
+      data_ptr.release();
+      return py::array_t<T>({0, 2}, {2 * sizeof(T), sizeof(T)}, nullptr, capsule);
+    }
+
+    indices.reserve(idx2bb.size());
+    bboxes.reserve(idx2bb.size());
+    exact_coords.reserve(idx2bb.size());
+
+    for (const auto &pair : idx2bb)
+    {
+      indices.push_back(pair.first);
+      bboxes.push_back(pair.second);
+
+      // Get exact coordinates if available
+      auto it = idx2exact.find(pair.first);
+      if (it != idx2exact.end())
+      {
+        exact_coords.push_back(it->second);
+      }
+      else
+      {
+        // Create dummy exact coords from float32 BB (won't be used for refinement)
+        std::array<double, 2 * D> dummy;
+        for (int i = 0; i < D; ++i)
+        {
+          dummy[i] = static_cast<double>(pair.second.min(i));
+          dummy[i + D] = static_cast<double>(pair.second.max(i));
+        }
+        exact_coords.push_back(dummy);
+      }
+    }
+
+    const size_t n_items = indices.size();
+
+    // Use thread-local storage to collect pairs
+    const size_t n_threads = std::min(static_cast<size_t>(std::thread::hardware_concurrency()), n_items);
+    vec<vec<std::pair<T, T>>> thread_pairs(n_threads);
+
+#ifdef MY_PARALLEL
+    vec<std::thread> threads;
+    threads.reserve(n_threads);
+
+    for (size_t t = 0; t < n_threads; ++t)
+    {
+      threads.emplace_back([&, t]()
+      {
+        vec<std::pair<T, T>> local_pairs;
+
+        for (size_t i = t; i < n_items; i += n_threads)
+        {
+          const T idx_i = indices[i];
+          const BB<D> &bb_i = bboxes[i];
+
+          // Find all intersections with this bounding box
+          auto candidates = find(bb_i);
+
+          // Refine candidates using exact coordinates if available
+          if (!idx2exact.empty())
+          {
+            candidates = refine_candidates(candidates, exact_coords[i]);
+          }
+
+          // Keep only pairs where idx_i < idx_j to avoid duplicates
+          for (const T &idx_j : candidates)
+          {
+            if (idx_i < idx_j)
+            {
+              local_pairs.emplace_back(idx_i, idx_j);
+            }
+          }
+        }
+
+        thread_pairs[t] = std::move(local_pairs);
+      });
+    }
+
+    for (auto &thread : threads)
+    {
+      thread.join();
+    }
+#else
+    // Single-threaded version
+    vec<std::pair<T, T>> local_pairs;
+
+    for (size_t i = 0; i < n_items; ++i)
+    {
+      const T idx_i = indices[i];
+      const BB<D> &bb_i = bboxes[i];
+
+      // Find all intersections with this bounding box
+      auto candidates = find(bb_i);
+
+      // Refine candidates using exact coordinates if available
+      if (!idx2exact.empty())
+      {
+        candidates = refine_candidates(candidates, exact_coords[i]);
+      }
+
+      // Keep only pairs where idx_i < idx_j to avoid duplicates
+      for (const T &idx_j : candidates)
+      {
+        if (idx_i < idx_j)
+        {
+          local_pairs.emplace_back(idx_i, idx_j);
+        }
+      }
+    }
+
+    thread_pairs[0] = std::move(local_pairs);
+#endif
+
+    // Merge results from all threads into a flat vector
+    vec<T> flat_pairs;
+    size_t total_pairs = 0;
+    for (const auto &pairs : thread_pairs)
+    {
+      total_pairs += pairs.size();
+    }
+    flat_pairs.reserve(total_pairs * 2);
+
+    for (const auto &pairs : thread_pairs)
+    {
+      for (const auto &pair : pairs)
+      {
+        flat_pairs.push_back(pair.first);
+        flat_pairs.push_back(pair.second);
+      }
+    }
+
+    // Create output numpy array using the same pattern as as_pyarray
+    auto data = flat_pairs.data();
+    std::unique_ptr<vec<T>> data_ptr = std::make_unique<vec<T>>(std::move(flat_pairs));
+    auto capsule = py::capsule(data_ptr.get(), [](void *p)
+                               { std::unique_ptr<vec<T>>(reinterpret_cast<vec<T> *>(p)); });
+    data_ptr.release();
+
+    // Return 2D array with shape (total_pairs, 2)
+    return py::array_t<T>(
+        {static_cast<py::ssize_t>(total_pairs), py::ssize_t(2)}, // shape
+        {2 * sizeof(T), sizeof(T)},                               // strides (row-major)
+        data,                                                     // data pointer
+        capsule                                                   // capsule for cleanup
+    );
+  }
 };
