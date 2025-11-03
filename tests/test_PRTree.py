@@ -381,3 +381,180 @@ def test_save_load_float32_no_regression(tmp_path):
     
     assert results_before == results_after, \
         "Float32 path: results changed after save/load cycle"
+
+
+@pytest.mark.parametrize("seed", range(N_SEED))
+@pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
+def test_query_intersections(seed, PRTree, dim):
+    """Test query_intersections() method returns correct pairs of intersecting AABBs."""
+    np.random.seed(seed)
+    idx = np.arange(50)  # Use smaller dataset for faster testing
+    x = np.random.rand(len(idx), 2 * dim)
+    for i in range(dim):
+        x[:, i + dim] += x[:, i]
+
+    prtree = PRTree(idx, x)
+    pairs = prtree.query_intersections()
+
+    # Verify output shape
+    assert pairs.ndim == 2
+    assert pairs.shape[1] == 2
+
+    # Verify all pairs are valid (i < j)
+    assert np.all(pairs[:, 0] < pairs[:, 1])
+
+    # Verify pairs are unique
+    pairs_set = set(map(tuple, pairs))
+    assert len(pairs_set) == len(pairs), "Duplicate pairs found"
+
+    # Verify correctness: compare against naive approach
+    expected_pairs = []
+    for i in range(len(idx)):
+        for j in range(i + 1, len(idx)):
+            if has_intersect(x[i], x[j], dim):
+                expected_pairs.append((idx[i], idx[j]))
+
+    expected_set = set(expected_pairs)
+    assert pairs_set == expected_set, \
+        f"Mismatch: expected {len(expected_set)} pairs, got {len(pairs_set)}"
+
+
+@pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
+def test_query_intersections_no_intersections(PRTree, dim):
+    """Test query_intersections() with non-overlapping AABBs."""
+    # Create well-separated boxes
+    idx = np.arange(10)
+    x = np.zeros((len(idx), 2 * dim))
+
+    for i in range(len(idx)):
+        # Each box at distance 10*i, size 1
+        for d in range(dim):
+            x[i, d] = 10 * i + d * 0.1
+            x[i, d + dim] = 10 * i + d * 0.1 + 1
+
+    prtree = PRTree(idx, x)
+    pairs = prtree.query_intersections()
+
+    # Should have no intersections
+    assert pairs.shape[0] == 0
+    assert pairs.shape[1] == 2
+
+
+@pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
+def test_query_intersections_all_intersections(PRTree, dim):
+    """Test query_intersections() where all boxes intersect."""
+    # Create boxes that all overlap at origin
+    idx = np.arange(10)
+    x = np.zeros((len(idx), 2 * dim))
+
+    for i in range(len(idx)):
+        for d in range(dim):
+            x[i, d] = -1.0 - i * 0.1
+            x[i, d + dim] = 1.0 + i * 0.1
+
+    prtree = PRTree(idx, x)
+    pairs = prtree.query_intersections()
+
+    # All boxes should intersect: n*(n-1)/2 pairs
+    n = len(idx)
+    expected_count = n * (n - 1) // 2
+    assert pairs.shape[0] == expected_count, \
+        f"Expected {expected_count} pairs, got {pairs.shape[0]}"
+
+
+@pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
+def test_query_intersections_empty_tree(PRTree, dim):
+    """Test query_intersections() on empty tree."""
+    prtree = PRTree()
+    pairs = prtree.query_intersections()
+
+    assert pairs.shape == (0, 2)
+
+
+@pytest.mark.parametrize("seed", range(N_SEED))
+@pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
+def test_query_intersections_float64(seed, PRTree, dim):
+    """Test query_intersections() with float64 input (uses exact coordinate refinement)."""
+    np.random.seed(seed)
+    idx = np.arange(50)
+    x = np.random.rand(len(idx), 2 * dim).astype(np.float64)
+    for i in range(dim):
+        x[:, i + dim] += x[:, i]
+
+    prtree = PRTree(idx, x)
+    pairs = prtree.query_intersections()
+
+    # Verify output shape and constraints
+    assert pairs.ndim == 2
+    assert pairs.shape[1] == 2
+    assert np.all(pairs[:, 0] < pairs[:, 1])
+
+    # Verify correctness
+    expected_pairs = []
+    for i in range(len(idx)):
+        for j in range(i + 1, len(idx)):
+            if has_intersect(x[i], x[j], dim):
+                expected_pairs.append((idx[i], idx[j]))
+
+    pairs_set = set(map(tuple, pairs))
+    expected_set = set(expected_pairs)
+    assert pairs_set == expected_set
+
+
+@pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
+def test_query_intersections_touching_boxes(PRTree, dim):
+    """Test that touching boxes are considered intersecting (closed interval semantics)."""
+    idx = np.array([0, 1])
+    x = np.zeros((2, 2 * dim))
+
+    # Box 0: [0, 1] in all dimensions
+    for d in range(dim):
+        x[0, d] = 0.0
+        x[0, d + dim] = 1.0
+
+    # Box 1: [1, 2] in all dimensions (touches box 0)
+    for d in range(dim):
+        x[1, d] = 1.0
+        x[1, d + dim] = 2.0
+
+    prtree = PRTree(idx, x)
+    pairs = prtree.query_intersections()
+
+    # Boxes should be considered intersecting (closed intervals)
+    assert pairs.shape[0] == 1
+    assert tuple(pairs[0]) == (0, 1)
+
+
+@pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
+def test_query_intersections_after_insert_erase(PRTree, dim):
+    """Test query_intersections() after dynamic updates."""
+    np.random.seed(42)
+    idx = np.arange(20)
+    x = np.random.rand(len(idx), 2 * dim)
+    for i in range(dim):
+        x[:, i + dim] += x[:, i]
+
+    prtree = PRTree(idx, x)
+
+    # Get initial pairs
+    pairs_initial = prtree.query_intersections()
+
+    # Insert a new box that overlaps all existing boxes
+    new_box = np.zeros(2 * dim)
+    for d in range(dim):
+        new_box[d] = -10.0
+        new_box[d + dim] = 10.0
+
+    inserted_idx = max(idx) + 1
+    prtree.insert(idx=inserted_idx, bb=new_box)
+
+    # Should have more pairs now
+    pairs_after_insert = prtree.query_intersections()
+    assert pairs_after_insert.shape[0] > pairs_initial.shape[0]
+
+    # Erase the new box
+    prtree.erase(inserted_idx)
+
+    # Should go back to original count (approximately - might differ due to rebuilding)
+    pairs_after_erase = prtree.query_intersections()
+    assert abs(pairs_after_erase.shape[0] - pairs_initial.shape[0]) <= 1

@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
+#include <functional>
 #include <future>
 #include <iostream>
 #include <iterator>
@@ -12,15 +13,14 @@
 #include <memory>
 #include <mutex>
 #include <numeric>
+#include <optional>
 #include <queue>
 #include <stack>
+#include <string>
 #include <thread>
 #include <unordered_map>
-#include <vector>
-#include <string>
 #include <utility>
-#include <optional>
-#include <functional>
+#include <vector>
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -30,15 +30,15 @@
 #include <cereal/archives/portable_binary.hpp>
 #include <cereal/cereal.hpp>
 #include <cereal/types/array.hpp>
+#include <cereal/types/atomic.hpp>
 #include <cereal/types/memory.hpp> //for smart pointers
 #include <cereal/types/string.hpp>
 #include <cereal/types/unordered_map.hpp>
 #include <cereal/types/vector.hpp>
-#include <cereal/types/atomic.hpp>
 
-#include <snappy.h>
 #include "parallel.h"
 #include "small_vector.h"
+#include <snappy.h>
 
 #ifdef MY_DEBUG
 #include <gperftools/profiler.h>
@@ -48,30 +48,27 @@ using Real = float;
 
 namespace py = pybind11;
 
-template <class T>
-using vec = std::vector<T>;
+template <class T> using vec = std::vector<T>;
 
 template <typename Sequence>
-inline py::array_t<typename Sequence::value_type> as_pyarray(Sequence &seq)
-{
+inline py::array_t<typename Sequence::value_type> as_pyarray(Sequence &seq) {
 
   auto size = seq.size();
   auto data = seq.data();
-  std::unique_ptr<Sequence> seq_ptr = std::make_unique<Sequence>(std::move(seq));
-  auto capsule = py::capsule(seq_ptr.get(), [](void *p)
-                             { std::unique_ptr<Sequence>(reinterpret_cast<Sequence *>(p)); });
+  std::unique_ptr<Sequence> seq_ptr =
+      std::make_unique<Sequence>(std::move(seq));
+  auto capsule = py::capsule(seq_ptr.get(), [](void *p) {
+    std::unique_ptr<Sequence>(reinterpret_cast<Sequence *>(p));
+  });
   seq_ptr.release();
   return py::array(size, data, capsule);
 }
 
-template <typename T>
-auto list_list_to_arrays(vec<vec<T>> out_ll)
-{
+template <typename T> auto list_list_to_arrays(vec<vec<T>> out_ll) {
   vec<T> out_s;
   out_s.reserve(out_ll.size());
   std::size_t sum = 0;
-  for (auto &&i : out_ll)
-  {
+  for (auto &&i : out_ll) {
     out_s.push_back(i.size());
     sum += i.size();
   }
@@ -80,19 +77,15 @@ auto list_list_to_arrays(vec<vec<T>> out_ll)
   for (const auto &v : out_ll)
     out.insert(out.end(), v.begin(), v.end());
 
-  return make_tuple(
-      std::move(as_pyarray(out_s)),
-      std::move(as_pyarray(out)));
+  return make_tuple(std::move(as_pyarray(out_s)), std::move(as_pyarray(out)));
 }
 
 template <class T, size_t StaticCapacity>
 using svec = itlib::small_vector<T, StaticCapacity>;
 
-template <class T>
-using deque = std::deque<T>;
+template <class T> using deque = std::deque<T>;
 
-template <class T>
-using queue = std::queue<T, deque<T>>;
+template <class T> using queue = std::queue<T, deque<T>>;
 
 static const float REBUILD_THRE = 1.25;
 
@@ -104,160 +97,129 @@ static const float REBUILD_THRE = 1.25;
 #define unlikely(x) (x)
 #endif
 
-std::string compress(std::string &data)
-{
+std::string compress(std::string &data) {
   std::string output;
   snappy::Compress(data.data(), data.size(), &output);
   return output;
 }
 
-std::string decompress(std::string &data)
-{
+std::string decompress(std::string &data) {
   std::string output;
   snappy::Uncompress(data.data(), data.size(), &output);
   return output;
 }
 
-template <int D = 2>
-class BB
-{
+template <int D = 2> class BB {
 private:
   Real values[2 * D];
 
 public:
   BB() { clear(); }
 
-  BB(const Real (&minima)[D], const Real (&maxima)[D])
-  {
+  BB(const Real (&minima)[D], const Real (&maxima)[D]) {
     Real v[2 * D];
-    for (int i = 0; i < D; ++i)
-    {
+    for (int i = 0; i < D; ++i) {
       v[i] = -minima[i];
       v[i + D] = maxima[i];
     }
     validate(v);
-    for (int i = 0; i < D; ++i)
-    {
+    for (int i = 0; i < D; ++i) {
       values[i] = v[i];
       values[i + D] = v[i + D];
     }
   }
 
-  BB(const Real (&v)[2 * D])
-  {
+  BB(const Real (&v)[2 * D]) {
     validate(v);
-    for (int i = 0; i < D; ++i)
-    {
+    for (int i = 0; i < D; ++i) {
       values[i] = v[i];
       values[i + D] = v[i + D];
     }
   }
 
-  Real min(const int dim) const
-  {
-    if (unlikely(dim < 0 || D <= dim))
-    {
+  Real min(const int dim) const {
+    if (unlikely(dim < 0 || D <= dim)) {
       throw std::runtime_error("Invalid dim");
     }
     return -values[dim];
   }
-  Real max(const int dim) const
-  {
-    if (unlikely(dim < 0 || D <= dim))
-    {
+  Real max(const int dim) const {
+    if (unlikely(dim < 0 || D <= dim)) {
       throw std::runtime_error("Invalid dim");
     }
     return values[dim + D];
   }
 
-  bool validate(const Real (&v)[2 * D]) const
-  {
+  bool validate(const Real (&v)[2 * D]) const {
     bool flag = false;
-    for (int i = 0; i < D; ++i)
-    {
-      if (unlikely(-v[i] > v[i + D]))
-      {
+    for (int i = 0; i < D; ++i) {
+      if (unlikely(-v[i] > v[i + D])) {
         flag = true;
         break;
       }
     }
-    if (unlikely(flag))
-    {
+    if (unlikely(flag)) {
       throw std::runtime_error("Invalid Bounding Box");
     }
     return flag;
   }
-  void clear()
-  {
-    for (int i = 0; i < 2 * D; ++i)
-    {
+  void clear() {
+    for (int i = 0; i < 2 * D; ++i) {
       values[i] = -1e100;
     }
   }
 
-  Real val_for_comp(const int &axis) const
-  {
+  Real val_for_comp(const int &axis) const {
     const int axis2 = (axis + 1) % (2 * D);
     return values[axis] + values[axis2];
   }
 
-  BB operator+(const BB &rhs) const
-  {
+  BB operator+(const BB &rhs) const {
     Real result[2 * D];
-    for (int i = 0; i < 2 * D; ++i)
-    {
+    for (int i = 0; i < 2 * D; ++i) {
       result[i] = std::max(values[i], rhs.values[i]);
     }
     return BB<D>(result);
   }
 
-  BB operator+=(const BB &rhs)
-  {
-    for (int i = 0; i < 2 * D; ++i)
-    {
+  BB operator+=(const BB &rhs) {
+    for (int i = 0; i < 2 * D; ++i) {
       values[i] = std::max(values[i], rhs.values[i]);
     }
     return *this;
   }
 
-  void expand(const Real (&delta)[D])
-  {
-    for (int i = 0; i < D; ++i)
-    {
+  void expand(const Real (&delta)[D]) {
+    for (int i = 0; i < D; ++i) {
       values[i] += delta[i];
       values[i + D] += delta[i];
     }
   }
 
-  bool operator()(const BB &target) const
-  { // whether this and target has any intersect
+  bool operator()(
+      const BB &target) const { // whether this and target has any intersect
 
     Real minima[D];
     Real maxima[D];
     bool flags[D];
     bool flag = true;
 
-    for (int i = 0; i < D; ++i)
-    {
+    for (int i = 0; i < D; ++i) {
       minima[i] = std::min(values[i], target.values[i]);
       maxima[i] = std::min(values[i + D], target.values[i + D]);
     }
-    for (int i = 0; i < D; ++i)
-    {
+    for (int i = 0; i < D; ++i) {
       flags[i] = -minima[i] <= maxima[i];
     }
-    for (int i = 0; i < D; ++i)
-    {
+    for (int i = 0; i < D; ++i) {
       flag &= flags[i];
     }
     return flag;
   }
 
-  Real area() const
-  {
+  Real area() const {
     Real result = 1;
-    for (int i = 0; i < D; ++i)
-    {
+    for (int i = 0; i < D; ++i) {
       result *= max(i) - min(i);
     }
     return result;
@@ -265,102 +227,82 @@ public:
 
   inline Real operator[](const int i) const { return values[i]; }
 
-  template <class Archive>
-  void serialize(Archive &ar) { ar(values); }
+  template <class Archive> void serialize(Archive &ar) { ar(values); }
 };
 
-template <class T, int D = 2>
-class DataType
-{
+template <class T, int D = 2> class DataType {
 public:
   BB<D> second;
   T first;
 
   DataType(){};
 
-  DataType(const T &f, const BB<D> &s)
-  {
+  DataType(const T &f, const BB<D> &s) {
     first = f;
     second = s;
   }
 
-  DataType(T &&f, BB<D> &&s) noexcept
-  {
+  DataType(T &&f, BB<D> &&s) noexcept {
     first = std::move(f);
     second = std::move(s);
   }
 
-  template <class Archive>
-  void serialize(Archive &ar) { ar(first, second); }
+  template <class Archive> void serialize(Archive &ar) { ar(first, second); }
 };
 
 template <class T, int D = 2>
-void clean_data(DataType<T, D> *b, DataType<T, D> *e)
-{
-  for (DataType<T, D> *it = e - 1; it >= b; --it)
-  {
+void clean_data(DataType<T, D> *b, DataType<T, D> *e) {
+  for (DataType<T, D> *it = e - 1; it >= b; --it) {
     it->~DataType<T, D>();
   }
 }
 
-template <class T, int B = 6, int D = 2>
-class Leaf
-{
+template <class T, int B = 6, int D = 2> class Leaf {
 public:
   BB<D> mbb;
   svec<DataType<T, D>, B> data; // You can swap when filtering
   int axis = 0;
 
   // T is type of keys(ids) which will be returned when you post a query.
-  Leaf()
-  {
-    mbb = BB<D>();
-  }
-  Leaf(const int _axis)
-  {
+  Leaf() { mbb = BB<D>(); }
+  Leaf(const int _axis) {
     axis = _axis;
     mbb = BB<D>();
   }
 
   void set_axis(const int &_axis) { axis = _axis; }
 
-  void push(const T &key, const BB<D> &target)
-  {
+  void push(const T &key, const BB<D> &target) {
     data.emplace_back(key, target);
     update_mbb();
   }
 
-  void update_mbb()
-  {
+  void update_mbb() {
     mbb.clear();
-    for (const auto &datum : data)
-    {
+    for (const auto &datum : data) {
       mbb += datum.second;
     }
   }
 
-  bool filter(DataType<T, D> &value)
-  { // false means given value is ignored
-    auto comp = [=](const auto &a, const auto &b) noexcept
-    { return a.second.val_for_comp(axis) < b.second.val_for_comp(axis); };
+  bool filter(DataType<T, D> &value) { // false means given value is ignored
+    auto comp = [=](const auto &a, const auto &b) noexcept {
+      return a.second.val_for_comp(axis) < b.second.val_for_comp(axis);
+    };
 
-    if (data.size() < B)
-    { // if there is room, just push the candidate
+    if (data.size() < B) { // if there is room, just push the candidate
       auto iter = std::lower_bound(data.begin(), data.end(), value, comp);
       DataType<T, D> tmp_value = DataType<T, D>(value);
       data.insert(iter, std::move(tmp_value));
       mbb += value.second;
       return true;
-    }
-    else
-    { // if there is no room, check the priority and swap if needed
-      if (data[0].second.val_for_comp(axis) < value.second.val_for_comp(axis))
-      {
-        size_t n_swap = std::lower_bound(data.begin(), data.end(), value, comp) - data.begin();
+    } else { // if there is no room, check the priority and swap if needed
+      if (data[0].second.val_for_comp(axis) < value.second.val_for_comp(axis)) {
+        size_t n_swap =
+            std::lower_bound(data.begin(), data.end(), value, comp) -
+            data.begin();
         std::swap(*data.begin(), value);
         auto iter = data.begin();
-        for (size_t i = 0; i < n_swap - 1; ++i)
-        {
+        for (size_t i = 0; i < n_swap - 1; ++i) {
           std::swap(*(iter + i), *(iter + i + 1));
         }
         update_mbb();
@@ -370,65 +312,50 @@ public:
   }
 };
 
-template <class T, int B = 6, int D = 2>
-class PseudoPRTreeNode
-{
+template <class T, int B = 6, int D = 2> class PseudoPRTreeNode {
 public:
   Leaf<T, B, D> leaves[2 * D];
   std::unique_ptr<PseudoPRTreeNode> left, right;
 
-  PseudoPRTreeNode()
-  {
-    for (int i = 0; i < 2 * D; i++)
-    {
+  PseudoPRTreeNode() {
+    for (int i = 0; i < 2 * D; i++) {
       leaves[i].set_axis(i);
     }
   }
-  PseudoPRTreeNode(const int axis)
-  {
-    for (int i = 0; i < 2 * D; i++)
-    {
+  PseudoPRTreeNode(const int axis) {
+    for (int i = 0; i < 2 * D; i++) {
       const int j = (axis + i) % (2 * D);
       leaves[i].set_axis(j);
     }
   }
 
-  template <class Archive>
-  void serialize(Archive &archive)
-  {
+  template <class Archive> void serialize(Archive &archive) {
     // archive(cereal::(left), cereal::defer(right), leaves);
     archive(left, right, leaves);
   }
 
-  void address_of_leaves(vec<Leaf<T, B, D> *> &out)
-  {
-    for (auto &leaf : leaves)
-    {
-      if (leaf.data.size() > 0)
-      {
+  void address_of_leaves(vec<Leaf<T, B, D> *> &out) {
+    for (auto &leaf : leaves) {
+      if (leaf.data.size() > 0) {
         out.emplace_back(&leaf);
       }
     }
   }
 
-  template <class iterator>
-  auto filter(const iterator &b, const iterator &e)
-  {
-    auto out = std::remove_if(b, e, [&](auto &x)
-                              {
+  template <class iterator> auto filter(const iterator &b, const iterator &e) {
+    auto out = std::remove_if(b, e, [&](auto &x) {
       for (auto &l : leaves) {
         if (l.filter(x)) {
           return true;
         }
       }
-      return false; });
+      return false;
+    });
     return out;
   }
 };
 
-template <class T, int B = 6, int D = 2>
-class PseudoPRTree
-{
+template <class T, int B = 6, int D = 2> class PseudoPRTree {
 public:
   std::unique_ptr<PseudoPRTreeNode<T, B, D>> root;
   vec<Leaf<T, B, D> *> cache_children;
@@ -436,30 +363,23 @@ public:
 
   PseudoPRTree() { root = std::make_unique<PseudoPRTreeNode<T, B, D>>(); }
 
-  template <class iterator>
-  PseudoPRTree(const iterator &b, const iterator &e)
-  {
-    if (!root)
-    {
+  template <class iterator> PseudoPRTree(const iterator &b, const iterator &e) {
+    if (!root) {
       root = std::make_unique<PseudoPRTreeNode<T, B, D>>();
     }
     construct(root.get(), b, e, 0);
     clean_data<T, D>(b, e);
   }
 
-  template <class Archive>
-  void serialize(Archive &archive)
-  {
+  template <class Archive> void serialize(Archive &archive) {
     archive(root);
     // archive.serializeDeferments();
   }
 
   template <class iterator>
-  void construct(PseudoPRTreeNode<T, B, D> *node, const iterator &b, const iterator &e,
-                 const int depth)
-  {
-    if (e - b > 0 && node != nullptr)
-    {
+  void construct(PseudoPRTreeNode<T, B, D> *node, const iterator &b,
+                 const iterator &e, const int depth) {
+    if (e - b > 0 && node != nullptr) {
       bool use_recursive_threads = std::pow(2, depth + 1) <= nthreads;
 #ifdef MY_DEBUG
       use_recursive_threads = false;
@@ -475,59 +395,44 @@ public:
       std::advance(m, (ee - b) / 2);
       std::nth_element(b, m, ee,
                        [axis](const DataType<T, D> &lhs,
-                              const DataType<T, D> &rhs) noexcept
-                       {
+                              const DataType<T, D> &rhs) noexcept {
                          return lhs.second[axis] < rhs.second[axis];
                        });
 
-      if (m - b > 0)
-      {
+      if (m - b > 0) {
         node->left = std::make_unique<PseudoPRTreeNode<T, B, D>>(axis);
         node_left = node->left.get();
-        if (use_recursive_threads)
-        {
+        if (use_recursive_threads) {
           threads.push_back(
-              std::thread([&]()
-                          { construct(node_left, b, m, depth + 1); }));
-        }
-        else
-        {
+              std::thread([&]() { construct(node_left, b, m, depth + 1); }));
+        } else {
           construct(node_left, b, m, depth + 1);
         }
       }
-      if (ee - m > 0)
-      {
+      if (ee - m > 0) {
         node->right = std::make_unique<PseudoPRTreeNode<T, B, D>>(axis);
         node_right = node->right.get();
-        if (use_recursive_threads)
-        {
+        if (use_recursive_threads) {
           threads.push_back(
-              std::thread([&]()
-                          { construct(node_right, m, ee, depth + 1); }));
-        }
-        else
-        {
+              std::thread([&]() { construct(node_right, m, ee, depth + 1); }));
+        } else {
           construct(node_right, m, ee, depth + 1);
         }
       }
       std::for_each(threads.begin(), threads.end(),
-                    [&](std::thread &x)
-                    { x.join(); });
+                    [&](std::thread &x) { x.join(); });
     }
   }
 
-  auto get_all_leaves(const int hint)
-  {
-    if (cache_children.empty())
-    {
+  auto get_all_leaves(const int hint) {
+    if (cache_children.empty()) {
       using U = PseudoPRTreeNode<T, B, D>;
       cache_children.reserve(hint);
       auto node = root.get();
       queue<U *> que;
       que.emplace(node);
 
-      while (!que.empty())
-      {
+      while (!que.empty()) {
         node = que.front();
         que.pop();
         node->address_of_leaves(cache_children);
@@ -540,110 +445,84 @@ public:
     return cache_children;
   }
 
-  std::pair<DataType<T, D> *, DataType<T, D> *> as_X(void *placement, const int hint)
-  {
+  std::pair<DataType<T, D> *, DataType<T, D> *> as_X(void *placement,
+                                                     const int hint) {
     DataType<T, D> *b, *e;
     auto children = get_all_leaves(hint);
     T total = children.size();
     b = reinterpret_cast<DataType<T, D> *>(placement);
     e = b + total;
-    for (T i = 0; i < total; i++)
-    {
+    for (T i = 0; i < total; i++) {
       new (b + i) DataType<T, D>{i, children[i]->mbb};
     }
     return {b, e};
   }
 };
 
-template <class T, int B = 6, int D = 2>
-class PRTreeLeaf
-{
+template <class T, int B = 6, int D = 2> class PRTreeLeaf {
 public:
   BB<D> mbb;
   svec<DataType<T, D>, B> data;
 
-  PRTreeLeaf()
-  {
-    mbb = BB<D>();
-  }
+  PRTreeLeaf() { mbb = BB<D>(); }
 
-  PRTreeLeaf(const Leaf<T, B, D> &leaf)
-  {
+  PRTreeLeaf(const Leaf<T, B, D> &leaf) {
     mbb = leaf.mbb;
     data = leaf.data;
   }
 
-  Real area() const
-  {
-    return mbb.area();
-  }
+  Real area() const { return mbb.area(); }
 
-  void update_mbb()
-  {
+  void update_mbb() {
     mbb.clear();
-    for (const auto &datum : data)
-    {
+    for (const auto &datum : data) {
       mbb += datum.second;
     }
   }
 
-  void operator()(const BB<D> &target, vec<T> &out) const
-  {
-    if (mbb(target))
-    {
-      for (const auto &x : data)
-      {
-        if (x.second(target))
-        {
+  void operator()(const BB<D> &target, vec<T> &out) const {
+    if (mbb(target)) {
+      for (const auto &x : data) {
+        if (x.second(target)) {
           out.emplace_back(x.first);
         }
       }
     }
   }
 
-  void del(const T &key, const BB<D> &target)
-  {
-    if (mbb(target))
-    {
+  void del(const T &key, const BB<D> &target) {
+    if (mbb(target)) {
       auto remove_it =
-          std::remove_if(data.begin(), data.end(), [&](auto &datum)
-                         { return datum.second(target) && datum.first == key; });
+          std::remove_if(data.begin(), data.end(), [&](auto &datum) {
+            return datum.second(target) && datum.first == key;
+          });
       data.erase(remove_it, data.end());
     }
   }
 
-  void push(const T &key, const BB<D> &target)
-  {
+  void push(const T &key, const BB<D> &target) {
     data.emplace_back(key, target);
     update_mbb();
   }
 
-  template <class Archive>
-  void save(Archive &ar) const
-  {
+  template <class Archive> void save(Archive &ar) const {
     vec<DataType<T, D>> _data;
-    for (const auto &datum : data)
-    {
+    for (const auto &datum : data) {
       _data.push_back(datum);
     }
     ar(mbb, _data);
   }
 
-  template <class Archive>
-  void load(Archive &ar)
-  {
+  template <class Archive> void load(Archive &ar) {
     vec<DataType<T, D>> _data;
     ar(mbb, _data);
-    for (const auto &datum : _data)
-    {
+    for (const auto &datum : _data) {
       data.push_back(datum);
     }
   }
 };
 
-template <class T, int B = 6, int D = 2>
-class PRTreeNode
-{
+template <class T, int B = 6, int D = 2> class PRTreeNode {
 public:
   BB<D> mbb;
   std::unique_ptr<Leaf<T, B, D>> leaf;
@@ -654,8 +533,7 @@ public:
 
   PRTreeNode(BB<D> &&_mbb) noexcept { mbb = std::move(_mbb); }
 
-  PRTreeNode(Leaf<T, B, D> *l)
-  {
+  PRTreeNode(Leaf<T, B, D> *l) {
     leaf = std::make_unique<Leaf<T, B, D>>();
     mbb = l->mbb;
     leaf->mbb = std::move(l->mbb);
@@ -665,25 +543,20 @@ public:
   bool operator()(const BB<D> &target) { return mbb(target); }
 };
 
-template <class T, int B = 6, int D = 2>
-class PRTreeElement
-{
+template <class T, int B = 6, int D = 2> class PRTreeElement {
 public:
   BB<D> mbb;
   std::unique_ptr<PRTreeLeaf<T, B, D>> leaf;
   bool is_used = false;
 
-  PRTreeElement()
-  {
+  PRTreeElement() {
     mbb = BB<D>();
     is_used = false;
   }
 
-  PRTreeElement(const PRTreeNode<T, B, D> &node)
-  {
+  PRTreeElement(const PRTreeNode<T, B, D> &node) {
     mbb = BB<D>(node.mbb);
-    if (node.leaf)
-    {
+    if (node.leaf) {
       Leaf<T, B, D> tmp_leaf = Leaf<T, B, D>(*node.leaf.get());
       leaf = std::make_unique<PRTreeLeaf<T, B, D>>(tmp_leaf);
     }
@@ -692,23 +565,20 @@ public:
 
   bool operator()(const BB<D> &target) { return is_used && mbb(target); }
 
-  template <class Archive>
-  void serialize(Archive &archive)
-  {
+  template <class Archive> void serialize(Archive &archive) {
     archive(mbb, leaf, is_used);
   }
 };
 
 template <class T, int B = 6, int D = 2>
-void bfs(const std::function<void(std::unique_ptr<PRTreeLeaf<T, B, D>> &)> &func, vec<PRTreeElement<T, B, D>> &flat_tree, const BB<D> target)
-{
+void bfs(
+    const std::function<void(std::unique_ptr<PRTreeLeaf<T, B, D>> &)> &func,
+    vec<PRTreeElement<T, B, D>> &flat_tree, const BB<D> target) {
   queue<size_t> que;
-  auto qpush_if_intersect = [&](const size_t &i)
-  {
+  auto qpush_if_intersect = [&](const size_t &i) {
     PRTreeElement<T, B, D> &r = flat_tree[i];
     // std::cout << "i " << (long int) i << " : " << (bool) r.leaf << std::endl;
-    if (r(target))
-    {
+    if (r(target)) {
       // std::cout << " is pushed" << std::endl;
       que.emplace(i);
     }
@@ -716,22 +586,17 @@ void bfs(const std::function<void(std::unique_ptr<PRTreeLeaf<T, B, D>> &)> &func
 
   // std::cout << "size: " << flat_tree.size() << std::endl;
   qpush_if_intersect(0);
-  while (!que.empty())
-  {
+  while (!que.empty()) {
     size_t idx = que.front();
     // std::cout << "idx: " << (long int) idx << std::endl;
     que.pop();
     PRTreeElement<T, B, D> &elem = flat_tree[idx];
 
-    if (elem.leaf)
-    {
+    if (elem.leaf) {
       // std::cout << "func called for " << (long int) idx << std::endl;
       func(elem.leaf);
-    }
-    else
-    {
-      for (size_t offset = 0; offset < B; offset++)
-      {
+    } else {
+      for (size_t offset = 0; offset < B; offset++) {
         size_t jdx = idx * B + offset + 1;
         qpush_if_intersect(jdx);
       }
@@ -739,28 +604,24 @@ void bfs(const std::function<void(std::unique_ptr<PRTreeLeaf<T, B, D>> &)> &func
   }
 }
 
-template <class T, int B = 6, int D = 2>
-class PRTree
-{
+template <class T, int B = 6, int D = 2> class PRTree {
 private:
   vec<PRTreeElement<T, B, D>> flat_tree;
   std::unordered_map<T, BB<D>> idx2bb;
   std::unordered_map<T, std::string> idx2data;
   int64_t n_at_build = 0;
   std::atomic<T> global_idx = 0;
-  
-  // Double-precision storage for exact refinement (optional, only when built from float64)
+
+  // Double-precision storage for exact refinement (optional, only when built
+  // from float64)
   std::unordered_map<T, std::array<double, 2 * D>> idx2exact;
 
 public:
-  template <class Archive>
-  void serialize(Archive &archive)
-  {
+  template <class Archive> void serialize(Archive &archive) {
     archive(flat_tree, idx2bb, idx2data, global_idx, n_at_build, idx2exact);
   }
 
-  void save(std::string fname)
-  {
+  void save(std::string fname) {
     {
       {
         std::ofstream ofs(fname, std::ios::binary);
@@ -775,8 +636,7 @@ public:
     }
   }
 
-  void load(std::string fname)
-  {
+  void load(std::string fname) {
     {
       {
         std::ifstream ifs(fname, std::ios::binary);
@@ -795,43 +655,39 @@ public:
 
   PRTree(std::string fname) { load(fname); }
 
-  // Helper: Validate bounding box coordinates (reject NaN/Inf, enforce min <= max)
-  template<typename CoordType>
-  void validate_box(const CoordType* coords, int dim_count) const
-  {
-    for (int i = 0; i < dim_count; ++i)
-    {
+  // Helper: Validate bounding box coordinates (reject NaN/Inf, enforce min <=
+  // max)
+  template <typename CoordType>
+  void validate_box(const CoordType *coords, int dim_count) const {
+    for (int i = 0; i < dim_count; ++i) {
       CoordType min_val = coords[i];
       CoordType max_val = coords[i + dim_count];
-      
+
       // Check for NaN or Inf
-      if (!std::isfinite(min_val) || !std::isfinite(max_val))
-      {
-        throw std::runtime_error("Bounding box coordinates must be finite (no NaN or Inf)");
+      if (!std::isfinite(min_val) || !std::isfinite(max_val)) {
+        throw std::runtime_error(
+            "Bounding box coordinates must be finite (no NaN or Inf)");
       }
-      
+
       // Enforce min <= max
-      if (min_val > max_val)
-      {
-        throw std::runtime_error("Bounding box minimum must be <= maximum in each dimension");
+      if (min_val > max_val) {
+        throw std::runtime_error(
+            "Bounding box minimum must be <= maximum in each dimension");
       }
     }
   }
 
   // Constructor for float32 input (no refinement, pure float32 performance)
-  PRTree(const py::array_t<T> &idx, const py::array_t<float> &x)
-  {
+  PRTree(const py::array_t<T> &idx, const py::array_t<float> &x) {
     const auto &buff_info_idx = idx.request();
     const auto &shape_idx = buff_info_idx.shape;
     const auto &buff_info_x = x.request();
     const auto &shape_x = buff_info_x.shape;
-    if (unlikely(shape_idx[0] != shape_x[0]))
-    {
+    if (unlikely(shape_idx[0] != shape_x[0])) {
       throw std::runtime_error(
           "Both index and boudning box must have the same length");
     }
-    if (unlikely(shape_x[1] != 2 * D))
-    {
+    if (unlikely(shape_x[1] != 2 * D)) {
       throw std::runtime_error(
           "Bounding box must have the shape (length, 2 * dim)");
     }
@@ -847,37 +703,32 @@ public:
     b = reinterpret_cast<DataType<T, D> *>(placement);
     e = b + length;
 
-    for (T i = 0; i < length; i++)
-    {
+    for (T i = 0; i < length; i++) {
       Real minima[D];
       Real maxima[D];
-      
-      for (int j = 0; j < D; ++j)
-      {
-        minima[j] = rx(i, j);  // Direct float32 assignment
+
+      for (int j = 0; j < D; ++j) {
+        minima[j] = rx(i, j); // Direct float32 assignment
         maxima[j] = rx(i, j + D);
       }
-      
+
       // Validate bounding box (reject NaN/Inf, enforce min <= max)
       float coords[2 * D];
-      for (int j = 0; j < D; ++j)
-      {
+      for (int j = 0; j < D; ++j) {
         coords[j] = minima[j];
         coords[j + D] = maxima[j];
       }
       validate_box(coords, D);
-      
+
       auto bb = BB<D>(minima, maxima);
       auto ri_i = ri(i);
       new (b + i) DataType<T, D>{std::move(ri_i), std::move(bb)};
     }
 
-    for (T i = 0; i < length; i++)
-    {
+    for (T i = 0; i < length; i++) {
       Real minima[D];
       Real maxima[D];
-      for (int j = 0; j < D; ++j)
-      {
+      for (int j = 0; j < D; ++j) {
         minima[j] = rx(i, j);
         maxima[j] = rx(i, j + D);
       }
@@ -890,19 +741,16 @@ public:
   }
 
   // Constructor for float64 input (float32 tree + double refinement)
-  PRTree(const py::array_t<T> &idx, const py::array_t<double> &x)
-  {
+  PRTree(const py::array_t<T> &idx, const py::array_t<double> &x) {
     const auto &buff_info_idx = idx.request();
     const auto &shape_idx = buff_info_idx.shape;
     const auto &buff_info_x = x.request();
     const auto &shape_x = buff_info_x.shape;
-    if (unlikely(shape_idx[0] != shape_x[0]))
-    {
+    if (unlikely(shape_idx[0] != shape_x[0])) {
       throw std::runtime_error(
           "Both index and boudning box must have the same length");
     }
-    if (unlikely(shape_x[1] != 2 * D))
-    {
+    if (unlikely(shape_x[1] != 2 * D)) {
       throw std::runtime_error(
           "Bounding box must have the shape (length, 2 * dim)");
     }
@@ -911,49 +759,45 @@ public:
     auto rx = x.template unchecked<2>();
     T length = shape_idx[0];
     idx2bb.reserve(length);
-    idx2exact.reserve(length);  // Reserve space for exact coordinates
+    idx2exact.reserve(length); // Reserve space for exact coordinates
 
     DataType<T, D> *b, *e;
     void *placement = std::malloc(sizeof(DataType<T, D>) * length);
     b = reinterpret_cast<DataType<T, D> *>(placement);
     e = b + length;
 
-    for (T i = 0; i < length; i++)
-    {
+    for (T i = 0; i < length; i++) {
       Real minima[D];
       Real maxima[D];
       std::array<double, 2 * D> exact_coords;
-      
-      for (int j = 0; j < D; ++j)
-      {
+
+      for (int j = 0; j < D; ++j) {
         double val_min = rx(i, j);
         double val_max = rx(i, j + D);
-        exact_coords[j] = val_min;  // Store exact double for refinement
+        exact_coords[j] = val_min; // Store exact double for refinement
         exact_coords[j + D] = val_max;
       }
-      
-      // Validate bounding box with double precision (reject NaN/Inf, enforce min <= max)
+
+      // Validate bounding box with double precision (reject NaN/Inf, enforce
+      // min <= max)
       validate_box(exact_coords.data(), D);
-      
+
       // Convert to float32 for tree after validation
-      for (int j = 0; j < D; ++j)
-      {
+      for (int j = 0; j < D; ++j) {
         minima[j] = static_cast<Real>(exact_coords[j]);
         maxima[j] = static_cast<Real>(exact_coords[j + D]);
       }
-      
+
       auto bb = BB<D>(minima, maxima);
       auto ri_i = ri(i);
-      idx2exact[ri_i] = exact_coords;  // Store exact coordinates
+      idx2exact[ri_i] = exact_coords; // Store exact coordinates
       new (b + i) DataType<T, D>{std::move(ri_i), std::move(bb)};
     }
 
-    for (T i = 0; i < length; i++)
-    {
+    for (T i = 0; i < length; i++) {
       Real minima[D];
       Real maxima[D];
-      for (int j = 0; j < D; ++j)
-      {
+      for (int j = 0; j < D; ++j) {
         minima[j] = static_cast<Real>(rx(i, j));
         maxima[j] = static_cast<Real>(rx(i, j + D));
       }
@@ -965,29 +809,26 @@ public:
     std::free(placement);
   }
 
-  void set_obj(const T &idx, std::optional<std::string> objdumps = std::nullopt)
-  {
-    if (objdumps)
-    {
+  void set_obj(const T &idx,
+               std::optional<std::string> objdumps = std::nullopt) {
+    if (objdumps) {
       auto val = objdumps.value();
       idx2data.emplace(idx, compress(val));
     }
   }
 
-  py::object get_obj(const T &idx)
-  {
+  py::object get_obj(const T &idx) {
     py::object obj = py::none();
     auto search = idx2data.find(idx);
-    if (likely(search != idx2data.end()))
-    {
+    if (likely(search != idx2data.end())) {
       auto val = idx2data.at(idx);
       obj = py::cast<py::object>(py::bytes(decompress(val)));
     }
     return obj;
   }
 
-  void insert(const T &idx, const py::array_t<float> &x, const std::optional<std::string> objdumps = std::nullopt)
-  {
+  void insert(const T &idx, const py::array_t<float> &x,
+              const std::optional<std::string> objdumps = std::nullopt) {
 #ifdef MY_DEBUG
     ProfilerStart("insert.prof");
     std::cout << "profiler start of insert" << std::endl;
@@ -998,20 +839,17 @@ public:
     const auto &buff_info_x = x.request();
     const auto &shape_x = buff_info_x.shape;
     const auto &ndim = buff_info_x.ndim;
-    if (unlikely((shape_x[0] != 2 * D || ndim != 1)))
-    {
+    if (unlikely((shape_x[0] != 2 * D || ndim != 1))) {
       throw std::runtime_error("invalid shape.");
     }
     auto it = idx2bb.find(idx);
-    if (unlikely(it != idx2bb.end()))
-    {
+    if (unlikely(it != idx2bb.end())) {
       throw std::runtime_error("Given index is already included.");
     }
     {
       Real minima[D];
       Real maxima[D];
-      for (int i = 0; i < D; ++i)
-      {
+      for (int i = 0; i < D; ++i) {
         minima[i] = *x.data(i);
         maxima[i] = *x.data(i + D);
       }
@@ -1021,48 +859,38 @@ public:
     set_obj(idx, objdumps);
 
     Real delta[D];
-    for (int i = 0; i < D; ++i)
-    {
+    for (int i = 0; i < D; ++i) {
       delta[i] = bb.max(i) - bb.min(i) + 0.00000001;
     }
 
     // find the leaf node to insert
     Real c = 0.0;
     size_t count = flat_tree.size();
-    while (cands.empty())
-    {
+    while (cands.empty()) {
       Real d[D];
-      for (int i = 0; i < D; ++i)
-      {
+      for (int i = 0; i < D; ++i) {
         d[i] = delta[i] * c;
       }
       bb.expand(d);
       c = (c + 1) * 2;
 
       queue<size_t> que;
-      auto qpush_if_intersect = [&](const size_t &i)
-      {
-        if (flat_tree[i](bb))
-        {
+      auto qpush_if_intersect = [&](const size_t &i) {
+        if (flat_tree[i](bb)) {
           que.emplace(i);
         }
       };
 
       qpush_if_intersect(0);
-      while (!que.empty())
-      {
+      while (!que.empty()) {
         size_t i = que.front();
         que.pop();
         PRTreeElement<T, B, D> &elem = flat_tree[i];
 
-        if (elem.leaf && elem.leaf->mbb(bb))
-        {
+        if (elem.leaf && elem.leaf->mbb(bb)) {
           cands.push_back(i);
-        }
-        else
-        {
-          for (size_t offset = 0; offset < B; offset++)
-          {
+        } else {
+          for (size_t offset = 0; offset < B; offset++) {
             size_t j = i * B + offset + 1;
             if (j < count)
               qpush_if_intersect(j);
@@ -1077,22 +905,17 @@ public:
     // Now cands is the list of candidate leaf nodes to insert
     bb = idx2bb.at(idx);
     size_t min_leaf = 0;
-    if (cands.size() == 1)
-    {
+    if (cands.size() == 1) {
       min_leaf = cands[0];
-    }
-    else
-    {
+    } else {
       Real min_diff_area = 1e100;
-      for (const auto &i : cands)
-      {
+      for (const auto &i : cands) {
         PRTreeLeaf<T, B, D> *leaf = flat_tree[i].leaf.get();
         PRTreeLeaf<T, B, D> tmp_leaf = PRTreeLeaf<T, B, D>(*leaf);
         Real diff_area = -tmp_leaf.area();
         tmp_leaf.push(idx, bb);
         diff_area += tmp_leaf.area();
-        if (diff_area < min_diff_area)
-        {
+        if (diff_area < min_diff_area) {
           min_diff_area = diff_area;
           min_leaf = i;
         }
@@ -1101,15 +924,13 @@ public:
     flat_tree[min_leaf].leaf->push(idx, bb);
     // update mbbs of all cands and their parents
     size_t i = min_leaf;
-    while (true)
-    {
+    while (true) {
       PRTreeElement<T, B, D> &elem = flat_tree[i];
 
       if (elem.leaf)
         elem.mbb += elem.leaf->mbb;
 
-      if (i > 0)
-      {
+      if (i > 0) {
         size_t j = (i - 1) / B;
         flat_tree[j].mbb += flat_tree[i].mbb;
       }
@@ -1118,8 +939,7 @@ public:
       i = (i - 1) / B;
     }
 
-    if (size() > REBUILD_THRE * n_at_build)
-    {
+    if (size() > REBUILD_THRE * n_at_build) {
       rebuild();
     }
 #ifdef MY_DEBUG
@@ -1128,8 +948,7 @@ public:
 #endif
   }
 
-  void rebuild()
-  {
+  void rebuild() {
     std::stack<size_t> sta;
     T length = idx2bb.size();
     DataType<T, D> *b, *e;
@@ -1140,28 +959,21 @@ public:
 
     T i = 0;
     sta.push(0);
-    while (!sta.empty())
-    {
+    while (!sta.empty()) {
       size_t idx = sta.top();
       sta.pop();
 
       PRTreeElement<T, B, D> &elem = flat_tree[idx];
 
-      if (elem.leaf)
-      {
-        for (const auto &datum : elem.leaf->data)
-        {
+      if (elem.leaf) {
+        for (const auto &datum : elem.leaf->data) {
           new (b + i) DataType<T, D>{datum.first, datum.second};
           i++;
         }
-      }
-      else
-      {
-        for (size_t offset = 0; offset < B; offset++)
-        {
+      } else {
+        for (size_t offset = 0; offset < B; offset++) {
           size_t jdx = idx * B + offset + 1;
-          if (likely(flat_tree[jdx].is_used))
-          {
+          if (likely(flat_tree[jdx].is_used)) {
             sta.push(jdx);
           }
         }
@@ -1173,8 +985,7 @@ public:
   }
 
   template <class iterator>
-  void build(const iterator &b, const iterator &e, void *placement)
-  {
+  void build(const iterator &b, const iterator &e, void *placement) {
 #ifdef MY_DEBUG
     ProfilerStart("build.prof");
     std::cout << "profiler start of build" << std::endl;
@@ -1187,14 +998,12 @@ public:
 
       auto first_tree = PseudoPRTree<T, B, D>(b, e);
       auto first_leaves = first_tree.get_all_leaves(e - b);
-      for (auto &leaf : first_leaves)
-      {
+      for (auto &leaf : first_leaves) {
         auto pp = std::make_unique<PRTreeNode<T, B, D>>(leaf);
         prev_nodes.push_back(std::move(pp));
       }
       auto [bb, ee] = first_tree.as_X(placement, e - b);
-      while (prev_nodes.size() > 1)
-      {
+      while (prev_nodes.size() > 1) {
         auto tree = PseudoPRTree<T, B, D>(bb, ee);
         auto leaves = tree.get_all_leaves(ee - bb);
         auto leaves_size = leaves.size();
@@ -1202,43 +1011,35 @@ public:
         vec<std::unique_ptr<PRTreeNode<T, B, D>>> tmp_nodes;
         tmp_nodes.reserve(leaves_size);
 
-        for (auto &leaf : leaves)
-        {
+        for (auto &leaf : leaves) {
           int idx, jdx;
           int len = leaf->data.size();
           auto pp = std::make_unique<PRTreeNode<T, B, D>>(leaf->mbb);
-          if (likely(!leaf->data.empty()))
-          {
-            for (int i = 1; i < len; i++)
-            {
+          if (likely(!leaf->data.empty())) {
+            for (int i = 1; i < len; i++) {
               idx = leaf->data[len - i - 1].first; // reversed way
               jdx = leaf->data[len - i].first;
               prev_nodes[idx]->next = std::move(prev_nodes[jdx]);
             }
             idx = leaf->data[0].first;
             pp->head = std::move(prev_nodes[idx]);
-            if (unlikely(!pp->head))
-            {
+            if (unlikely(!pp->head)) {
               throw std::runtime_error("ppp");
             }
             tmp_nodes.push_back(std::move(pp));
-          }
-          else
-          {
+          } else {
             throw std::runtime_error("what????");
           }
         }
 
         prev_nodes.swap(tmp_nodes);
-        if (prev_nodes.size() > 1)
-        {
+        if (prev_nodes.size() > 1) {
           auto tmp = tree.as_X(placement, ee - bb);
           bb = std::move(tmp.first);
           ee = std::move(tmp.second);
         }
       }
-      if (unlikely(prev_nodes.size() != 1))
-      {
+      if (unlikely(prev_nodes.size() != 1)) {
         throw std::runtime_error("#roots is not 1.");
       }
       root = std::move(prev_nodes[0]);
@@ -1251,8 +1052,7 @@ public:
       int depth = 0;
 
       p = root.get();
-      while (p->head)
-      {
+      while (p->head) {
         p = p->head.get();
         depth++;
       }
@@ -1262,8 +1062,7 @@ public:
         flat_tree.clear();
         flat_tree.shrink_to_fit();
         size_t count = 0;
-        for (int i = 0; i <= depth; i++)
-        {
+        for (int i = 0; i <= depth; i++) {
           count += std::pow(B, depth);
         }
         flat_tree.resize(count);
@@ -1271,8 +1070,7 @@ public:
 
       // assign
       que.emplace(root.get(), 0);
-      while (!que.empty())
-      {
+      while (!que.empty()) {
         auto tmp = que.front();
         que.pop();
         p = tmp.first;
@@ -1280,15 +1078,13 @@ public:
 
         flat_tree[idx] = PRTreeElement(*p);
         size_t child_idx = 0;
-        if (p->head)
-        {
+        if (p->head) {
           size_t jdx = idx * B + child_idx + 1;
           ++child_idx;
 
           q = p->head.get();
           que.emplace(q, jdx);
-          while (q->next)
-          {
+          while (q->next) {
             jdx = idx * B + child_idx + 1;
             ++child_idx;
 
@@ -1305,8 +1101,7 @@ public:
 #endif
   }
 
-  auto find_all(const py::array_t<float> &x)
-  {
+  auto find_all(const py::array_t<float> &x) {
 #ifdef MY_DEBUG
     ProfilerStart("find_all.prof");
     std::cout << "profiler start of find_all" << std::endl;
@@ -1315,75 +1110,55 @@ public:
     const auto &ndim = buff_info_x.ndim;
     const auto &shape_x = buff_info_x.shape;
     bool is_point = false;
-    if (unlikely(ndim == 1 && (!(shape_x[0] == 2 * D || shape_x[0] == D))))
-    {
+    if (unlikely(ndim == 1 && (!(shape_x[0] == 2 * D || shape_x[0] == D)))) {
       throw std::runtime_error("Invalid Bounding box size");
     }
-    if (unlikely((ndim == 2 && (!(shape_x[1] == 2 * D || shape_x[1] == D)))))
-    {
+    if (unlikely((ndim == 2 && (!(shape_x[1] == 2 * D || shape_x[1] == D))))) {
       throw std::runtime_error(
           "Bounding box must have the shape (length, 2 * dim)");
     }
-    if (unlikely(ndim > 3))
-    {
+    if (unlikely(ndim > 3)) {
       throw std::runtime_error("invalid shape");
     }
 
-    if (ndim == 1)
-    {
-      if (shape_x[0] == D)
-      {
+    if (ndim == 1) {
+      if (shape_x[0] == D) {
         is_point = true;
       }
-    }
-    else
-    {
-      if (shape_x[1] == D)
-      {
+    } else {
+      if (shape_x[1] == D) {
         is_point = true;
       }
     }
     vec<BB<D>> X;
     X.reserve(ndim == 1 ? 1 : shape_x[0]);
     BB<D> bb;
-    if (ndim == 1)
-    {
+    if (ndim == 1) {
       {
         Real minima[D];
         Real maxima[D];
-        for (int i = 0; i < D; ++i)
-        {
+        for (int i = 0; i < D; ++i) {
           minima[i] = *x.data(i);
-          if (is_point)
-          {
+          if (is_point) {
             maxima[i] = minima[i];
-          }
-          else
-          {
+          } else {
             maxima[i] = *x.data(i + D);
           }
         }
         bb = BB<D>(minima, maxima);
       }
       X.push_back(std::move(bb));
-    }
-    else
-    {
+    } else {
       X.reserve(shape_x[0]);
-      for (long int i = 0; i < shape_x[0]; i++)
-      {
+      for (long int i = 0; i < shape_x[0]; i++) {
         {
           Real minima[D];
           Real maxima[D];
-          for (int j = 0; j < D; ++j)
-          {
+          for (int j = 0; j < D; ++j) {
             minima[j] = *x.data(i, j);
-            if (is_point)
-            {
+            if (is_point) {
               maxima[j] = minima[j];
-            }
-            else
-            {
+            } else {
               maxima[j] = *x.data(i, j + D);
             }
           }
@@ -1395,88 +1170,71 @@ public:
     // Build exact query coordinates for refinement
     vec<std::array<double, 2 * D>> queries_exact;
     queries_exact.reserve(X.size());
-    
-    if (ndim == 1)
-    {
+
+    if (ndim == 1) {
       std::array<double, 2 * D> qe;
-      for (int i = 0; i < D; ++i)
-      {
+      for (int i = 0; i < D; ++i) {
         qe[i] = static_cast<double>(*x.data(i));
-        if (is_point)
-        {
+        if (is_point) {
           qe[i + D] = qe[i];
-        }
-        else
-        {
+        } else {
           qe[i + D] = static_cast<double>(*x.data(i + D));
         }
       }
       queries_exact.push_back(qe);
-    }
-    else
-    {
-      for (long int i = 0; i < shape_x[0]; i++)
-      {
+    } else {
+      for (long int i = 0; i < shape_x[0]; i++) {
         std::array<double, 2 * D> qe;
-        for (int j = 0; j < D; ++j)
-        {
+        for (int j = 0; j < D; ++j) {
           qe[j] = static_cast<double>(*x.data(i, j));
-          if (is_point)
-          {
+          if (is_point) {
             qe[j + D] = qe[j];
-          }
-          else
-          {
+          } else {
             qe[j + D] = static_cast<double>(*x.data(i, j + D));
           }
         }
         queries_exact.push_back(qe);
       }
     }
-    
+
     vec<vec<T>> out;
-    out.resize(X.size());  // Pre-size for index-based parallel access
+    out.resize(X.size()); // Pre-size for index-based parallel access
 #ifdef MY_DEBUG
-    for (size_t i = 0; i < X.size(); ++i)
-    {
+    for (size_t i = 0; i < X.size(); ++i) {
       auto candidates = find(X[i]);
       out[i] = refine_candidates(candidates, queries_exact[i]);
     }
 #else
     // Index-based parallel loop (safe, no pointer arithmetic)
     const size_t n_queries = X.size();
-    
+
     // Early return if no queries
-    if (n_queries == 0)
-    {
+    if (n_queries == 0) {
       return out;
     }
-    
+
     // Guard against hardware_concurrency() returning 0 (can happen on macOS)
     size_t hw = std::thread::hardware_concurrency();
     size_t n_threads = hw ? hw : 1;
     n_threads = std::min(n_threads, n_queries);
-    
+
     const size_t chunk_size = (n_queries + n_threads - 1) / n_threads;
-    
+
     vec<std::thread> threads;
     threads.reserve(n_threads);
-    
-    for (size_t t = 0; t < n_threads; ++t)
-    {
+
+    for (size_t t = 0; t < n_threads; ++t) {
       threads.emplace_back([&, t]() {
         size_t start = t * chunk_size;
         size_t end = std::min(start + chunk_size, n_queries);
-        for (size_t i = start; i < end; ++i)
-        {
+        for (size_t i = start; i < end; ++i) {
           auto candidates = find(X[i]);
           out[i] = refine_candidates(candidates, queries_exact[i]);
         }
       });
     }
-    
-    for (auto &thread : threads)
-    {
+
+    for (auto &thread : threads) {
       thread.join();
     }
 #endif
@@ -1487,108 +1245,91 @@ public:
     return out;
   }
 
-  auto find_all_array(const py::array_t<float> &x)
-  {
+  auto find_all_array(const py::array_t<float> &x) {
     return list_list_to_arrays(std::move(find_all(x)));
   }
 
-  auto find_one(const vec<float> &x)
-  {
+  auto find_one(const vec<float> &x) {
     bool is_point = false;
-    if (unlikely(!(x.size() == 2 * D || x.size() == D)))
-    {
+    if (unlikely(!(x.size() == 2 * D || x.size() == D))) {
       throw std::runtime_error("invalid shape");
     }
     Real minima[D];
     Real maxima[D];
     std::array<double, 2 * D> query_exact;
-    
-    if (x.size() == D)
-    {
+
+    if (x.size() == D) {
       is_point = true;
     }
-    for (int i = 0; i < D; ++i)
-    {
+    for (int i = 0; i < D; ++i) {
       minima[i] = x.at(i);
       query_exact[i] = static_cast<double>(x.at(i));
-      
-      if (is_point)
-      {
+
+      if (is_point) {
         maxima[i] = minima[i];
         query_exact[i + D] = query_exact[i];
-      }
-      else
-      {
+      } else {
         maxima[i] = x.at(i + D);
         query_exact[i + D] = static_cast<double>(x.at(i + D));
       }
     }
     const auto bb = BB<D>(minima, maxima);
     auto candidates = find(bb);
-    
+
     // Refine with double precision if exact coordinates are available
     auto out = refine_candidates(candidates, query_exact);
     return out;
   }
 
-  // Helper method: Check intersection with double precision (closed interval semantics)
-  bool intersects_exact(const std::array<double, 2 * D> &box_a, const std::array<double, 2 * D> &box_b) const
-  {
-    for (int i = 0; i < D; ++i)
-    {
+  // Helper method: Check intersection with double precision (closed interval
+  // semantics)
+  bool intersects_exact(const std::array<double, 2 * D> &box_a,
+                        const std::array<double, 2 * D> &box_b) const {
+    for (int i = 0; i < D; ++i) {
       double a_min = box_a[i];
       double a_max = box_a[i + D];
       double b_min = box_b[i];
       double b_max = box_b[i + D];
-      
+
       // Closed interval: boxes touch if a_max == b_min or b_max == a_min
-      if (a_min > b_max || b_min > a_max)
-      {
+      if (a_min > b_max || b_min > a_max) {
         return false;
       }
     }
     return true;
   }
-  
+
   // Refine candidates using double-precision coordinates
-  vec<T> refine_candidates(const vec<T> &candidates, const std::array<double, 2 * D> &query_exact) const
-  {
-    if (idx2exact.empty())
-    {
+  vec<T> refine_candidates(const vec<T> &candidates,
+                           const std::array<double, 2 * D> &query_exact) const {
+    if (idx2exact.empty()) {
       // No exact coordinates stored, return candidates as-is
       return candidates;
     }
-    
+
     vec<T> refined;
     refined.reserve(candidates.size());
-    
-    for (const T &idx : candidates)
-    {
+
+    for (const T &idx : candidates) {
       auto it = idx2exact.find(idx);
-      if (it != idx2exact.end())
-      {
+      if (it != idx2exact.end()) {
         // Check with double precision
-        if (intersects_exact(it->second, query_exact))
-        {
+        if (intersects_exact(it->second, query_exact)) {
           refined.push_back(idx);
         }
         // else: false positive from float32, filter it out
-      }
-      else
-      {
+      } else {
         // No exact coords for this item (e.g., inserted as float32), keep it
         refined.push_back(idx);
       }
     }
-    
+
     return refined;
   }
 
-  vec<T> find(const BB<D> &target)
-  {
+  vec<T> find(const BB<D> &target) {
     vec<T> out;
-    auto find_func = [&](std::unique_ptr<PRTreeLeaf<T, B, D>> &leaf)
-    {
+    auto find_func = [&](std::unique_ptr<PRTreeLeaf<T, B, D>> &leaf) {
       (*leaf)(target, out);
     };
 
@@ -1597,17 +1338,14 @@ public:
     return out;
   }
 
-  void erase(const T idx)
-  {
+  void erase(const T idx) {
     auto it = idx2bb.find(idx);
-    if (unlikely(it == idx2bb.end()))
-    {
+    if (unlikely(it == idx2bb.end())) {
       throw std::runtime_error("Given index is not found.");
     }
     BB<D> target = it->second;
 
-    auto erase_func = [&](std::unique_ptr<PRTreeLeaf<T, B, D>> &leaf)
-    {
+    auto erase_func = [&](std::unique_ptr<PRTreeLeaf<T, B, D>> &leaf) {
       leaf->del(idx, target);
     };
 
@@ -1615,15 +1353,172 @@ public:
 
     idx2bb.erase(idx);
     idx2data.erase(idx);
-    idx2exact.erase(idx);  // Also remove from exact coordinates if present
-    if (unlikely(REBUILD_THRE * size() < n_at_build))
-    {
+    idx2exact.erase(idx); // Also remove from exact coordinates if present
+    if (unlikely(REBUILD_THRE * size() < n_at_build)) {
       rebuild();
     }
   }
 
-  int64_t size()
-  {
-    return static_cast<int64_t>(idx2bb.size());
+  int64_t size() { return static_cast<int64_t>(idx2bb.size()); }
+
+  /**
+   * Find all pairs of intersecting AABBs in the tree.
+   * Returns a numpy array of shape (n_pairs, 2) where each row contains
+   * a pair of indices (i, j) with i < j representing intersecting AABBs.
+   *
+   * This method is optimized for performance by:
+   * - Using parallel processing for queries
+   * - Avoiding duplicate pairs by enforcing i < j
+   * - Performing intersection checks in C++ to minimize Python overhead
+   * - Using double-precision refinement when exact coordinates are available
+   *
+   * @return py::array_t<T> Array of shape (n_pairs, 2) containing index pairs
+   */
+  py::array_t<T> query_intersections() {
+    // Collect all indices and bounding boxes
+    vec<T> indices;
+    vec<BB<D>> bboxes;
+    vec<std::array<double, 2 * D>> exact_coords;
+
+    if (unlikely(idx2bb.empty())) {
+      // Return empty array of shape (0, 2)
+      vec<T> empty_data;
+      std::unique_ptr<vec<T>> data_ptr =
+          std::make_unique<vec<T>>(std::move(empty_data));
+      auto capsule = py::capsule(data_ptr.get(), [](void *p) {
+        std::unique_ptr<vec<T>>(reinterpret_cast<vec<T> *>(p));
+      });
+      data_ptr.release();
+      return py::array_t<T>({0, 2}, {2 * sizeof(T), sizeof(T)}, nullptr,
+                            capsule);
+    }
+
+    indices.reserve(idx2bb.size());
+    bboxes.reserve(idx2bb.size());
+    exact_coords.reserve(idx2bb.size());
+
+    for (const auto &pair : idx2bb) {
+      indices.push_back(pair.first);
+      bboxes.push_back(pair.second);
+
+      // Get exact coordinates if available
+      auto it = idx2exact.find(pair.first);
+      if (it != idx2exact.end()) {
+        exact_coords.push_back(it->second);
+      } else {
+        // Create dummy exact coords from float32 BB (won't be used for
+        // refinement)
+        std::array<double, 2 * D> dummy;
+        for (int i = 0; i < D; ++i) {
+          dummy[i] = static_cast<double>(pair.second.min(i));
+          dummy[i + D] = static_cast<double>(pair.second.max(i));
+        }
+        exact_coords.push_back(dummy);
+      }
+    }
+
+    const size_t n_items = indices.size();
+
+    // Use thread-local storage to collect pairs
+    // Guard against hardware_concurrency() returning 0 (can happen on some
+    // systems)
+    size_t hw = std::thread::hardware_concurrency();
+    size_t n_threads = hw ? hw : 1;
+    n_threads = std::min(n_threads, n_items);
+    vec<vec<std::pair<T, T>>> thread_pairs(n_threads);
+
+#ifdef MY_PARALLEL
+    vec<std::thread> threads;
+    threads.reserve(n_threads);
+
+    for (size_t t = 0; t < n_threads; ++t) {
+      threads.emplace_back([&, t]() {
+        vec<std::pair<T, T>> local_pairs;
+
+        for (size_t i = t; i < n_items; i += n_threads) {
+          const T idx_i = indices[i];
+          const BB<D> &bb_i = bboxes[i];
+
+          // Find all intersections with this bounding box
+          auto candidates = find(bb_i);
+
+          // Refine candidates using exact coordinates if available
+          if (!idx2exact.empty()) {
+            candidates = refine_candidates(candidates, exact_coords[i]);
+          }
+
+          // Keep only pairs where idx_i < idx_j to avoid duplicates
+          for (const T &idx_j : candidates) {
+            if (idx_i < idx_j) {
+              local_pairs.emplace_back(idx_i, idx_j);
+            }
+          }
+        }
+
+        thread_pairs[t] = std::move(local_pairs);
+      });
+    }
+
+    for (auto &thread : threads) {
+      thread.join();
+    }
+#else
+    // Single-threaded version
+    vec<std::pair<T, T>> local_pairs;
+
+    for (size_t i = 0; i < n_items; ++i) {
+      const T idx_i = indices[i];
+      const BB<D> &bb_i = bboxes[i];
+
+      // Find all intersections with this bounding box
+      auto candidates = find(bb_i);
+
+      // Refine candidates using exact coordinates if available
+      if (!idx2exact.empty()) {
+        candidates = refine_candidates(candidates, exact_coords[i]);
+      }
+
+      // Keep only pairs where idx_i < idx_j to avoid duplicates
+      for (const T &idx_j : candidates) {
+        if (idx_i < idx_j) {
+          local_pairs.emplace_back(idx_i, idx_j);
+        }
+      }
+    }
+
+    thread_pairs[0] = std::move(local_pairs);
+#endif
+
+    // Merge results from all threads into a flat vector
+    vec<T> flat_pairs;
+    size_t total_pairs = 0;
+    for (const auto &pairs : thread_pairs) {
+      total_pairs += pairs.size();
+    }
+    flat_pairs.reserve(total_pairs * 2);
+
+    for (const auto &pairs : thread_pairs) {
+      for (const auto &pair : pairs) {
+        flat_pairs.push_back(pair.first);
+        flat_pairs.push_back(pair.second);
+      }
+    }
+
+    // Create output numpy array using the same pattern as as_pyarray
+    auto data = flat_pairs.data();
+    std::unique_ptr<vec<T>> data_ptr =
+        std::make_unique<vec<T>>(std::move(flat_pairs));
+    auto capsule = py::capsule(data_ptr.get(), [](void *p) {
+      std::unique_ptr<vec<T>>(reinterpret_cast<vec<T> *>(p));
+    });
+    data_ptr.release();
+
+    // Return 2D array with shape (total_pairs, 2)
+    return py::array_t<T>(
+        {static_cast<py::ssize_t>(total_pairs), py::ssize_t(2)}, // shape
+        {2 * sizeof(T), sizeof(T)}, // strides (row-major)
+        data,                       // data pointer
+        capsule                     // capsule for cleanup
+    );
   }
 };

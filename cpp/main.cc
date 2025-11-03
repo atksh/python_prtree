@@ -9,8 +9,7 @@ using T = int64_t; // is a temporary type of template. You can change it and
                    // recompile this.
 const int B = 8;   // the number of children of tree.
 
-PYBIND11_MODULE(PRTree, m)
-{
+PYBIND11_MODULE(PRTree, m) {
   m.doc() = R"pbdoc(
         INCOMPLETE Priority R-Tree
         Only supports for construct and find
@@ -62,6 +61,12 @@ PYBIND11_MODULE(PRTree, m)
         )pbdoc")
       .def("size", &PRTree<T, B, 2>::size, R"pbdoc(
           get n
+        )pbdoc")
+      .def("query_intersections", &PRTree<T, B, 2>::query_intersections,
+           R"pbdoc(
+          Find all pairs of intersecting AABBs.
+          Returns a numpy array of shape (n_pairs, 2) where each row contains
+          a pair of indices (i, j) with i < j representing intersecting AABBs.
         )pbdoc");
 
   py::class_<PRTree<T, B, 3>>(m, "_PRTree3D")
@@ -109,6 +114,12 @@ PYBIND11_MODULE(PRTree, m)
         )pbdoc")
       .def("size", &PRTree<T, B, 3>::size, R"pbdoc(
           get n
+        )pbdoc")
+      .def("query_intersections", &PRTree<T, B, 3>::query_intersections,
+           R"pbdoc(
+          Find all pairs of intersecting AABBs.
+          Returns a numpy array of shape (n_pairs, 2) where each row contains
+          a pair of indices (i, j) with i < j representing intersecting AABBs.
         )pbdoc");
 
   py::class_<PRTree<T, B, 4>>(m, "_PRTree4D")
@@ -156,6 +167,12 @@ PYBIND11_MODULE(PRTree, m)
         )pbdoc")
       .def("size", &PRTree<T, B, 4>::size, R"pbdoc(
           get n
+        )pbdoc")
+      .def("query_intersections", &PRTree<T, B, 4>::query_intersections,
+           R"pbdoc(
+          Find all pairs of intersecting AABBs.
+          Returns a numpy array of shape (n_pairs, 2) where each row contains
+          a pair of indices (i, j) with i < j representing intersecting AABBs.
         )pbdoc");
 
 #ifdef VERSION_INFO

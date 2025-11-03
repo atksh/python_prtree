@@ -7,6 +7,7 @@ _build/
 _generate/
 *.so
 *.so.*
+*.a
 *.py[cod]
 *.egg-info
 .eggs/
@@ -18,3 +19,25 @@ __pycache__/
 .vscode/
 .DS_Store
 *.prof
+
+# Test coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# Pytest
+.pytest_cache/
+.pytest_cache
+
+# Build artifacts
+*.o
+*.obj
+*.lib
+*.exp
+
+# Temporary files
+*.tmp
+*.bak
+*~
