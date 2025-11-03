@@ -8,7 +8,7 @@ from python_prtree import PRTree2D, PRTree3D, PRTree4D
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_save_load_query_workflow(PRTree, dim, tmp_path):
-    """保存→読込→クエリのワークフローテスト."""
+    """Test save → load → query workflow."""
     np.random.seed(42)
     n = 100
     idx = np.arange(n)
@@ -39,7 +39,7 @@ def test_save_load_query_workflow(PRTree, dim, tmp_path):
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_modify_save_load_workflow(PRTree, dim, tmp_path):
-    """構築→変更→保存→読込のワークフローテスト."""
+    """Test build → modify → save → load workflow."""
     np.random.seed(42)
     n = 50
     idx = np.arange(n)
@@ -72,7 +72,7 @@ def test_modify_save_load_workflow(PRTree, dim, tmp_path):
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_multiple_save_load_cycles(PRTree, dim, tmp_path):
-    """複数の保存→読込サイクルのテスト."""
+    """Test multiple save → load cycles."""
     np.random.seed(42)
     n = 50
     idx = np.arange(n)

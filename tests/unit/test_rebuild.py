@@ -10,7 +10,7 @@ class TestNormalRebuild:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_rebuild_after_construction(self, PRTree, dim):
-        """構築後のrebuildが機能することを確認."""
+        """Verify that rebuild after constructionworks."""
         n = 100
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -24,7 +24,7 @@ class TestNormalRebuild:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_rebuild_after_insert(self, PRTree, dim):
-        """挿入後のrebuildが機能することを確認."""
+        """Verify that rebuild after insertworks."""
         n = 50
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -45,7 +45,7 @@ class TestNormalRebuild:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_rebuild_after_erase(self, PRTree, dim):
-        """削除後のrebuildが機能することを確認."""
+        """Verify that rebuild after eraseworks."""
         n = 100
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -67,7 +67,7 @@ class TestConsistencyRebuild:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_results_before_after_rebuild(self, PRTree, dim):
-        """rebuild前後でクエリ結果が一致することを確認."""
+        """Verify that query results before and after rebuildmatches."""
         np.random.seed(42)
         n = 100
         idx = np.arange(n)
@@ -94,7 +94,7 @@ class TestConsistencyRebuild:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_multiple_rebuilds(self, PRTree, dim):
-        """複数回のrebuildが機能することを確認."""
+        """Verify that multiple rebuildsworks."""
         n = 50
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100

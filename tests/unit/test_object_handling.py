@@ -10,7 +10,7 @@ class TestNormalObjectHandling:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_insert_with_object(self, PRTree, dim):
-        """オブジェクト付きで挿入できることを確認."""
+        """Verify that insert with object works."""
         tree = PRTree()
 
         box = np.zeros(2 * dim)
@@ -25,7 +25,7 @@ class TestNormalObjectHandling:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_with_return_obj(self, PRTree, dim):
-        """return_obj=Trueでオブジェクトが返されることを確認."""
+        """Verify that object with return_obj=Trueis returned."""
         tree = PRTree()
 
         boxes_and_objs = [
@@ -45,7 +45,7 @@ class TestNormalObjectHandling:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_set_and_get_obj(self, PRTree, dim):
-        """set_objとget_objが機能することを確認."""
+        """Verify that set_obj and get_objworks."""
         n = 5
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -70,7 +70,7 @@ class TestObjectTypes:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_dict_object(self, PRTree, dim):
-        """辞書オブジェクトが保存・取得できることを確認."""
+        """Verify that dict object can be stored and retrieved."""
         tree = PRTree()
         box = np.zeros(2 * dim)
         for i in range(dim):
@@ -85,7 +85,7 @@ class TestObjectTypes:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_tuple_object(self, PRTree, dim):
-        """タプルオブジェクトが保存・取得できることを確認."""
+        """Verify that tuple object can be stored and retrieved."""
         tree = PRTree()
         box = np.zeros(2 * dim)
         for i in range(dim):
@@ -100,7 +100,7 @@ class TestObjectTypes:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_list_object(self, PRTree, dim):
-        """リストオブジェクトが保存・取得できることを確認."""
+        """Verify that list object can be stored and retrieved."""
         tree = PRTree()
         box = np.zeros(2 * dim)
         for i in range(dim):
@@ -115,7 +115,7 @@ class TestObjectTypes:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_nested_object(self, PRTree, dim):
-        """ネストされたオブジェクトが保存・取得できることを確認."""
+        """Verify that nested object can be stored and retrieved."""
         tree = PRTree()
         box = np.zeros(2 * dim)
         for i in range(dim):
@@ -134,7 +134,7 @@ class TestObjectPersistence:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_objects_not_persisted_in_file(self, PRTree, dim, tmp_path):
-        """オブジェクトはファイルに保存されないことを確認（仕様）."""
+        """Verify that objects are not persisted in file (by design)."""
         tree = PRTree()
 
         boxes_and_objs = [

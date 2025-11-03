@@ -24,7 +24,7 @@ class TestNormalQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_returns_correct_results(self, PRTree, dim):
-        """クエリが正しい結果を返すことを確認."""
+        """Verify that query returns correct results."""
         np.random.seed(42)
         n = 100
         idx = np.arange(n)
@@ -47,7 +47,7 @@ class TestNormalQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_point_query_with_tuple(self, PRTree, dim):
-        """タプル形式でのポイントクエリが機能することを確認."""
+        """Verify that point query with tupleworks."""
         idx = np.array([1, 2])
         boxes = np.zeros((2, 2 * dim))
 
@@ -70,7 +70,7 @@ class TestNormalQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_point_query_with_array(self, PRTree, dim):
-        """配列形式でのポイントクエリが機能することを確認."""
+        """Verify that point query with arrayworks."""
         idx = np.array([1, 2])
         boxes = np.zeros((2, 2 * dim))
 
@@ -93,7 +93,7 @@ class TestNormalQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_point_query_with_varargs(self, PRTree, dim):
-        """可変引数でのポイントクエリが機能することを確認."""
+        """Verify that point query with varargsworks."""
         idx = np.array([1, 2])
         boxes = np.zeros((2, 2 * dim))
         # Box 1: [0, 0, ..., 1, 1, ...]
@@ -118,7 +118,7 @@ class TestErrorQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_on_empty_tree_returns_empty(self, PRTree, dim):
-        """空のツリーへのクエリが空のリストを返すことを確認."""
+        """Verify that query on empty tree returns empty list."""
         tree = PRTree()
 
         query_box = np.zeros(2 * dim)
@@ -131,7 +131,7 @@ class TestErrorQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_with_nan_coordinates(self, PRTree, dim):
-        """NaN座標でのクエリがエラーになるか空を返すことを確認."""
+        """Verify that query with NaN coordinates raises error or returns empty."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         for i in range(dim):
@@ -152,7 +152,7 @@ class TestErrorQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_with_inf_coordinates(self, PRTree, dim):
-        """Inf座標でのクエリがエラーになるか正しく動作することを確認."""
+        """Verify that query with Inf coordinates raises error or works correctly."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         for i in range(dim):
@@ -175,7 +175,7 @@ class TestErrorQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_with_wrong_dimension(self, PRTree, dim):
-        """間違った次元のクエリがエラーになることを確認."""
+        """Verify that query with wrong dimensionraises an error."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         for i in range(dim):
@@ -197,7 +197,7 @@ class TestBoundaryQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_no_intersection(self, PRTree, dim):
-        """交差しないクエリが空のリストを返すことを確認."""
+        """Verify that non-intersecting query returns empty list."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         for i in range(dim):
@@ -217,7 +217,7 @@ class TestBoundaryQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_single_element_tree(self, PRTree, dim):
-        """1要素のツリーへのクエリが正しく動作することを確認."""
+        """Verify that query on single element treeworks correctly."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         for i in range(dim):
@@ -241,7 +241,7 @@ class TestPrecisionQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_with_small_gap_float64(self, PRTree, dim):
-        """float64で小さな間隔が正しく処理されることを確認."""
+        """Verify that small gap with float64 is handled correctly."""
         A = np.zeros((1, 2 * dim), dtype=np.float64)
         B = np.zeros((1, 2 * dim), dtype=np.float64)
 
@@ -266,7 +266,7 @@ class TestPrecisionQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_touching_boxes(self, PRTree, dim):
-        """接しているボックスが交差と判定されることを確認."""
+        """Verify that touching boxes are detected as intersecting."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         for i in range(dim):
@@ -290,7 +290,7 @@ class TestEdgeCaseQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_degenerate_box(self, PRTree, dim):
-        """退化したクエリボックスが機能することを確認."""
+        """Verify that degenerate query boxworks."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         for i in range(dim):
@@ -310,7 +310,7 @@ class TestEdgeCaseQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_large_box(self, PRTree, dim):
-        """非常に大きなクエリボックスが機能することを確認."""
+        """Verify that very large query boxworks."""
         n = 10
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -330,7 +330,7 @@ class TestEdgeCaseQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_with_negative_coordinates(self, PRTree, dim):
-        """負の座標でのクエリが機能することを確認."""
+        """Verify that query with negative coordinatesworks."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         for i in range(dim):
@@ -353,7 +353,7 @@ class TestConsistencyQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_multiple_times_same_result(self, PRTree, dim):
-        """同じクエリを複数回実行しても同じ結果が得られることを確認."""
+        """Verify that same query returns same results when executed multiple times."""
         np.random.seed(42)
         n = 100
         idx = np.arange(n)
@@ -375,7 +375,7 @@ class TestConsistencyQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_point_query_consistency_with_box_query(self, PRTree, dim):
-        """ポイントクエリとボックスクエリの一貫性を確認."""
+        """Verify consistency between point query and box query."""
         np.random.seed(42)
         n = 50
         idx = np.arange(n)

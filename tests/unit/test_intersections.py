@@ -15,7 +15,7 @@ class TestNormalIntersections:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_intersections_returns_correct_pairs(self, PRTree, dim):
-        """query_intersectionsが正しいペアを返すことを確認."""
+        """Verify that query_intersections returns correct pairs."""
         np.random.seed(42)
         n = 50
         idx = np.arange(n)
@@ -50,7 +50,7 @@ class TestBoundaryIntersections:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_intersections_empty_tree(self, PRTree, dim):
-        """空のツリーでquery_intersectionsが空の配列を返すことを確認."""
+        """Verify that query_intersections on empty tree returns empty array."""
         tree = PRTree()
         pairs = tree.query_intersections()
 
@@ -58,7 +58,7 @@ class TestBoundaryIntersections:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_intersections_no_intersections(self, PRTree, dim):
-        """交差しないボックスでquery_intersectionsが空を返すことを確認."""
+        """Verify that query_intersections with non-intersecting boxes returns empty."""
         n = 10
         idx = np.arange(n)
         boxes = np.zeros((n, 2 * dim))
@@ -76,7 +76,7 @@ class TestBoundaryIntersections:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_intersections_all_intersecting(self, PRTree, dim):
-        """すべてのボックスが交差する場合のquery_intersections."""
+        """query_intersections when all boxes intersect."""
         n = 10
         idx = np.arange(n)
         boxes = np.zeros((n, 2 * dim))
@@ -100,7 +100,7 @@ class TestEdgeCaseIntersections:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_intersections_touching_boxes(self, PRTree, dim):
-        """接しているボックスが交差と判定されることを確認."""
+        """Verify that touching boxes are detected as intersecting."""
         idx = np.array([0, 1])
         boxes = np.zeros((2, 2 * dim))
 
@@ -123,7 +123,7 @@ class TestEdgeCaseIntersections:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_intersections_single_element(self, PRTree, dim):
-        """1要素のツリーでquery_intersectionsが空を返すことを確認."""
+        """Verify that query_intersections on single element tree returns empty."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         for d in range(dim):
@@ -141,7 +141,7 @@ class TestConsistencyIntersections:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_intersections_after_insert(self, PRTree, dim):
-        """挿入後のquery_intersectionsが正しく動作することを確認."""
+        """Verify that query_intersections after insertworks correctly."""
         np.random.seed(42)
         n = 20
         idx = np.arange(n)
@@ -168,7 +168,7 @@ class TestConsistencyIntersections:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_intersections_float64_precision(self, PRTree, dim):
-        """float64でquery_intersectionsが正しく動作することを確認."""
+        """Verify that query_intersections with float64works correctly."""
         np.random.seed(42)
         n = 50
         idx = np.arange(n)

@@ -7,7 +7,7 @@ from python_prtree import PRTree2D, PRTree3D, PRTree4D
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_incremental_insert_and_query(PRTree, dim):
-    """インクリメンタルに挿入しながらクエリする統合テスト."""
+    """Integration test: incremental insert with queries."""
     tree = PRTree()
 
     n = 100
@@ -34,7 +34,7 @@ def test_incremental_insert_and_query(PRTree, dim):
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_insert_with_objects_and_query(PRTree, dim):
-    """オブジェクト付き挿入とクエリの統合テスト."""
+    """Integration test: insert with objects and query."""
     tree = PRTree()
 
     n = 50
@@ -64,7 +64,7 @@ def test_insert_with_objects_and_query(PRTree, dim):
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_mixed_bulk_and_incremental_insert(PRTree, dim):
-    """一括挿入とインクリメンタル挿入の混合テスト."""
+    """Test mixed bulk and incremental insert."""
     np.random.seed(42)
     n_bulk = 50
     n_incremental = 50

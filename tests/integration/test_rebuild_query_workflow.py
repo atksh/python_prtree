@@ -7,7 +7,7 @@ from python_prtree import PRTree2D, PRTree3D, PRTree4D
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_rebuild_after_many_operations(PRTree, dim):
-    """多数の操作後のrebuildとクエリのテスト."""
+    """Test rebuild and query after many operations."""
     np.random.seed(42)
     n = 100
     idx = np.arange(n)
@@ -42,7 +42,7 @@ def test_rebuild_after_many_operations(PRTree, dim):
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_rebuild_consistency_across_operations(PRTree, dim):
-    """rebuild前後の一貫性テスト."""
+    """Test consistency before and after rebuild."""
     np.random.seed(42)
     n = 100
     idx = np.arange(n)

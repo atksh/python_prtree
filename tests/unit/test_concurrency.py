@@ -34,7 +34,7 @@ class TestPythonThreading:
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     @pytest.mark.parametrize("num_threads", [2, 4, 8])
     def test_concurrent_queries_multiple_threads(self, PRTree, dim, num_threads):
-        """複数Pythonスレッドから同時にクエリしても安全であることを確認."""
+        """Verify safe concurrent queries from multiple Python threadsVerify that."""
         np.random.seed(42)
         n = 1000
         idx = np.arange(n)
@@ -78,7 +78,7 @@ class TestPythonThreading:
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     @pytest.mark.parametrize("num_threads", [2, 4])
     def test_concurrent_batch_queries_multiple_threads(self, PRTree, dim, num_threads):
-        """複数Pythonスレッドから同時にbatch_queryしても安全であることを確認."""
+        """Verify safe concurrent batch_query from multiple Python threadsVerify that."""
         np.random.seed(42)
         n = 1000
         idx = np.arange(n)
@@ -118,7 +118,7 @@ class TestPythonThreading:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_read_only_concurrent_access(self, PRTree, dim):
-        """読み取り専用の同時アクセスが安全であることを確認."""
+        """Verify that read-only concurrent access is safeVerify that."""
         np.random.seed(42)
         n = 500
         idx = np.arange(n)
@@ -154,7 +154,7 @@ class TestPythonMultiprocessing:
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
     @pytest.mark.parametrize("num_processes", [2, 4])
     def test_concurrent_queries_multiple_processes(self, PRTree, dim, num_processes):
-        """複数Pythonプロセスから同時にクエリしても安全であることを確認."""
+        """Verify safe concurrent queries from multiple Python processesVerify that."""
 
         def query_worker(proc_id, return_dict):
             try:
@@ -203,7 +203,7 @@ class TestPythonMultiprocessing:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2)])
     def test_process_pool_queries(self, PRTree, dim):
-        """ProcessPoolExecutorでのクエリが安全であることを確認."""
+        """Verify that queries with ProcessPoolExecutor are safeVerify that."""
         np.random.seed(42)
         n = 500
         idx = np.arange(n)
@@ -233,7 +233,7 @@ class TestAsyncIO:
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     @pytest.mark.parametrize("num_tasks", [5, 10])
     def test_async_queries(self, PRTree, dim, num_tasks):
-        """asyncコンテキストでクエリが動作することを確認."""
+        """Verify that queries work in async context."""
         np.random.seed(42)
         n = 500
         idx = np.arange(n)
@@ -273,7 +273,7 @@ class TestAsyncIO:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
     def test_async_batch_queries(self, PRTree, dim):
-        """asyncコンテキストでbatch_queryが動作することを確認."""
+        """Verify that batch_query works in async context."""
         np.random.seed(42)
         n = 500
         idx = np.arange(n)
@@ -310,7 +310,7 @@ class TestThreadPoolExecutor:
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     @pytest.mark.parametrize("max_workers", [2, 4, 8])
     def test_thread_pool_queries(self, PRTree, dim, max_workers):
-        """ThreadPoolExecutorでのクエリが安全であることを確認."""
+        """Verify that queries with ThreadPoolExecutor are safeVerify that."""
         np.random.seed(42)
         n = 1000
         idx = np.arange(n)
@@ -341,7 +341,7 @@ class TestThreadPoolExecutor:
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
     @pytest.mark.parametrize("max_workers", [2, 4])
     def test_thread_pool_batch_queries(self, PRTree, dim, max_workers):
-        """ThreadPoolExecutorでのbatch_queryが安全であることを確認."""
+        """Verify that batch_query with ThreadPoolExecutor is safeVerify that."""
         np.random.seed(42)
         n = 1000
         idx = np.arange(n)
@@ -372,7 +372,7 @@ class TestConcurrentModification:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
     def test_insert_from_multiple_threads_sequential(self, PRTree, dim):
-        """複数スレッドから順次挿入しても安全であることを確認."""
+        """Verify safe sequential insert from multiple threadsVerify that."""
         tree = PRTree()
         lock = threading.Lock()
         errors = []
@@ -403,7 +403,7 @@ class TestConcurrentModification:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2)])
     def test_query_during_save_load(self, PRTree, dim, tmp_path):
-        """保存・読込中のクエリが安全であることを確認."""
+        """Verify that queries during save/load are safeVerify that."""
         np.random.seed(42)
         n = 500
         idx = np.arange(n)
@@ -458,7 +458,7 @@ class TestDataRaceProtection:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
     def test_simultaneous_read_write_protected(self, PRTree, dim):
-        """読み書きの同時実行が保護されていることを確認（GIL依存）."""
+        """Verify that concurrent read/write is protected (GIL-dependent)."""
         n = 500
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100

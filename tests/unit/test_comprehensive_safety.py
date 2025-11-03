@@ -15,7 +15,7 @@ class TestEmptyTreeOperations:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_all_query_operations_on_empty_tree(self, PRTree, dim):
-        """すべてのクエリ操作が空のツリーで安全に動作することを確認."""
+        """Verify that all query operations work safely on empty tree."""
         tree = PRTree()
 
         # Single query with box
@@ -46,7 +46,7 @@ class TestEmptyTreeOperations:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_batch_query_variations_on_empty_tree(self, PRTree, dim):
-        """バッチクエリのすべてのバリエーションが空のツリーで安全に動作することを確認."""
+        """Verify that all batch query variations work safely on empty tree."""
         tree = PRTree()
 
         # Batch query with multiple queries
@@ -71,14 +71,14 @@ class TestEmptyTreeOperations:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_intersections_on_empty_tree(self, PRTree, dim):
-        """query_intersectionsが空のツリーで安全に動作することを確認."""
+        """Verify that query_intersections works safely on empty tree."""
         tree = PRTree()
         pairs = tree.query_intersections()
         assert pairs.shape == (0, 2)
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_properties_on_empty_tree(self, PRTree, dim):
-        """プロパティが空のツリーで安全に動作することを確認."""
+        """Verify that properties work safely on empty tree."""
         tree = PRTree()
         assert tree.size() == 0
         assert len(tree) == 0
@@ -86,14 +86,14 @@ class TestEmptyTreeOperations:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_erase_on_empty_tree(self, PRTree, dim):
-        """空のツリーからの削除が適切にエラーを返すことを確認."""
+        """Verify that erase from empty treeproperly returns error."""
         tree = PRTree()
         with pytest.raises(ValueError):
             tree.erase(1)
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_rebuild_on_empty_tree(self, PRTree, dim):
-        """空のツリーでのrebuildが安全に動作することを確認."""
+        """Verify that rebuild on empty treeworks safely."""
         tree = PRTree()
         try:
             tree.rebuild()
@@ -108,7 +108,7 @@ class TestSingleElementTreeOperations:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_all_operations_on_single_element_tree(self, PRTree, dim):
-        """単一要素ツリーでのすべての操作が安全に動作することを確認."""
+        """Verify that all operations on single-element treeworks safely."""
         tree = PRTree()
 
         box = np.zeros(2 * dim)
@@ -142,7 +142,7 @@ class TestSingleElementTreeOperations:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_can_erase_last_element(self, PRTree, dim):
-        """最後の要素を削除できることをテスト (limitation fixed!)."""
+        """Test ability to erase last element (limitation fixed!)."""
         tree = PRTree()
 
         box = np.zeros(2 * dim)
@@ -167,7 +167,7 @@ class TestBoundaryValues:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_very_large_coordinates(self, PRTree, dim):
-        """非常に大きな座標値での安全性を確認."""
+        """Verify safety with very large coordinates."""
         large_val = 1e10
 
         idx = np.array([1])
@@ -182,7 +182,7 @@ class TestBoundaryValues:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_very_small_coordinates(self, PRTree, dim):
-        """非常に小さな座標値での安全性を確認."""
+        """Verify safety with very small coordinates."""
         small_val = 1e-10
 
         idx = np.array([1])
@@ -197,7 +197,7 @@ class TestBoundaryValues:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_negative_coordinates(self, PRTree, dim):
-        """負の座標値での安全性を確認."""
+        """Verify safety with negative coordinates."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         for i in range(dim):
@@ -210,7 +210,7 @@ class TestBoundaryValues:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_mixed_sign_coordinates(self, PRTree, dim):
-        """正負混在座標での安全性を確認."""
+        """Verify safety with mixed sign coordinates."""
         idx = np.array([1, 2])
         boxes = np.zeros((2, 2 * dim))
         for i in range(dim):
@@ -236,7 +236,7 @@ class TestMemoryPressure:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_rapid_insert_erase_cycles(self, PRTree, dim):
-        """高速な挿入削除サイクルでのメモリ安全性を確認."""
+        """Verify memory safety with rapid insert/erase cycles."""
         tree = PRTree()
 
         # Keep at least 2 elements to avoid erase limitation
@@ -267,7 +267,7 @@ class TestMemoryPressure:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2)])
     def test_very_large_batch_query(self, PRTree, dim):
-        """非常に大きなバッチクエリでの安全性を確認."""
+        """Verify safety with very large batch query."""
         n = 1000
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 1000
@@ -291,7 +291,7 @@ class TestNullAndInvalidInputs:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_with_nan(self, PRTree, dim):
-        """NaN座標でのクエリが安全に動作またはエラーを返すことを確認."""
+        """Verify that query with NaN coordinates works safely or returns error."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         for i in range(dim):
@@ -311,7 +311,7 @@ class TestNullAndInvalidInputs:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_with_inf(self, PRTree, dim):
-        """無限大座標でのクエリが安全に動作またはエラーを返すことを確認."""
+        """Verify that query with infinite coordinates works safely or returns error."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         for i in range(dim):
@@ -331,7 +331,7 @@ class TestNullAndInvalidInputs:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_insert_with_invalid_dimensions(self, PRTree, dim):
-        """次元数が不正な挿入が適切にエラーを返すことを確認."""
+        """Verify that insert with invalid dimensionsproperly returns error."""
         tree = PRTree()
 
         # Wrong dimension box
@@ -342,7 +342,7 @@ class TestNullAndInvalidInputs:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_batch_query_with_wrong_dimensions(self, PRTree, dim):
-        """次元数が不正なバッチクエリが適切にエラーを返すことを確認."""
+        """Verify that batch_query with invalid dimensionsproperly returns error."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         for i in range(dim):
@@ -363,7 +363,7 @@ class TestEdgeCaseTransitions:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_empty_to_one_to_many_elements(self, PRTree, dim):
-        """空→1要素→多要素の遷移での安全性を確認."""
+        """Verify safety during empty → 1 element → many elements transition."""
         tree = PRTree()
 
         # Empty state - all operations should be safe
@@ -417,7 +417,7 @@ class TestEdgeCaseTransitions:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_many_to_few_to_empty_via_erase(self, PRTree, dim):
-        """多要素→少要素→空の遷移での安全性を確認."""
+        """Verify safety during many → few → empty transition."""
         n = 100
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -448,7 +448,7 @@ class TestObjectHandlingSafety:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_various_object_types(self, PRTree, dim):
-        """さまざまなオブジェクトタイプでの安全性を確認."""
+        """Verify safety with various object types."""
         tree = PRTree()
 
         objects = [
@@ -485,7 +485,7 @@ class TestConcurrentOperationsSafety:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2)])
     def test_interleaved_insert_query_operations(self, PRTree, dim):
-        """挿入とクエリを交互に実行する安全性を確認."""
+        """Verify safety with interleaved insert and query operations."""
         tree = PRTree()
 
         for i in range(100):

@@ -33,7 +33,7 @@ class TestDoubleFree:
 
     @pytest.mark.parametrize("dim", [2, 3, 4])
     def test_double_erase_no_crash(self, dim):
-        """同じインデックスの二重削除でクラッシュしないことを確認."""
+        """Verify that double erase of same index does not crash."""
         code = textwrap.dedent(f"""
         import numpy as np
         from python_prtree import PRTree{dim}D
@@ -63,7 +63,7 @@ class TestDoubleFree:
 
     @pytest.mark.parametrize("dim", [2, 3, 4])
     def test_erase_after_rebuild_no_crash(self, dim):
-        """rebuild後に古いインデックスを削除してもクラッシュしないことを確認."""
+        """Verify that erasing old indices after rebuild does not crash."""
         code = textwrap.dedent(f"""
         import numpy as np
         from python_prtree import PRTree{dim}D
@@ -100,7 +100,7 @@ class TestInvalidMemoryAccess:
 
     @pytest.mark.parametrize("dim", [2, 3, 4])
     def test_query_with_massive_coordinates_no_crash(self, dim):
-        """極端に大きな座標でクラッシュしないことを確認."""
+        """Verify that extremely large coordinates do not crash."""
         code = textwrap.dedent(f"""
         import numpy as np
         from python_prtree import PRTree{dim}D
@@ -128,7 +128,7 @@ class TestInvalidMemoryAccess:
 
     @pytest.mark.parametrize("dim", [2, 3, 4])
     def test_insert_extreme_values_no_crash(self, dim):
-        """極端な値の挿入でクラッシュしないことを確認."""
+        """Verify that inserting extreme values does not crash."""
         code = textwrap.dedent(f"""
         import numpy as np
         from python_prtree import PRTree{dim}D
@@ -160,7 +160,7 @@ class TestFileCorruption:
 
     @pytest.mark.parametrize("dim", [2, 3, 4])
     def test_load_random_bytes_no_crash(self, dim):
-        """ランダムバイトのファイル読み込みでクラッシュしないことを確認."""
+        """Verify that loading random bytes file does not crash."""
         code = textwrap.dedent(f"""
         import numpy as np
         import tempfile
@@ -187,7 +187,7 @@ class TestFileCorruption:
 
     @pytest.mark.parametrize("dim", [2, 3, 4])
     def test_load_truncated_file_no_crash(self, dim):
-        """切り詰められたファイルの読み込みでクラッシュしないことを確認."""
+        """Verify that loading truncated file does not crash."""
         code = textwrap.dedent(f"""
         import numpy as np
         import tempfile
@@ -234,7 +234,7 @@ class TestStressConditions:
 
     @pytest.mark.parametrize("dim", [2, 3, 4])
     def test_rapid_insert_erase_no_crash(self, dim):
-        """高速な挿入・削除の繰り返しでクラッシュしないことを確認."""
+        """Verify that rapid insert/erase cycles do not crash."""
         code = textwrap.dedent(f"""
         import numpy as np
         from python_prtree import PRTree{dim}D
@@ -263,7 +263,7 @@ class TestStressConditions:
 
     @pytest.mark.parametrize("dim", [2, 3, 4])
     def test_massive_rebuild_cycles_no_crash(self, dim):
-        """大量のrebuildサイクルでクラッシュしないことを確認."""
+        """Verify that massive rebuild cycles do not crash."""
         code = textwrap.dedent(f"""
         import numpy as np
         from python_prtree import PRTree{dim}D
@@ -291,7 +291,7 @@ class TestBoundaryConditions:
 
     @pytest.mark.parametrize("dim", [2, 3, 4])
     def test_query_intersections_on_empty_no_crash(self, dim):
-        """空のツリーでquery_intersectionsを呼んでもクラッシュしないことを確認."""
+        """Verify that calling query_intersections on empty tree does not crash."""
         code = textwrap.dedent(f"""
         from python_prtree import PRTree{dim}D
 
@@ -310,7 +310,7 @@ class TestBoundaryConditions:
 
     @pytest.mark.parametrize("dim", [2, 3, 4])
     def test_batch_query_empty_array_no_crash(self, dim):
-        """空の配列でbatch_queryを呼んでもクラッシュしないことを確認."""
+        """Verify that calling batch_query with empty array does not crash."""
         code = textwrap.dedent(f"""
         import numpy as np
         from python_prtree import PRTree{dim}D
@@ -341,7 +341,7 @@ class TestObjectPicklingSafety:
 
     @pytest.mark.parametrize("dim", [2, 3, 4])
     def test_unpicklable_object_no_crash(self, dim):
-        """シリアライズ不可能なオブジェクトでクラッシュしないことを確認."""
+        """Verify that unpicklable object does not crash."""
         code = textwrap.dedent(f"""
         import numpy as np
         from python_prtree import PRTree{dim}D
@@ -368,7 +368,7 @@ class TestObjectPicklingSafety:
 
     @pytest.mark.parametrize("dim", [2, 3, 4])
     def test_deeply_nested_object_no_crash(self, dim):
-        """深くネストされたオブジェクトでクラッシュしないことを確認."""
+        """Verify that deeply nested object does not crash."""
         code = textwrap.dedent(f"""
         import numpy as np
         from python_prtree import PRTree{dim}D
@@ -406,7 +406,7 @@ class TestMultipleTreeInteraction:
 
     @pytest.mark.parametrize("dim", [2, 3, 4])
     def test_cross_tree_operations_no_crash(self, dim):
-        """複数のツリー間での操作でクラッシュしないことを確認."""
+        """Verify that operations across multiple trees do not crash."""
         code = textwrap.dedent(f"""
         import numpy as np
         from python_prtree import PRTree{dim}D
@@ -447,7 +447,7 @@ class TestRaceConditions:
 
     @pytest.mark.parametrize("dim", [2, 3, 4])
     def test_save_during_iteration_no_crash(self, dim):
-        """イテレーション中の保存でクラッシュしないことを確認."""
+        """Verify that save during iteration does not crash."""
         code = textwrap.dedent(f"""
         import numpy as np
         import tempfile

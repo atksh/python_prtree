@@ -11,7 +11,7 @@ class TestNormalPersistence:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_save_and_load(self, PRTree, dim, tmp_path):
-        """保存と読込が機能することを確認."""
+        """Verify that save and loadworks."""
         n = 100
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -29,7 +29,7 @@ class TestNormalPersistence:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_load_via_load_method(self, PRTree, dim, tmp_path):
-        """loadメソッドでの読込が機能することを確認."""
+        """Verify that load via load methodworks."""
         n = 100
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -52,13 +52,13 @@ class TestErrorPersistence:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_load_non_existent_file(self, PRTree, dim):
-        """存在しないファイルの読込がエラーになることを確認."""
+        """Verify that loading non-existent fileraises an error."""
         with pytest.raises((FileNotFoundError, RuntimeError, ValueError)):
             PRTree("/non/existent/path/tree.bin")
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_save_to_invalid_path(self, PRTree, dim):
-        """無効なパスへの保存がエラーになることを確認."""
+        """Verify that save to invalid pathraises an error."""
         tree = PRTree()
         box = np.zeros(2 * dim)
         for i in range(dim):
@@ -75,7 +75,7 @@ class TestConsistencyPersistence:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_results_after_save_load(self, PRTree, dim, tmp_path):
-        """保存・読込後のクエリ結果が一致することを確認."""
+        """Verify that query results after save/loadmatches."""
         np.random.seed(42)
         n = 100
         idx = np.arange(n)
@@ -104,7 +104,7 @@ class TestConsistencyPersistence:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_float64_precision_after_save_load(self, PRTree, dim, tmp_path):
-        """float64の精度が保存・読込後も保たれることを確認."""
+        """Verify that float64 precision is preserved after save/load."""
         A = np.zeros((1, 2 * dim), dtype=np.float64)
         B = np.zeros((1, 2 * dim), dtype=np.float64)
 
@@ -143,7 +143,7 @@ class TestConsistencyPersistence:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_multiple_save_load_cycles(self, PRTree, dim, tmp_path):
-        """複数回の保存・読込サイクルで結果が一致することを確認."""
+        """Verify that results across multiple save/load cyclesmatches."""
         np.random.seed(42)
         n = 50
         idx = np.arange(n)

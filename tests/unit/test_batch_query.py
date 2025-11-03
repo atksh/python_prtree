@@ -15,7 +15,7 @@ class TestNormalBatchQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_batch_query_returns_correct_results(self, PRTree, dim):
-        """バッチクエリが正しい結果を返すことを確認."""
+        """Verify that batch query returns correct results."""
         np.random.seed(42)
         n = 100
         idx = np.arange(n)
@@ -40,7 +40,7 @@ class TestNormalBatchQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_batch_query_empty_queries(self, PRTree, dim):
-        """空のクエリ配列でバッチクエリが動作することを確認."""
+        """Verify that batch query with empty query array works."""
         n = 10
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -61,7 +61,7 @@ class TestConsistencyBatchQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_batch_query_vs_query_consistency(self, PRTree, dim):
-        """batch_queryとqueryの結果が一致することを確認."""
+        """Verify that results of batch_query and querymatches."""
         np.random.seed(42)
         n = 50
         idx = np.arange(n)
@@ -84,7 +84,7 @@ class TestConsistencyBatchQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_single_query_as_batch(self, PRTree, dim):
-        """1つのクエリをバッチとして実行した場合の動作確認."""
+        """Behavior verification of single query as batch."""
         n = 10
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -111,7 +111,7 @@ class TestEdgeCaseBatchQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_batch_query_on_empty_tree(self, PRTree, dim):
-        """空のツリーへのバッチクエリが空のリストを返すことを確認."""
+        """Verify that batch query on empty tree returns empty list."""
         tree = PRTree()
 
         queries = np.random.rand(5, 2 * dim) * 100
@@ -125,7 +125,7 @@ class TestEdgeCaseBatchQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_batch_query_large_batch(self, PRTree, dim):
-        """大量のクエリがバッチ処理できることを確認."""
+        """Verify that large number of queries can be batch processed."""
         n = 100
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100

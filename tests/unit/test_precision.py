@@ -10,7 +10,7 @@ class TestFloat32Precision:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_float32(self, PRTree, dim):
-        """float32でツリーが構築できることを確認."""
+        """Verify that tree can be constructed with float32."""
         n = 100
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim).astype(np.float32) * 100
@@ -22,7 +22,7 @@ class TestFloat32Precision:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_with_float32(self, PRTree, dim):
-        """float32でクエリが機能することを確認."""
+        """Verify that query with float32works."""
         n = 50
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim).astype(np.float32) * 100
@@ -44,7 +44,7 @@ class TestFloat64Precision:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_float64(self, PRTree, dim):
-        """float64でツリーが構築できることを確認."""
+        """Verify that tree can be constructed with float64."""
         n = 100
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim).astype(np.float64) * 100
@@ -56,7 +56,7 @@ class TestFloat64Precision:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_small_gap_with_float64(self, PRTree, dim):
-        """float64で小さな間隔が正しく処理されることを確認."""
+        """Verify that small gap with float64 is handled correctly."""
         A = np.zeros((1, 2 * dim), dtype=np.float64)
         B = np.zeros((1, 2 * dim), dtype=np.float64)
 
@@ -81,7 +81,7 @@ class TestFloat64Precision:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_large_magnitude_coordinates_float64(self, PRTree, dim):
-        """float64で大きな座標値が正しく処理されることを確認."""
+        """Verify that large magnitude coordinates with float64 are handled correctly."""
         A = np.zeros((1, 2 * dim), dtype=np.float64)
         B = np.zeros((1, 2 * dim), dtype=np.float64)
 
@@ -104,7 +104,7 @@ class TestMixedPrecision:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_float32_tree_float64_query(self, PRTree, dim):
-        """float32ツリーにfloat64クエリが機能することを確認."""
+        """Verify that float64 query on float32 treeworks."""
         n = 50
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim).astype(np.float32) * 100
@@ -123,7 +123,7 @@ class TestMixedPrecision:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_float64_tree_float32_query(self, PRTree, dim):
-        """float64ツリーにfloat32クエリが機能することを確認."""
+        """Verify that float32 query on float64 treeworks."""
         n = 50
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim).astype(np.float64) * 100
@@ -146,7 +146,7 @@ class TestPrecisionEdgeCases:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_degenerate_boxes_float64(self, PRTree, dim):
-        """float64で退化したボックスが正しく処理されることを確認."""
+        """Verify that degenerate boxes with float64 are handled correctly."""
         n = 10
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim).astype(np.float64) * 100
@@ -160,7 +160,7 @@ class TestPrecisionEdgeCases:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_touching_boxes_float64(self, PRTree, dim):
-        """float64で接しているボックスが正しく処理されることを確認."""
+        """Verify that touching boxes with float64 are handled correctly."""
         A = np.zeros((1, 2 * dim), dtype=np.float64)
         B = np.zeros((1, 2 * dim), dtype=np.float64)
 

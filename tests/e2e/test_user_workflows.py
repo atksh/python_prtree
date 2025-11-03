@@ -8,7 +8,7 @@ from python_prtree import PRTree2D, PRTree3D, PRTree4D
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_spatial_indexing_workflow(PRTree, dim):
-    """ユーザーワークフロー: 空間インデックスの構築とクエリ."""
+    """User workflow: spatial indexing and queries."""
     # Simulate a spatial database of objects
     n_objects = 1000
     np.random.seed(42)
@@ -37,7 +37,7 @@ def test_spatial_indexing_workflow(PRTree, dim):
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_dynamic_updates_workflow(PRTree, dim):
-    """ユーザーワークフロー: 動的な更新（挿入・削除）."""
+    """User workflow: dynamic updates (insert/erase)."""
     # Start with empty tree
     tree = PRTree()
 
@@ -86,7 +86,7 @@ def test_dynamic_updates_workflow(PRTree, dim):
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_persistence_workflow(PRTree, dim, tmp_path):
-    """ユーザーワークフロー: データの永続化."""
+    """User workflow: data persistence."""
     # Build initial tree
     n = 500
     idx = np.arange(n)
@@ -118,7 +118,7 @@ def test_persistence_workflow(PRTree, dim, tmp_path):
 
 
 def test_collision_detection_workflow_2d():
-    """ユーザーワークフロー: 2D衝突検出（ゲーム・シミュレーション）."""
+    """User workflow: 2D collision detection (game simulation)."""
     # Simulate game entities
     entities = {
         "player": [10, 10, 12, 12],
@@ -151,7 +151,7 @@ def test_collision_detection_workflow_2d():
 
 
 def test_object_storage_workflow_2d():
-    """ユーザーワークフロー: オブジェクト付きの空間インデックス."""
+    """User workflow: spatial index with objects."""
     # Store rich objects with spatial index
     objects = [
         {"id": 1, "type": "building", "name": "City Hall", "box": [0, 0, 10, 10]},
@@ -179,7 +179,7 @@ def test_object_storage_workflow_2d():
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
 def test_batch_processing_workflow(PRTree, dim):
-    """ユーザーワークフロー: バッチ処理（大量クエリ）."""
+    """User workflow: batch processing (bulk queries)."""
     # Build index
     n = 1000
     idx = np.arange(n)
@@ -205,7 +205,7 @@ def test_batch_processing_workflow(PRTree, dim):
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_intersection_detection_workflow(PRTree, dim):
-    """ユーザーワークフロー: 全ペアの交差検出."""
+    """User workflow: all-pairs intersection detection."""
     # Simulate checking for overlapping regions
     n = 100
     idx = np.arange(n)
@@ -226,7 +226,7 @@ def test_intersection_detection_workflow(PRTree, dim):
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_rebuild_optimization_workflow(PRTree, dim):
-    """ユーザーワークフロー: 多数の更新後の最適化."""
+    """User workflow: optimization after many updates."""
     # Initial index
     n = 500
     idx = np.arange(n)

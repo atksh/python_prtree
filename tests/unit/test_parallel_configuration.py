@@ -22,7 +22,7 @@ class TestParallelScaling:
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     @pytest.mark.parametrize("query_count", [10, 100, 1000])
     def test_batch_query_scaling(self, PRTree, dim, query_count):
-        """batch_queryが異なるクエリ数で正しく動作することを確認."""
+        """Verify that batch_query works correctly with different query counts."""
         np.random.seed(42)
         n = 1000
         idx = np.arange(n)
@@ -51,7 +51,7 @@ class TestParallelScaling:
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
     @pytest.mark.parametrize("tree_size", [100, 1000, 10000])
     def test_batch_query_tree_size_scaling(self, PRTree, dim, tree_size):
-        """異なるツリーサイズでbatch_queryが正しく動作することを確認."""
+        """Verify that batch_query with different tree sizesworks correctly."""
         np.random.seed(42)
         idx = np.arange(tree_size)
         boxes = np.random.rand(tree_size, 2 * dim).astype(np.float32) * 100
@@ -77,7 +77,7 @@ class TestBatchVsSingleQuery:
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     @pytest.mark.parametrize("batch_size", [1, 10, 100, 500])
     def test_batch_query_consistency(self, PRTree, dim, batch_size):
-        """batch_queryと個別queryの結果が一致することを確認."""
+        """Verify that results of batch_query and individual querymatches."""
         np.random.seed(42)
         n = 500
         idx = np.arange(n)
@@ -105,7 +105,7 @@ class TestBatchVsSingleQuery:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
     def test_batch_query_performance_benefit(self, PRTree, dim):
-        """batch_queryが個別queryより速いことを確認（目安）."""
+        """Verify that batch_query is faster than individual query (guideline)."""
         np.random.seed(42)
         n = 2000
         idx = np.arange(n)
@@ -146,7 +146,7 @@ class TestParallelCorrectness:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_batch_query_deterministic(self, PRTree, dim):
-        """batch_queryが決定的な結果を返すことを確認."""
+        """Verify that batch_query returns deterministic results."""
         np.random.seed(42)
         n = 500
         idx = np.arange(n)
@@ -171,7 +171,7 @@ class TestParallelCorrectness:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_batch_query_no_data_races(self, PRTree, dim):
-        """batch_queryでデータ競合がないことを確認（正しい結果が返る）."""
+        """Verify that batch_query has no data races (correct results returned)."""
         np.random.seed(42)
         n = 1000
         idx = np.arange(n)
@@ -197,7 +197,7 @@ class TestParallelCorrectness:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
     def test_batch_query_with_duplicates(self, PRTree, dim):
-        """重複クエリでbatch_queryが正しく動作することを確認."""
+        """Verify that batch_query with duplicate queriesworks correctly."""
         np.random.seed(42)
         n = 500
         idx = np.arange(n)
@@ -228,7 +228,7 @@ class TestEdgeCasesParallel:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_batch_query_single_query(self, PRTree, dim):
-        """1つのクエリでbatch_queryが正しく動作することを確認."""
+        """Verify that batch_query with single queryworks correctly."""
         np.random.seed(42)
         n = 100
         idx = np.arange(n)
@@ -250,7 +250,7 @@ class TestEdgeCasesParallel:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_batch_query_empty_tree(self, PRTree, dim):
-        """空のツリーでbatch_queryが正しく動作することを確認."""
+        """Verify that batch_query on empty treeworks correctly."""
         tree = PRTree()
 
         queries = np.random.rand(50, 2 * dim) * 100
@@ -265,7 +265,7 @@ class TestEdgeCasesParallel:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_batch_query_single_element_tree(self, PRTree, dim):
-        """1要素のツリーでbatch_queryが正しく動作することを確認."""
+        """Verify that batch_query on single element treeworks correctly."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         for i in range(dim):
@@ -293,7 +293,7 @@ class TestQueryIntersectionsParallel:
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     @pytest.mark.parametrize("tree_size", [50, 200, 500])
     def test_query_intersections_scaling(self, PRTree, dim, tree_size):
-        """異なるツリーサイズでquery_intersectionsが正しく動作することを確認."""
+        """Verify that query_intersections with different tree sizesworks correctly."""
         np.random.seed(42)
         idx = np.arange(tree_size)
         boxes = np.random.rand(tree_size, 2 * dim) * 100
@@ -316,7 +316,7 @@ class TestQueryIntersectionsParallel:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
     def test_query_intersections_deterministic(self, PRTree, dim):
-        """query_intersectionsが決定的な結果を返すことを確認."""
+        """Verify that query_intersections returns deterministic results."""
         np.random.seed(42)
         n = 200
         idx = np.arange(n)
@@ -337,7 +337,7 @@ class TestQueryIntersectionsParallel:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
     def test_query_intersections_correctness(self, PRTree, dim):
-        """query_intersectionsの結果が正しいことを確認（並列化の検証）."""
+        """Verify correctness of query_intersections results (parallelization verification)."""
         np.random.seed(42)
         n = 100
         idx = np.arange(n)
@@ -375,7 +375,7 @@ class TestRebuildParallel:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
     def test_rebuild_after_parallel_queries(self, PRTree, dim):
-        """並列クエリ後のrebuildが正しく動作することを確認."""
+        """Verify that rebuild after parallel queriesworks correctly."""
         np.random.seed(42)
         n = 500
         idx = np.arange(n)

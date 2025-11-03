@@ -17,7 +17,7 @@ class TestInputValidation:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_negative_box_dimensions(self, PRTree, dim):
-        """負のボックス次元が適切に拒否されることを確認."""
+        """Verify that negative box dimensions are properly rejected."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
 
@@ -31,7 +31,7 @@ class TestInputValidation:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_misaligned_array(self, PRTree, dim):
-        """アラインメントされていない配列が安全に処理されることを確認."""
+        """Verify that misaligned arrayis handled safely."""
         # Create non-contiguous array
         idx = np.arange(10)
         boxes_full = np.random.rand(20, 2 * dim) * 100
@@ -51,7 +51,7 @@ class TestInputValidation:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_fortran_order_array(self, PRTree, dim):
-        """Fortran順配列が安全に処理されることを確認."""
+        """Verify that Fortran order arrayis handled safely."""
         idx = np.arange(10)
         boxes = np.asfortranarray(np.random.rand(10, 2 * dim) * 100)
         for i in range(dim):
@@ -68,7 +68,7 @@ class TestInputValidation:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_readonly_array(self, PRTree, dim):
-        """読み取り専用配列が安全に処理されることを確認."""
+        """Verify that readonly arrayis handled safely."""
         idx = np.arange(10)
         boxes = np.random.rand(10, 2 * dim) * 100
         for i in range(dim):
@@ -89,7 +89,7 @@ class TestMemoryBounds:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_out_of_bounds_index_access(self, PRTree, dim):
-        """範囲外のインデックスアクセスが安全に処理されることを確認."""
+        """Verify that out-of-bounds index accessis handled safely."""
         n = 10
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -112,7 +112,7 @@ class TestMemoryBounds:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_with_wrong_size_array(self, PRTree, dim):
-        """間違ったサイズの配列でクエリしても安全に処理されることを確認."""
+        """Verify that query with wrong size array is handled safely."""
         n = 10
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -131,7 +131,7 @@ class TestMemoryBounds:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_batch_query_inconsistent_shapes(self, PRTree, dim):
-        """不整合な形状でbatch_queryしても安全に処理されることを確認."""
+        """Verify that batch_query with inconsistent shapes is handled safely."""
         n = 10
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -151,7 +151,7 @@ class TestGarbageCollection:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_tree_gc_cycle(self, PRTree, dim):
-        """ガベージコレクションサイクル中のツリー削除が安全であることを確認."""
+        """Verify that tree deletion during garbage collection cycle is safeVerify that."""
         for _ in range(10):
             idx = np.arange(100)
             boxes = np.random.rand(100, 2 * dim) * 100
@@ -176,7 +176,7 @@ class TestGarbageCollection:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_numpy_array_lifecycle(self, PRTree, dim):
-        """numpy配列のライフサイクルが正しく管理されることを確認."""
+        """Verify that numpy array lifecycle is managed correctly."""
         idx = np.arange(100)
         boxes = np.random.rand(100, 2 * dim) * 100
         for i in range(dim):
@@ -203,7 +203,7 @@ class TestEdgeCaseArrays:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_single_precision_underflow(self, PRTree, dim):
-        """float32のアンダーフローが安全に処理されることを確認."""
+        """Verify that float32 underflowis handled safely."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim), dtype=np.float32)
 
@@ -220,7 +220,7 @@ class TestEdgeCaseArrays:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_subnormal_numbers(self, PRTree, dim):
-        """非正規化数が安全に処理されることを確認."""
+        """Verify that subnormal numbersis handled safely."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim), dtype=np.float64)
 
@@ -241,7 +241,7 @@ class TestEdgeCaseArrays:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_mixed_special_values(self, PRTree, dim):
-        """特殊値が混在する場合の処理を確認."""
+        """Verify handling of mixed special values."""
         idx = np.array([1, 2, 3])
         boxes = np.zeros((3, 2 * dim))
 
@@ -272,7 +272,7 @@ class TestConcurrentModification:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_modify_during_batch_query(self, PRTree, dim):
-        """batch_queryの間の変更が安全であることを確認（実装依存）."""
+        """Verify that modifications during batch_query are safe (implementation-dependent)."""
         n = 100
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -295,7 +295,7 @@ class TestConcurrentModification:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_insert_during_iteration(self, PRTree, dim):
-        """イテレーション中の挿入が安全であることを確認."""
+        """Verify that insert during iteration is safe."""
         n = 50
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -323,7 +323,7 @@ class TestResourceExhaustion:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_many_small_insertions(self, PRTree, dim):
-        """多数の小さな挿入が処理できることを確認."""
+        """Verify that many small insertions can be processed."""
         tree = PRTree()
 
         # Many small insertions
@@ -347,7 +347,7 @@ class TestResourceExhaustion:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2)])  # Only 2D to save time
     def test_large_single_tree(self, PRTree, dim):
-        """大きな単一ツリーが処理できることを確認."""
+        """Verify that large single tree can be processed."""
         try:
             n = 50000
             idx = np.arange(n)
@@ -376,7 +376,7 @@ class TestNumpyDtypes:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_int32_indices(self, PRTree, dim):
-        """int32インデックスが処理できることを確認."""
+        """Verify that int32 indices can be processed."""
         idx = np.arange(10, dtype=np.int32)
         boxes = np.random.rand(10, 2 * dim) * 100
         for i in range(dim):
@@ -387,7 +387,7 @@ class TestNumpyDtypes:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_int64_indices(self, PRTree, dim):
-        """int64インデックスが処理できることを確認."""
+        """Verify that int64 indices can be processed."""
         idx = np.arange(10, dtype=np.int64)
         boxes = np.random.rand(10, 2 * dim) * 100
         for i in range(dim):
@@ -398,7 +398,7 @@ class TestNumpyDtypes:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_uint_indices(self, PRTree, dim):
-        """符号なし整数インデックスが処理できることを確認."""
+        """Verify that unsigned int indices can be processed."""
         idx = np.arange(10, dtype=np.uint32)
         boxes = np.random.rand(10, 2 * dim) * 100
         for i in range(dim):
@@ -413,7 +413,7 @@ class TestNumpyDtypes:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_float16_boxes(self, PRTree, dim):
-        """float16ボックスが処理できることを確認（またはエラー）."""
+        """Verify that float16 boxes can be processed (or error)."""
         idx = np.arange(10)
         boxes = np.random.rand(10, 2 * dim).astype(np.float16) * 100
         for i in range(dim):

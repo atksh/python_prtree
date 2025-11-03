@@ -18,7 +18,7 @@ class TestNormalConstruction:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_valid_inputs(self, PRTree, dim):
-        """正常な入力でツリーが構築できることを確認."""
+        """Verify that tree can be constructed with valid inputs."""
         n = 100
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -31,14 +31,14 @@ class TestNormalConstruction:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_empty_construction(self, PRTree, dim):
-        """空のツリーが構築できることを確認."""
+        """Verify that empty tree can be constructed."""
         tree = PRTree()
         assert tree.size() == 0
         assert len(tree) == 0
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_single_element_construction(self, PRTree, dim):
-        """1要素でツリーが構築できることを確認."""
+        """Verify that tree can be constructed with single element."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         for i in range(dim):
@@ -55,7 +55,7 @@ class TestErrorConstruction:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_nan_coordinates(self, PRTree, dim):
-        """NaN座標での構築がエラーになることを確認."""
+        """Verify that construction with NaN coordinatesraises an error."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         boxes[0, 0] = np.nan
@@ -65,7 +65,7 @@ class TestErrorConstruction:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_inf_coordinates(self, PRTree, dim):
-        """Inf座標での構築がエラーになることを確認."""
+        """Verify that construction with Inf coordinatesraises an error."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         boxes[0, 0] = np.inf
@@ -75,7 +75,7 @@ class TestErrorConstruction:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_inverted_box(self, PRTree, dim):
-        """min > maxのボックスでの構築がエラーになることを確認."""
+        """Verify that construction with inverted box (min > max)raises an error."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         for i in range(dim):
@@ -87,7 +87,7 @@ class TestErrorConstruction:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_mismatched_dimensions(self, PRTree, dim):
-        """次元数が合わない入力でエラーになることを確認."""
+        """Verify that mismatched dimensions raise error."""
         idx = np.array([1, 2])
         boxes = np.zeros((2, dim))  # Wrong dimension (should be 2*dim)
 
@@ -96,7 +96,7 @@ class TestErrorConstruction:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_mismatched_lengths(self, PRTree, dim):
-        """インデックスとボックスの長さが異なる場合にエラーになることを確認."""
+        """Verify that mismatched lengths raise error."""
         idx = np.array([1, 2, 3])
         boxes = np.zeros((2, 2 * dim))  # Mismatched length
 
@@ -109,7 +109,7 @@ class TestBoundaryConstruction:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_large_dataset(self, PRTree, dim):
-        """大量の要素でツリーが構築できることを確認."""
+        """Verify that tree can be constructed with large dataset."""
         n = 10000
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -121,7 +121,7 @@ class TestBoundaryConstruction:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_very_small_coordinates(self, PRTree, dim):
-        """非常に小さい座標値でツリーが構築できることを確認."""
+        """Verify that tree can be constructed with very small coordinates."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         for i in range(dim):
@@ -133,7 +133,7 @@ class TestBoundaryConstruction:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_very_large_coordinates(self, PRTree, dim):
-        """非常に大きい座標値でツリーが構築できることを確認."""
+        """Verify that tree can be constructed with very large coordinates."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         for i in range(dim):
@@ -149,7 +149,7 @@ class TestPrecisionConstruction:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_float32(self, PRTree, dim):
-        """float32でツリーが構築できることを確認."""
+        """Verify that tree can be constructed with float32."""
         n = 100
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim).astype(np.float32) * 100
@@ -161,7 +161,7 @@ class TestPrecisionConstruction:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_float64(self, PRTree, dim):
-        """float64でツリーが構築できることを確認."""
+        """Verify that tree can be constructed with float64."""
         n = 100
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim).astype(np.float64) * 100
@@ -173,7 +173,7 @@ class TestPrecisionConstruction:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_int_indices(self, PRTree, dim):
-        """整数型のインデックスでツリーが構築できることを確認."""
+        """Verify that tree can be constructed with int indices."""
         n = 10
         idx = np.arange(n, dtype=np.int32)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -189,7 +189,7 @@ class TestEdgeCaseConstruction:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_degenerate_boxes(self, PRTree, dim):
-        """退化したボックス（min==max）でツリーが構築できることを確認."""
+        """Verify that tree can be constructed with degenerate boxes (min==max)."""
         n = 10
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -203,7 +203,7 @@ class TestEdgeCaseConstruction:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_identical_boxes(self, PRTree, dim):
-        """すべて同じボックスでツリーが構築できることを確認."""
+        """Verify that tree can be constructed with identical boxes."""
         n = 10
         idx = np.arange(n)
         boxes = np.zeros((n, 2 * dim))
@@ -218,7 +218,7 @@ class TestEdgeCaseConstruction:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_overlapping_boxes(self, PRTree, dim):
-        """重なり合うボックスでツリーが構築できることを確認."""
+        """Verify that tree can be constructed with overlapping boxes."""
         n = 10
         idx = np.arange(n)
         boxes = np.zeros((n, 2 * dim))
@@ -234,7 +234,7 @@ class TestEdgeCaseConstruction:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_negative_indices(self, PRTree, dim):
-        """負のインデックスでツリーが構築できることを確認."""
+        """Verify that tree can be constructed with negative indices."""
         n = 10
         idx = np.arange(-n, 0)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -246,7 +246,7 @@ class TestEdgeCaseConstruction:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_construction_with_duplicate_indices(self, PRTree, dim):
-        """重複したインデックスでの構築（動作は実装依存）."""
+        """Construction with duplicate indices (implementation-dependent behavior)."""
         n = 5
         idx = np.array([1, 1, 2, 2, 3])  # Duplicate indices
         boxes = np.random.rand(n, 2 * dim) * 100

@@ -10,13 +10,13 @@ class TestSizeProperty:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_size_empty_tree(self, PRTree, dim):
-        """空のツリーのサイズが0であることを確認."""
+        """Verify that size of empty tree is 0Verify that."""
         tree = PRTree()
         assert tree.size() == 0
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_size_after_construction(self, PRTree, dim):
-        """構築後のサイズが正しいことを確認."""
+        """Verify that size after construction is correct."""
         n = 100
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -28,7 +28,7 @@ class TestSizeProperty:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_size_after_insert(self, PRTree, dim):
-        """挿入後のサイズが正しいことを確認."""
+        """Verify that size after insert is correct."""
         tree = PRTree()
 
         for i in range(10):
@@ -41,7 +41,7 @@ class TestSizeProperty:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_size_after_erase(self, PRTree, dim):
-        """削除後のサイズが正しいことを確認."""
+        """Verify that size after erase is correct."""
         n = 10
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -60,13 +60,13 @@ class TestLenProperty:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_len_empty_tree(self, PRTree, dim):
-        """空のツリーのlenが0であることを確認."""
+        """Verify that len of empty tree is 0Verify that."""
         tree = PRTree()
         assert len(tree) == 0
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_len_after_construction(self, PRTree, dim):
-        """構築後のlenが正しいことを確認."""
+        """Verify that len after construction is correct."""
         n = 100
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -78,7 +78,7 @@ class TestLenProperty:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_len_equals_size(self, PRTree, dim):
-        """lenとsizeが一致することを確認."""
+        """Verify that len and sizematches."""
         n = 50
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -94,13 +94,13 @@ class TestNProperty:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_n_empty_tree(self, PRTree, dim):
-        """空のツリーのnプロパティが0であることを確認."""
+        """Verify that n property of empty tree is 0Verify that."""
         tree = PRTree()
         assert tree.n == 0
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_n_after_construction(self, PRTree, dim):
-        """構築後のnプロパティが正しいことを確認."""
+        """Verify that n property after construction is correct."""
         n = 100
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -112,7 +112,7 @@ class TestNProperty:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_n_equals_size_and_len(self, PRTree, dim):
-        """n、size、lenが全て一致することを確認."""
+        """Verify that n, size, and len all match."""
         n = 50
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100

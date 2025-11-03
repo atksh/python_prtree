@@ -7,7 +7,7 @@ from python_prtree import PRTree2D, PRTree3D, PRTree4D
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_erase_and_query_incrementally(PRTree, dim):
-    """インクリメンタルに削除しながらクエリする統合テスト."""
+    """Integration test: incremental erase with queries."""
     np.random.seed(42)
     n = 100
     idx = np.arange(n)
@@ -29,7 +29,7 @@ def test_erase_and_query_incrementally(PRTree, dim):
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_insert_erase_insert_workflow(PRTree, dim):
-    """挿入→削除→挿入のワークフローテスト."""
+    """Test insert → erase → insert workflow."""
     tree = PRTree()
 
     # Insert
@@ -57,7 +57,7 @@ def test_insert_erase_insert_workflow(PRTree, dim):
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_bulk_erase_and_verify(PRTree, dim):
-    """大量削除後の検証テスト."""
+    """Test verification after bulk erase."""
     np.random.seed(42)
     n = 200
     idx = np.arange(n)

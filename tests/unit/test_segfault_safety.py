@@ -20,7 +20,7 @@ class TestNullPointerSafety:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_on_uninitialized_tree(self, PRTree, dim):
-        """未初期化ツリーへのクエリが安全に失敗することを確認."""
+        """Verify that query on uninitialized tree fails safely."""
         tree = PRTree()
 
         query_box = np.zeros(2 * dim)
@@ -37,7 +37,7 @@ class TestNullPointerSafety:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_erase_on_empty_tree(self, PRTree, dim):
-        """空のツリーからの削除が安全に失敗することを確認."""
+        """Verify that erase from empty tree fails safely."""
         tree = PRTree()
 
         # Should not segfault, should raise ValueError
@@ -46,7 +46,7 @@ class TestNullPointerSafety:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_get_obj_on_empty_tree(self, PRTree, dim):
-        """空のツリーからのオブジェクト取得が安全に失敗することを確認."""
+        """Verify that get_obj from empty tree fails safely."""
         tree = PRTree()
 
         # Should not segfault
@@ -62,7 +62,7 @@ class TestUseAfterFree:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_after_erase(self, PRTree, dim):
-        """削除後のクエリが安全に動作することを確認."""
+        """Verify that query after eraseworks safely."""
         n = 10
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -82,7 +82,7 @@ class TestUseAfterFree:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_access_after_rebuild(self, PRTree, dim):
-        """rebuild後のアクセスが安全に動作することを確認."""
+        """Verify that access after rebuildworks safely."""
         n = 100
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -102,7 +102,7 @@ class TestUseAfterFree:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_after_save(self, PRTree, dim, tmp_path):
-        """保存後のクエリが安全に動作することを確認."""
+        """Verify that query after saveworks safely."""
         n = 50
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -125,7 +125,7 @@ class TestBufferOverflow:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_very_large_index(self, PRTree, dim):
-        """非常に大きなインデックスが安全に処理されることを確認."""
+        """Verify that very large indexis handled safely."""
         tree = PRTree()
 
         box = np.zeros(2 * dim)
@@ -145,7 +145,7 @@ class TestBufferOverflow:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_negative_large_index(self, PRTree, dim):
-        """非常に小さな負のインデックスが安全に処理されることを確認."""
+        """Verify that very small negative indexis handled safely."""
         tree = PRTree()
 
         box = np.zeros(2 * dim)
@@ -165,7 +165,7 @@ class TestBufferOverflow:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_extremely_large_coordinates(self, PRTree, dim):
-        """極端に大きな座標が安全に処理されることを確認."""
+        """Verify that extremely large coordinatesis handled safely."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
 
@@ -187,7 +187,7 @@ class TestArrayBoundsSafety:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_empty_array_input(self, PRTree, dim):
-        """空の配列入力が安全に処理されることを確認."""
+        """Verify that empty array inputis handled safely."""
         idx = np.array([])
         boxes = np.empty((0, 2 * dim))
 
@@ -200,7 +200,7 @@ class TestArrayBoundsSafety:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_wrong_shaped_boxes(self, PRTree, dim):
-        """間違った形状のボックス配列が安全に処理されることを確認."""
+        """Verify that wrong shaped boxesis handled safely."""
         idx = np.array([1, 2])
         boxes = np.zeros((2, dim))  # Wrong: should be 2*dim
 
@@ -210,7 +210,7 @@ class TestArrayBoundsSafety:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_1d_boxes_input(self, PRTree, dim):
-        """1次元ボックス配列が安全に処理されることを確認."""
+        """Verify that 1D boxes inputis handled safely."""
         idx = np.array([1])
         boxes = np.zeros(2 * dim)  # 1D instead of 2D
 
@@ -223,7 +223,7 @@ class TestArrayBoundsSafety:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_3d_boxes_input(self, PRTree, dim):
-        """3次元ボックス配列が安全に処理されることを確認."""
+        """Verify that 3D boxes inputis handled safely."""
         idx = np.array([1, 2])
         boxes = np.zeros((2, 2, dim))  # 3D instead of 2D
 
@@ -237,7 +237,7 @@ class TestMemoryLeaks:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_repeated_insert_erase(self, PRTree, dim):
-        """繰り返しの挿入・削除でメモリリークがないことを確認."""
+        """Verify no memory leaks with repeated insert/erase."""
         tree = PRTree()
 
         # Many iterations
@@ -260,7 +260,7 @@ class TestMemoryLeaks:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_repeated_save_load(self, PRTree, dim, tmp_path):
-        """繰り返しの保存・読込でメモリリークがないことを確認."""
+        """Verify no memory leaks with repeated save/load."""
         n = 50
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -286,7 +286,7 @@ class TestCorruptedData:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_load_corrupted_file(self, PRTree, dim, tmp_path):
-        """破損したファイルの読み込みが安全に失敗することを確認."""
+        """Verify that loading corrupted file fails safely."""
         fname = tmp_path / "corrupted.bin"
 
         # Create corrupted file
@@ -299,7 +299,7 @@ class TestCorruptedData:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_load_empty_file(self, PRTree, dim, tmp_path):
-        """空ファイルの読み込みが安全に失敗することを確認."""
+        """Verify that loading empty file fails safely."""
         fname = tmp_path / "empty.bin"
 
         # Create empty file
@@ -311,7 +311,7 @@ class TestCorruptedData:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_load_partial_file(self, PRTree, dim, tmp_path):
-        """部分的に破損したファイルの読み込みが安全に失敗することを確認."""
+        """Verify that loading partially corrupted file fails safely."""
         # First create a valid file
         n = 50
         idx = np.arange(n)
@@ -340,7 +340,7 @@ class TestConcurrentAccess:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_during_modification(self, PRTree, dim):
-        """変更中のクエリが安全に動作することを確認（単一スレッド）."""
+        """Verify that query during modification works safely (single-threaded)."""
         n = 100
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -378,7 +378,7 @@ class TestObjectLifecycle:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_tree_deletion_and_recreation(self, PRTree, dim):
-        """ツリーの削除と再作成が安全に動作することを確認."""
+        """Verify that tree deletion and recreationworks safely."""
         for _ in range(10):
             n = 50
             idx = np.arange(n)
@@ -400,7 +400,7 @@ class TestObjectLifecycle:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_circular_reference_safety(self, PRTree, dim):
-        """循環参照が安全に処理されることを確認."""
+        """Verify that circular referencesis handled safely."""
         tree = PRTree()
 
         box = np.zeros(2 * dim)
@@ -426,7 +426,7 @@ class TestExtremeInputs:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_all_nan_boxes(self, PRTree, dim):
-        """全てNaNのボックスが安全に処理されることを確認."""
+        """Verify that all NaN boxesis handled safely."""
         idx = np.array([1])
         boxes = np.full((1, 2 * dim), np.nan)
 
@@ -436,7 +436,7 @@ class TestExtremeInputs:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_mixed_nan_and_valid(self, PRTree, dim):
-        """NaNと有効値が混在するボックスが安全に処理されることを確認."""
+        """Verify that boxes with mixed NaN and valid valuesis handled safely."""
         idx = np.array([1])
         boxes = np.zeros((1, 2 * dim))
         boxes[0, 0] = np.nan  # Only first coordinate is NaN
@@ -450,7 +450,7 @@ class TestExtremeInputs:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_zero_size_boxes(self, PRTree, dim):
-        """ゼロサイズのボックスが安全に処理されることを確認."""
+        """Verify that zero-size boxesis handled safely."""
         n = 10
         idx = np.arange(n)
         boxes = np.zeros((n, 2 * dim))
@@ -470,7 +470,7 @@ class TestExtremeInputs:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_very_large_dataset(self, PRTree, dim):
-        """非常に大きなデータセットが処理できることを確認."""
+        """Verify that very large dataset can be processed."""
         # This might fail due to memory, but should not segfault
         try:
             n = 100000
@@ -495,7 +495,7 @@ class TestTypeSafety:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_wrong_dtype_indices(self, PRTree, dim):
-        """間違った型のインデックスが安全に処理されることを確認."""
+        """Verify that wrong dtype indicesis handled safely."""
         idx = np.array([1.5, 2.7], dtype=np.float64)  # Float instead of int
         boxes = np.zeros((2, 2 * dim))
         for i in range(2):
@@ -512,7 +512,7 @@ class TestTypeSafety:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_string_indices(self, PRTree, dim):
-        """文字列インデックスが安全に処理されることを確認."""
+        """Verify that string indicesis handled safely."""
         # String indices should raise error, not segfault
         boxes = np.zeros((2, 2 * dim))
         for i in range(2):
@@ -526,7 +526,7 @@ class TestTypeSafety:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_none_input(self, PRTree, dim):
-        """Noneの入力が安全に処理されることを確認."""
+        """Verify that None inputis handled safely."""
         # None should raise error, not segfault
         with pytest.raises((TypeError, ValueError)):
             PRTree(None, None)

@@ -9,7 +9,7 @@ from python_prtree import PRTree2D
 
 
 def test_basic_example():
-    """READMEの基本例をテスト."""
+    """Test README basic example.."""
     idxes = np.array([1, 2])
 
     # rects is a list of (xmin, ymin, xmax, ymax)
@@ -48,7 +48,7 @@ def test_basic_example():
 
 
 def test_object_example():
-    """READMEのオブジェクト例をテスト."""
+    """Test README object example.."""
     objs = [{"name": "foo"}, (1, 2, 3)]  # must NOT be unique but pickable
     rects = np.array([[0.0, 0.0, 1.0, 0.5], [1.0, 1.5, 1.2, 3.0]])
 
@@ -66,7 +66,7 @@ def test_object_example():
 
 
 def test_batch_vs_single_query_example():
-    """READMEのバッチクエリ vs 単一クエリの例をテスト."""
+    """Test README batch query vs single query example.."""
     idxes = np.array([1, 2])
     rects = np.array([[0.0, 0.0, 1.0, 0.5], [1.0, 1.5, 1.2, 3.0]])
     prtree = PRTree2D(idxes, rects)
@@ -83,7 +83,7 @@ def test_batch_vs_single_query_example():
 
 
 def test_insert_erase_example():
-    """READMEの挿入・削除例をテスト."""
+    """Test README insert/erase example.."""
     idxes = np.array([1, 2])
     rects = np.array([[0.0, 0.0, 1.0, 0.5], [1.0, 1.5, 1.2, 3.0]])
     prtree = PRTree2D(idxes, rects)
@@ -101,7 +101,7 @@ def test_insert_erase_example():
 
 
 def test_save_load_example(tmp_path):
-    """READMEの保存・読込例をテスト."""
+    """Test README save/load example.."""
     idxes = np.array([1, 2])
     rects = np.array([[0.0, 0.0, 1.0, 0.5], [1.0, 1.5, 1.2, 3.0]])
     prtree = PRTree2D(idxes, rects)

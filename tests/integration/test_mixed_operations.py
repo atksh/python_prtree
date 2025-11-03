@@ -8,7 +8,7 @@ from python_prtree import PRTree2D, PRTree3D, PRTree4D
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_complex_workflow(PRTree, dim, tmp_path):
-    """複雑なワークフロー: 構築→挿入→削除→rebuild→保存→読込→クエリ."""
+    """Complex workflow: build→insert→erase→rebuild→save→load→query."""
     np.random.seed(42)
     n = 100
     idx = np.arange(n)
@@ -62,7 +62,7 @@ def test_complex_workflow(PRTree, dim, tmp_path):
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_stress_operations(PRTree, dim):
-    """ストレステスト: 大量の挿入・削除・クエリ操作."""
+    """Stress test: massive insert, erase, and query operations."""
     tree = PRTree()
 
     # Insert 1000 elements
@@ -99,7 +99,7 @@ def test_stress_operations(PRTree, dim):
 
 @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
 def test_query_intersections_after_modifications(PRTree, dim):
-    """変更後のquery_intersectionsテスト."""
+    """Test query_intersections after modifications."""
     np.random.seed(42)
     n = 50
     idx = np.arange(n)

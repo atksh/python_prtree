@@ -10,7 +10,7 @@ class TestNormalErase:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_erase_single_element(self, PRTree, dim):
-        """1要素の削除が機能することを確認."""
+        """Verify that single element eraseworks."""
         idx = np.array([1, 2])
         boxes = np.zeros((2, 2 * dim))
         for i in range(2):
@@ -26,7 +26,7 @@ class TestNormalErase:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_erase_multiple_elements(self, PRTree, dim):
-        """複数要素の削除が機能することを確認."""
+        """Verify that multiple element eraseworks."""
         n = 10
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -48,7 +48,7 @@ class TestErrorErase:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_erase_from_empty_tree(self, PRTree, dim):
-        """空のツリーからの削除がエラーになることを確認."""
+        """Verify that erase from empty treeraises an error."""
         tree = PRTree()
 
         with pytest.raises(ValueError):
@@ -56,7 +56,7 @@ class TestErrorErase:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_erase_non_existent_index(self, PRTree, dim):
-        """存在しないインデックスの削除がエラーになることを確認."""
+        """Verify that erase of non-existent indexraises an error."""
         idx = np.array([1, 2])
         boxes = np.zeros((2, 2 * dim))
         for i in range(2):
@@ -75,7 +75,7 @@ class TestErrorErase:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_erase_non_existent_index_single_element(self, PRTree, dim):
-        """単一要素のツリーで存在しないインデックスの削除がエラーになることを確認 (P1 validation bug)."""
+        """Verify that erase of non-existent index in single-element tree raises an error (P1 validation bug)."""
         idx = np.array([5])
         boxes = np.zeros((1, 2 * dim))
         for d in range(dim):
@@ -100,7 +100,7 @@ class TestErrorErase:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_erase_valid_index_single_element(self, PRTree, dim):
-        """単一要素のツリーで有効なインデックスの削除が機能することを確認."""
+        """Verify that erase of valid index in single-element treeworks."""
         idx = np.array([5])
         boxes = np.zeros((1, 2 * dim))
         for d in range(dim):
@@ -122,7 +122,7 @@ class TestConsistencyErase:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_after_erase(self, PRTree, dim):
-        """削除後のクエリが正しい結果を返すことを確認."""
+        """Verify that query after erase returns correct results."""
         n = 10
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -141,7 +141,7 @@ class TestConsistencyErase:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_insert_after_erase(self, PRTree, dim):
-        """削除後の挿入が機能することを確認."""
+        """Verify that insert after eraseworks."""
         idx = np.array([1, 2])
         boxes = np.zeros((2, 2 * dim))
         for i in range(2):

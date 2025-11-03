@@ -10,7 +10,7 @@ class TestNormalInsert:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_insert_single_element(self, PRTree, dim):
-        """1要素の挿入が機能することを確認."""
+        """Verify that single element insertworks."""
         tree = PRTree()
 
         box = np.zeros(2 * dim)
@@ -23,7 +23,7 @@ class TestNormalInsert:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_insert_multiple_elements(self, PRTree, dim):
-        """複数要素の挿入が機能することを確認."""
+        """Verify that multiple element insertworks."""
         tree = PRTree()
 
         for i in range(10):
@@ -38,7 +38,7 @@ class TestNormalInsert:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_insert_with_auto_index(self, PRTree, dim):
-        """自動インデックス付きの挿入が機能することを確認."""
+        """Verify that insert with auto indexworks."""
         tree = PRTree()
 
         box = np.zeros(2 * dim)
@@ -52,7 +52,7 @@ class TestNormalInsert:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_insert_with_object(self, PRTree, dim):
-        """オブジェクト付きの挿入が機能することを確認."""
+        """Verify that insert with objectworks."""
         tree = PRTree()
 
         box = np.zeros(2 * dim)
@@ -76,7 +76,7 @@ class TestErrorInsert:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_insert_without_box(self, PRTree, dim):
-        """ボックスなしの挿入がエラーになることを確認."""
+        """Verify that insert without boxraises an error."""
         tree = PRTree()
 
         with pytest.raises(ValueError):
@@ -84,7 +84,7 @@ class TestErrorInsert:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_insert_without_index_and_object(self, PRTree, dim):
-        """インデックスとオブジェクトなしの挿入がエラーになることを確認."""
+        """Verify that insert without index and objectraises an error."""
         tree = PRTree()
 
         box = np.zeros(2 * dim)
@@ -97,7 +97,7 @@ class TestErrorInsert:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_insert_with_invalid_box(self, PRTree, dim):
-        """無効なボックス（min > max）の挿入がエラーになることを確認."""
+        """Verify that insert with invalid box (min > max)raises an error."""
         tree = PRTree()
 
         box = np.zeros(2 * dim)
@@ -114,7 +114,7 @@ class TestConsistencyInsert:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_query_after_insert(self, PRTree, dim):
-        """挿入後のクエリが正しい結果を返すことを確認."""
+        """Verify that query after insert returns correct results."""
         n = 10
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
@@ -138,7 +138,7 @@ class TestConsistencyInsert:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
     def test_incremental_construction(self, PRTree, dim):
-        """インクリメンタル構築が一括構築と同じ結果を返すことを確認."""
+        """Verify that incremental build returns same results as bulk build."""
         n = 50
         idx = np.arange(n)
         boxes = np.random.rand(n, 2 * dim) * 100
