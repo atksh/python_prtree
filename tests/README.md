@@ -103,6 +103,11 @@ Test individual functions and methods in isolation:
 - **test_object_handling.py**: Object storage and retrieval
 - **test_properties.py**: Properties (size, len, n)
 - **test_precision.py**: Float32/64 precision handling
+- **test_segfault_safety.py**: Segmentation fault safety tests
+- **test_crash_isolation.py**: Crash isolation tests (subprocess)
+- **test_memory_safety.py**: Memory safety and bounds checking
+- **test_concurrency.py**: Python threading/multiprocessing/async tests
+- **test_parallel_configuration.py**: Parallel execution configuration tests
 
 ### Integration Tests (`tests/integration/`)
 Test interactions between multiple components:

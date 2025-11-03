@@ -13,12 +13,12 @@ This document summarizes the expanded test coverage for python_prtree. The test 
 - **Organization**: All tests in a single file
 
 ### After (New Test Structure)
-- **21 test files** organized by category
-- **Unit tests**: 11 files covering individual features
+- **26 test files** organized by category
+- **Unit tests**: 16 files covering individual features
 - **Integration tests**: 5 files covering feature interactions
 - **End-to-end tests**: 3 files covering user workflows
 - **Legacy tests**: Original file preserved for reference
-- **~2000+ lines** of comprehensive test code
+- **~4000+ lines** of comprehensive test code
 
 ## Test Coverage by Feature
 
