@@ -73,6 +73,10 @@ class PRTree2D:
             self._tree.insert(idx, bb, objdumps)
 
     def query(self, *args, return_obj=False):
+        # Handle empty tree case to prevent segfault
+        if self.n == 0:
+            return []
+
         if len(args) == 1:
             out = self._tree.query(*args)
         else:
@@ -82,6 +86,17 @@ class PRTree2D:
             return objs
         else:
             return out
+
+    def batch_query(self, queries, *args, **kwargs):
+        # Handle empty tree case to prevent segfault
+        if self.n == 0:
+            # Return empty list for each query
+            import numpy as np
+            if hasattr(queries, 'shape'):
+                return [[] for _ in range(len(queries))]
+            return []
+
+        return self._tree.batch_query(queries, *args, **kwargs)
 
 
 class PRTree3D(PRTree2D):
