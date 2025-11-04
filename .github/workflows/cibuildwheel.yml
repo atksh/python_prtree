@@ -15,6 +15,7 @@ jobs:
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     strategy:
       # Ensure that a wheel builder finishes even if another fails
       fail-fast: false
@@ -286,12 +287,13 @@ jobs:
           CIBW_MANYLINUX_AARCH64_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
           CIBW_BEFORE_BUILD: pip install pybind11
-          CIBW_TEST_COMMAND: python {project}/tests/_ci_debug_import.py && pytest {project}/tests -vv
-          CIBW_TEST_COMMAND_WINDOWS: python {project}\tests\_ci_debug_import.py && pytest {project}\tests -vv
+          CIBW_TEST_COMMAND: python {project}/tests/_ci_test_runner.py
+          CIBW_TEST_COMMAND_WINDOWS: python {project}\tests\_ci_test_runner.py
           CIBW_TEST_REQUIRES: pytest numpy
           CIBW_BUILD_VERBOSITY: 1
           CIBW_ARCHS: ${{ matrix.arch }}
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macosx_deployment_target }}
+          CIBW_ENVIRONMENT: CIBW_PLATFORM_ID=${{ matrix.platform_id }}
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.platform_id }}-py${{ matrix.python }}
