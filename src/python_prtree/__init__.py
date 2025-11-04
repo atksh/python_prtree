@@ -32,6 +32,14 @@ class PRTree2D:
 
     def __getattr__(self, name):
         def handler_function(*args, **kwargs):
+            # Handle empty tree cases for methods that cause segfaults
+            if self.n == 0 and name in ('rebuild', 'save'):
+                # These operations are not meaningful/safe on empty trees
+                if name == 'rebuild':
+                    return  # No-op for empty tree
+                elif name == 'save':
+                    raise ValueError("Cannot save empty tree")
+
             ret = getattr(self._tree, name)(*args, **kwargs)
             return ret
 
@@ -47,6 +55,28 @@ class PRTree2D:
     def erase(self, idx):
         if self.n == 0:
             raise ValueError("Nothing to erase")
+
+        # Handle erasing the last element (library limitation workaround)
+        if self.n == 1:
+            # Call underlying erase to validate index, then handle the library bug
+            try:
+                self._tree.erase(idx)
+                # If we get here, erase succeeded (shouldn't happen with n==1)
+                return
+            except RuntimeError as e:
+                error_msg = str(e)
+                if "Given index is not found" in error_msg:
+                    # Index doesn't exist - re-raise the error
+                    raise
+                elif "#roots is not 1" in error_msg:
+                    # This is the library bug we're working around
+                    # Index was valid, so recreate empty tree
+                    self._tree = self.Klass()
+                    return
+                else:
+                    # Some other RuntimeError - re-raise it
+                    raise
+
         self._tree.erase(idx)
 
     def set_obj(self, idx, obj):
@@ -73,6 +103,10 @@ class PRTree2D:
             self._tree.insert(idx, bb, objdumps)
 
     def query(self, *args, return_obj=False):
+        # Handle empty tree case to prevent segfault
+        if self.n == 0:
+            return []
+
         if len(args) == 1:
             out = self._tree.query(*args)
         else:
@@ -82,6 +116,17 @@ class PRTree2D:
             return objs
         else:
             return out
+
+    def batch_query(self, queries, *args, **kwargs):
+        # Handle empty tree case to prevent segfault
+        if self.n == 0:
+            # Return empty list for each query
+            import numpy as np
+            if hasattr(queries, 'shape'):
+                return [[] for _ in range(len(queries))]
+            return []
+
+        return self._tree.batch_query(queries, *args, **kwargs)
 
 
 class PRTree3D(PRTree2D):

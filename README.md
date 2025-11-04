@@ -1,233 +1,243 @@
 # python_prtree
 
-_python_prtree_ is a python/c++ implementation of the Priority R-Tree (see references below), an alternative to R-Tree. The supported futures are as follows:
+Fast spatial indexing with Priority R-Tree for Python. Efficiently query 2D/3D/4D bounding boxes with C++ performance.
 
-- Construct a Priority R-Tree (PRTree) from an array of rectangles.
-  - `PRTree2D`, `PRTree3D` and `PRTree4D` (2D, 3D and 4D respectively)
-- `insert` and `erase`
-  - The `insert` method can be passed pickable Python objects instead of int64 indexes.
-- `query` and `batch_query`
-  - `batch_query` is parallelized by `std::thread` and is much faster than the `query` method.
-  - The `query` method has an optional keyword argument `return_obj`; if `return_obj=True`, a Python object is returned.
-- `query_intersections`
-  - Returns all pairs of intersecting AABBs as a numpy array of shape (n_pairs, 2).
-  - Optimized for performance with parallel processing and double-precision refinement.
-  - Similar to `scipy.spatial.cKDTree.query_pairs` but for bounding boxes instead of points.
-- `rebuild`
-  - It improves performance when many insert/delete operations are called since the last rebuild.
-  - Note that if the size changes more than 1.5 times, the insert/erase method also performs `rebuild`.
+## Quick Start
 
-This package is mainly for **mostly static situations** where insertion and deletion events rarely occur.
-
-## Installation
-
-You can install python_prtree with the pip command:
+### Installation
 
 ```bash
 pip install python-prtree
 ```
 
-If the pip installation does not work, please git clone clone and install as follows:
-
-```bash
-pip install -U cmake pybind11
-git clone --recursive https://github.com/atksh/python_prtree
-cd python_prtree
-python setup.py install
-```
-
-## Examples
+### Basic Usage
 
 ```python
 import numpy as np
 from python_prtree import PRTree2D
 
-idxes = np.array([1, 2])
+# Create rectangles: [xmin, ymin, xmax, ymax]
+rects = np.array([
+    [0.0, 0.0, 1.0, 0.5],  # Rectangle 1
+    [1.0, 1.5, 1.2, 3.0],  # Rectangle 2
+])
+indices = np.array([1, 2])
 
-# rects is a list of (xmin, ymin, xmax, ymax)
-rects = np.array([[0.0, 0.0, 1.0, 0.5],
-                  [1.0, 1.5, 1.2, 3.0]])
+# Build the tree
+tree = PRTree2D(indices, rects)
 
-prtree = PRTree2D(idxes, rects)
+# Query: find rectangles overlapping with [0.5, 0.2, 0.6, 0.3]
+result = tree.query([0.5, 0.2, 0.6, 0.3])
+print(result)  # [1]
 
+# Batch query (faster for multiple queries)
+queries = np.array([
+    [0.5, 0.2, 0.6, 0.3],
+    [0.8, 0.5, 1.5, 3.5],
+])
+results = tree.batch_query(queries)
+print(results)  # [[1], [1, 2]]
+```
 
-# batch query
-q = np.array([[0.5, 0.2, 0.6, 0.3],
-              [0.8, 0.5, 1.5, 3.5]])
-result = prtree.batch_query(q)
-print(result)
-# [[1], [1, 2]]
+## Core Features
 
-# You can insert an additional rectangle by insert method,
-prtree.insert(3, np.array([1.0, 1.0, 2.0, 2.0]))
-q = np.array([[0.5, 0.2, 0.6, 0.3],
-              [0.8, 0.5, 1.5, 3.5]])
-result = prtree.batch_query(q)
-print(result)
-# [[1], [1, 2, 3]]
+### Supported Operations
 
-# Plus, you can erase by an index.
-prtree.erase(2)
-result = prtree.batch_query(q)
-print(result)
-# [[1], [1, 3]]
+- **Construction**: Create from numpy arrays (2D, 3D, or 4D)
+- **Query**: Find overlapping bounding boxes
+- **Batch Query**: Parallel queries for high performance
+- **Insert/Erase**: Dynamic updates (optimized for mostly static data)
+- **Query Intersections**: Find all pairs of intersecting boxes
+- **Save/Load**: Serialize tree to disk
 
-# Non-batch query is also supported.
-print(prtree.query([0.5, 0.5, 1.0, 1.0]))
-# [1, 3]
+### Supported Dimensions
 
-# Point query is also supported.
-print(prtree.query([0.5, 0.5]))
-# [1]
-print(prtree.query(0.5, 0.5))  # 1d-array
-# [1]
+```python
+from python_prtree import PRTree2D, PRTree3D, PRTree4D
 
+tree2d = PRTree2D(indices, boxes_2d)  # [xmin, ymin, xmax, ymax]
+tree3d = PRTree3D(indices, boxes_3d)  # [xmin, ymin, zmin, xmax, ymax, zmax]
+tree4d = PRTree4D(indices, boxes_4d)  # 4D boxes
+```
+
+## Usage Examples
+
+### Point Queries
+
+```python
+# Query with point coordinates
+result = tree.query([0.5, 0.5])        # Returns indices
+result = tree.query(0.5, 0.5)          # Varargs also supported (2D only)
+```
+
+### Dynamic Updates
+
+```python
+# Insert new rectangle
+tree.insert(3, np.array([1.0, 1.0, 2.0, 2.0]))
+
+# Remove rectangle by index
+tree.erase(2)
+
+# Rebuild for optimal performance after many updates
+tree.rebuild()
+```
+
+### Store Python Objects
+
+```python
+# Store any picklable Python object with rectangles
+tree = PRTree2D()
+tree.insert(bb=[0, 0, 1, 1], obj={"name": "Building A", "height": 100})
+tree.insert(bb=[2, 2, 3, 3], obj={"name": "Building B", "height": 200})
+
+# Query and retrieve objects
+results = tree.query([0.5, 0.5, 2.5, 2.5], return_obj=True)
+print(results)  # [{'name': 'Building A', 'height': 100}, {'name': 'Building B', 'height': 200}]
+```
+
+### Find Intersecting Pairs
+
+```python
 # Find all pairs of intersecting rectangles
-pairs = prtree.query_intersections()
-print(pairs)
-# [[1 3]]  # rectangles with index 1 and 3 intersect
+pairs = tree.query_intersections()
+print(pairs)  # numpy array of shape (n_pairs, 2)
+# [[1, 3], [2, 5], ...]  # pairs of indices that intersect
 ```
+
+### Save and Load
 
 ```python
-import numpy as np
-from python_prtree import PRTree2D
+# Save tree to file
+tree.save('spatial_index.bin')
 
-objs = [{"name": "foo"}, (1, 2, 3)]  # must NOT be unique but pickable
-rects = np.array([[0.0, 0.0, 1.0, 0.5],
-                  [1.0, 1.5, 1.2, 3.0]])
+# Load from file
+tree = PRTree2D('spatial_index.bin')
 
-prtree = PRTree2D()
-for obj, rect in zip(objs, rects):
-    prtree.insert(bb=rect, obj=obj)
-
-# returns indexes genereted by incremental rule.
-result = prtree.query((0, 0, 1, 1))
-print(result)
-# [1]
-
-# returns objects when you specify the keyword argment return_obj=True
-result = prtree.query((0, 0, 1, 1), return_obj=True)
-print(result)
-# [{'name': 'foo'}]
+# Or load later
+tree = PRTree2D()
+tree.load('spatial_index.bin')
 ```
 
-The 1d-array batch query will be implicitly treated as a batch with size = 1.
-If you want 1d result, please use `query` method.
-
-```python
-result = prtree.query(q[0])
-print(result)
-# [1]
-
-result = prtree.batch_query(q[0])
-print(result)
-# [[1]]
-```
-
-You can also erase(delete) by index and insert a new one.
-
-```python
-prtree.erase(1)  # delete the rectangle with idx=1 from the PRTree
-
-prtree.insert(3, np.array([0.3, 0.1, 0.5, 0.2]))  # add a new rectangle to the PRTree
-```
-
-You can save and load a binary file as follows.
-
-```python
-# save
-prtree.save('tree.bin')
-
-
-# load with binary file
-prtree = PRTree('tree.bin')
-
-# or defered load
-prtree = PRTree()
-prtree.load('tree.bin')
-```
-
-Note that cross-version compatibility is **NOT** guaranteed, so please reconstruct your tree when you update this package.
+**Note**: Binary format may change between versions. Rebuild your tree after upgrading.
 
 ## Performance
 
-### Construction
+### When to Use
 
-#### 2d
+✅ **Good for:**
+- Large static datasets (millions of boxes)
+- Batch queries (parallel processing)
+- Spatial indexing, collision detection
+- GIS applications, game engines
 
-![2d_fig1](https://raw.githubusercontent.com/atksh/python_prtree/main/docs/images/2d_fig1.png)
+⚠️ **Not ideal for:**
+- Frequent insertions/deletions (rebuild overhead)
+- Real-time dynamic scenes with constant updates
 
-#### 3d
+### Benchmarks
 
-![3d_fig1](https://raw.githubusercontent.com/atksh/python_prtree/main/docs/images/3d_fig1.png)
+Fast construction and query performance compared to alternatives:
 
-### Query and batch query
+#### Construction Time (2D)
+![2d_construction](https://raw.githubusercontent.com/atksh/python_prtree/main/docs/images/2d_fig1.png)
 
-#### 2d
+#### Query Performance (2D)
+![2d_query](https://raw.githubusercontent.com/atksh/python_prtree/main/docs/images/2d_fig2.png)
 
-![2d_fig2](https://raw.githubusercontent.com/atksh/python_prtree/main/docs/images/2d_fig2.png)
+*Batch queries use parallel processing for significant speedup.*
 
-#### 3d
+## Important Notes
 
-![3d_fig2](https://raw.githubusercontent.com/atksh/python_prtree/main/docs/images/3d_fig2.png)
+### Coordinate Format
 
-### Delete and insert
+Boxes must have **min ≤ max** for each dimension:
+```python
+# Correct
+tree.insert(1, [0, 0, 1, 1])  # xmin=0 < xmax=1, ymin=0 < ymax=1
 
-#### 2d
+# Wrong - will raise error
+tree.insert(1, [1, 1, 0, 0])  # xmin > xmax, ymin > ymax
+```
 
-![2d_fig3](https://raw.githubusercontent.com/atksh/python_prtree/main/docs/images/2d_fig3.png)
+### Empty Trees
 
-#### 3d
+All operations are safe on empty trees:
+```python
+tree = PRTree2D()
+result = tree.query([0, 0, 1, 1])  # Returns []
+results = tree.batch_query(queries)  # Returns [[], [], ...]
+```
 
-![3d_fig3](https://raw.githubusercontent.com/atksh/python_prtree/main/docs/images/3d_fig3.png)
+### Precision
 
-## New Features and Changes
+- **Float32 input**: Pure float32 for maximum speed
+- **Float64 input**: Float32 tree + double-precision refinement for accuracy
+- Handles boxes with very small gaps correctly (< 1e-5)
 
-### `python-prtree>=0.7.0`
+### Thread Safety
 
-**BREAKING CHANGES:**
+- Query operations are thread-safe
+- Insert/erase operations are NOT thread-safe
+- Use external synchronization for concurrent updates
 
-- **Fixed critical intersection bug**: Boxes with small gaps (< 1e-5) were incorrectly reported as intersecting due to float32 precision loss. Now uses precision-matching two-stage approach: float32 input → pure float32 performance, float64 input → float32 tree + double-precision refinement for correctness.
-- **Python version requirements**: Minimum Python version is now 3.8 (dropped 3.6 and 3.7 due to pybind11 v2.13.6 compatibility). Added support for Python 3.13 and 3.14.
-- **Serialization format changed**: Binary files saved with previous versions are incompatible with 0.7.0+. You must rebuild and re-save your trees after upgrading.
-- **Updated pybind11**: Upgraded from v2.12.0 to v2.13.6 for Python 3.13+ support.
-- **Input validation**: Added validation to reject NaN/Inf coordinates and enforce min <= max per dimension.
-- **Improved test coverage**: Added comprehensive tests for edge cases including disjoint boxes with small gaps, touching boxes, large magnitude coordinates, and degenerate boxes.
+## Installation from Source
 
-**Bug Fix Details:**
+```bash
+# Install dependencies
+pip install -U cmake pybind11 numpy
 
-The bug occurred when two bounding boxes were separated by a very small gap (e.g., 5.39e-06). When converted from float64 to float32, the values would collapse to the same float32 value, causing the intersection check to incorrectly report them as intersecting. This has been fixed by implementing a precision-matching approach: float32 input uses pure float32 for speed, while float64 input uses a two-stage filter-then-refine approach (float32 tree + double-precision refinement) for correctness.
+# Clone with submodules
+git clone --recursive https://github.com/atksh/python_prtree
+cd python_prtree
 
-### `python-prtree>=0.5.8`
+# Build and install
+python setup.py install
+```
 
-- The insert method has been improved to select the node with the smallest mbb expansion.
-- The erase method now also executes rebuild when the size changes by a factor of 1.5 or more.
+## API Reference
 
-### `python-prtree>=0.5.7`
+### PRTree2D / PRTree3D / PRTree4D
 
-- You can use PRTree4D.
+#### Constructor
+```python
+PRTree2D(indices=None, boxes=None)
+PRTree2D(filename)  # Load from file
+```
 
-### `python-prtree>=0.5.3`
+#### Methods
+- `query(box, return_obj=False)` - Find overlapping boxes
+- `batch_query(boxes)` - Parallel batch queries
+- `query_intersections()` - Find all intersecting pairs
+- `insert(idx, bb, obj=None)` - Add box
+- `erase(idx)` - Remove box
+- `rebuild()` - Rebuild tree for optimal performance
+- `save(filename)` - Save to binary file
+- `load(filename)` - Load from binary file
+- `size()` - Get number of boxes
+- `get_obj(idx)` - Get stored object
+- `set_obj(idx, obj)` - Update stored object
 
-- Add compression for pickled objects.
+## Version History
 
-### `python-prtree>=0.5.2`
+### v0.7.0 (Latest)
+- **Fixed critical bug**: Boxes with small gaps (<1e-5) incorrectly reported as intersecting
+- **Breaking**: Minimum Python 3.8, serialization format changed
+- Added input validation (NaN/Inf rejection)
+- Improved precision handling
 
-You can use pickable Python objects instead of int64 indexes for `insert` and `query` methods:
+### v0.5.x
+- Added 4D support
+- Object compression
+- Improved insert/erase performance
 
-### `python-prtree>=0.5.0`
+## References
 
-- Changed the input order from (xmin, xmax, ymin, ymax, ...) to (xmin, ymin, xmax, ymax, ...).
-- Added rebuild method to build the PRTree from scratch using the already given data.
-- Fixed a bug that prevented insertion into an empty PRTree.
+**Priority R-Tree**: A Practically Efficient and Worst-Case Optimal R-Tree
+Lars Arge, Mark de Berg, Herman Haverkort, Ke Yi
+SIGMOD 2004
+[Paper](https://www.cse.ust.hk/~yike/prtree/)
 
-### `python-prtree>=0.4.0`
+## License
 
-- You can use PRTree3D:
-
-## Reference
-
-The Priority R-Tree: A Practically Efficient and Worst-Case Optimal R-Tree
-Lars Arge, Mark de Berg, Herman Haverkort, and Ke Yi
-Proceedings of the 2004 ACM SIGMOD International Conference on Management of Data (SIGMOD '04), Paris, France, June 2004, 347-358. Journal version in ACM Transactions on Algorithms.
-[author's page](https://www.cse.ust.hk/~yike/prtree/)
+See LICENSE file for details.
