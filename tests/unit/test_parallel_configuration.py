@@ -316,7 +316,11 @@ class TestQueryIntersectionsParallel:
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
     def test_query_intersections_deterministic(self, PRTree, dim):
-        """Verify that query_intersections returns deterministic results."""
+        """Verify that query_intersections returns deterministic results.
+        
+        Note: The order of pairs is not guaranteed due to unordered map and
+        parallel execution, so we compare as sets rather than arrays.
+        """
         np.random.seed(42)
         n = 200
         idx = np.arange(n)
@@ -331,9 +335,12 @@ class TestQueryIntersectionsParallel:
         pairs2 = tree.query_intersections()
         pairs3 = tree.query_intersections()
 
-        # Should be identical
-        assert np.array_equal(pairs1, pairs2)
-        assert np.array_equal(pairs2, pairs3)
+        set1 = set(map(tuple, pairs1))
+        set2 = set(map(tuple, pairs2))
+        set3 = set(map(tuple, pairs3))
+        
+        assert set1 == set2, f"pairs1 and pairs2 differ: {set1 ^ set2}"
+        assert set2 == set3, f"pairs2 and pairs3 differ: {set2 ^ set3}"
 
     @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
     def test_query_intersections_correctness(self, PRTree, dim):
