@@ -15,12 +15,15 @@
 #include <numeric>
 #include <optional>
 #include <queue>
+#include <span>
 #include <stack>
 #include <string>
 #include <thread>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+// Phase 8: C++20 features
+#include <concepts>
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -46,7 +49,18 @@
 
 using Real = float;
 
+// Phase 4: Versioning for serialization
+constexpr uint16_t PRTREE_VERSION_MAJOR = 1;
+constexpr uint16_t PRTREE_VERSION_MINOR = 0;
+
 namespace py = pybind11;
+
+// Phase 8: C++20 Concepts for type safety
+template <typename T>
+concept IndexType = std::integral<T> && !std::same_as<T, bool>;
+
+template <typename T>
+concept SignedIndexType = IndexType<T> && std::is_signed_v<T>;
 
 template <class T> using vec = std::vector<T>;
 
@@ -89,6 +103,10 @@ template <class T> using queue = std::queue<T, deque<T>>;
 
 static const float REBUILD_THRE = 1.25;
 
+// Phase 8: Branch prediction hints
+// Note: C++20 provides [[likely]] and [[unlikely]] attributes, but we keep
+// these macros for backward compatibility and cleaner syntax in conditions.
+// Future refactoring could replace: if (unlikely(x)) with if (x) [[unlikely]]
 #if defined(__GNUC__) || defined(__clang__)
 #define likely(x) __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
@@ -163,13 +181,13 @@ public:
     }
     return flag;
   }
-  void clear() {
+  void clear() noexcept {
     for (int i = 0; i < 2 * D; ++i) {
       values[i] = -1e100;
     }
   }
 
-  Real val_for_comp(const int &axis) const {
+  Real val_for_comp(const int &axis) const noexcept {
     const int axis2 = (axis + 1) % (2 * D);
     return values[axis] + values[axis2];
   }
@@ -189,7 +207,7 @@ public:
     return *this;
   }
 
-  void expand(const Real (&delta)[D]) {
+  void expand(const Real (&delta)[D]) noexcept {
     for (int i = 0; i < D; ++i) {
       values[i] += delta[i];
       values[i + D] += delta[i];
@@ -230,12 +248,13 @@ public:
   template <class Archive> void serialize(Archive &ar) { ar(values); }
 };
 
-template <class T, int D = 2> class DataType {
+// Phase 8: Apply C++20 concept constraints
+template <IndexType T, int D = 2> class DataType {
 public:
   BB<D> second;
   T first;
 
-  DataType(){};
+  DataType() noexcept = default;
 
   DataType(const T &f, const BB<D> &s) {
     first = f;
@@ -245,6 +264,12 @@ public:
   DataType(T &&f, BB<D> &&s) noexcept {
     first = std::move(f);
     second = std::move(s);
+  }
+
+  void swap(DataType& other) noexcept {
+    using std::swap;
+    swap(first, other.first);
+    swap(second, other.second);
   }
 
   template <class Archive> void serialize(Archive &ar) { ar(first, second); }
@@ -257,7 +282,8 @@ void clean_data(DataType<T, D> *b, DataType<T, D> *e) {
   }
 }
 
-template <class T, int B = 6, int D = 2> class Leaf {
+// Phase 8: Apply C++20 concept constraints
+template <IndexType T, int B = 6, int D = 2> class Leaf {
 public:
   BB<D> mbb;
   svec<DataType<T, D>, B> data; // You can swap when filtering
@@ -285,7 +311,8 @@ public:
   }
 
   bool filter(DataType<T, D> &value) { // false means given value is ignored
-    auto comp = [=](const auto &a, const auto &b) noexcept {
+    // Phase 2: C++20 requires explicit 'this' capture
+    auto comp = [this](const auto &a, const auto &b) noexcept {
       return a.second.val_for_comp(axis) < b.second.val_for_comp(axis);
     };
 
@@ -312,7 +339,8 @@ public:
   }
 };
 
-template <class T, int B = 6, int D = 2> class PseudoPRTreeNode {
+// Phase 8: Apply C++20 concept constraints
+template <IndexType T, int B = 6, int D = 2> class PseudoPRTreeNode {
 public:
   Leaf<T, B, D> leaves[2 * D];
   std::unique_ptr<PseudoPRTreeNode> left, right;
@@ -355,7 +383,8 @@ public:
   }
 };
 
-template <class T, int B = 6, int D = 2> class PseudoPRTree {
+// Phase 8: Apply C++20 concept constraints
+template <IndexType T, int B = 6, int D = 2> class PseudoPRTree {
 public:
   std::unique_ptr<PseudoPRTreeNode<T, B, D>> root;
   vec<Leaf<T, B, D> *> cache_children;
@@ -459,7 +488,8 @@ public:
   }
 };
 
-template <class T, int B = 6, int D = 2> class PRTreeLeaf {
+// Phase 8: Apply C++20 concept constraints
+template <IndexType T, int B = 6, int D = 2> class PRTreeLeaf {
 public:
   BB<D> mbb;
   svec<DataType<T, D>, B> data;
@@ -522,7 +552,8 @@ public:
   }
 };
 
-template <class T, int B = 6, int D = 2> class PRTreeNode {
+// Phase 8: Apply C++20 concept constraints
+template <IndexType T, int B = 6, int D = 2> class PRTreeNode {
 public:
   BB<D> mbb;
   std::unique_ptr<Leaf<T, B, D>> leaf;
@@ -543,7 +574,8 @@ public:
   bool operator()(const BB<D> &target) { return mbb(target); }
 };
 
-template <class T, int B = 6, int D = 2> class PRTreeElement {
+// Phase 8: Apply C++20 concept constraints
+template <IndexType T, int B = 6, int D = 2> class PRTreeElement {
 public:
   BB<D> mbb;
   std::unique_ptr<PRTreeLeaf<T, B, D>> leaf;
@@ -570,7 +602,8 @@ public:
   }
 };
 
-template <class T, int B = 6, int D = 2>
+// Phase 8: Apply C++20 concept constraints
+template <IndexType T, int B = 6, int D = 2>
 void bfs(
     const std::function<void(std::unique_ptr<PRTreeLeaf<T, B, D>> &)> &func,
     vec<PRTreeElement<T, B, D>> &flat_tree, const BB<D> target) {
@@ -604,7 +637,9 @@ void bfs(
   }
 }
 
-template <class T, int B = 6, int D = 2> class PRTree {
+// Phase 8: Apply C++20 concept constraints for type safety
+// T must be an integral type (used as index), not bool
+template <IndexType T, int B = 6, int D = 2> class PRTree {
 private:
   vec<PRTreeElement<T, B, D>> flat_tree;
   std::unordered_map<T, BB<D>> idx2bb;
@@ -616,44 +651,42 @@ private:
   // from float64)
   std::unordered_map<T, std::array<double, 2 * D>> idx2exact;
 
+  mutable std::unique_ptr<std::recursive_mutex> tree_mutex_;
+
 public:
   template <class Archive> void serialize(Archive &archive) {
     archive(flat_tree, idx2bb, idx2data, global_idx, n_at_build, idx2exact);
   }
 
-  void save(std::string fname) {
-    {
-      {
-        std::ofstream ofs(fname, std::ios::binary);
-        cereal::PortableBinaryOutputArchive o_archive(ofs);
-        o_archive(cereal::make_nvp("flat_tree", flat_tree),
-                  cereal::make_nvp("idx2bb", idx2bb),
-                  cereal::make_nvp("idx2data", idx2data),
-                  cereal::make_nvp("global_idx", global_idx),
-                  cereal::make_nvp("n_at_build", n_at_build),
-                  cereal::make_nvp("idx2exact", idx2exact));
-      }
-    }
+  void save(const std::string& fname) const {
+    std::lock_guard<std::recursive_mutex> lock(*tree_mutex_);
+    std::ofstream ofs(fname, std::ios::binary);
+    cereal::PortableBinaryOutputArchive o_archive(ofs);
+    o_archive(cereal::make_nvp("flat_tree", flat_tree),
+              cereal::make_nvp("idx2bb", idx2bb),
+              cereal::make_nvp("idx2data", idx2data),
+              cereal::make_nvp("global_idx", global_idx),
+              cereal::make_nvp("n_at_build", n_at_build),
+              cereal::make_nvp("idx2exact", idx2exact));
   }
 
-  void load(std::string fname) {
-    {
-      {
-        std::ifstream ifs(fname, std::ios::binary);
-        cereal::PortableBinaryInputArchive i_archive(ifs);
-        i_archive(cereal::make_nvp("flat_tree", flat_tree),
-                  cereal::make_nvp("idx2bb", idx2bb),
-                  cereal::make_nvp("idx2data", idx2data),
-                  cereal::make_nvp("global_idx", global_idx),
-                  cereal::make_nvp("n_at_build", n_at_build),
-                  cereal::make_nvp("idx2exact", idx2exact));
-      }
-    }
+  void load(const std::string& fname) {
+    std::lock_guard<std::recursive_mutex> lock(*tree_mutex_);
+    std::ifstream ifs(fname, std::ios::binary);
+    cereal::PortableBinaryInputArchive i_archive(ifs);
+    i_archive(cereal::make_nvp("flat_tree", flat_tree),
+              cereal::make_nvp("idx2bb", idx2bb),
+              cereal::make_nvp("idx2data", idx2data),
+              cereal::make_nvp("global_idx", global_idx),
+              cereal::make_nvp("n_at_build", n_at_build),
+              cereal::make_nvp("idx2exact", idx2exact));
   }
 
-  PRTree() {}
+  PRTree() : tree_mutex_(std::make_unique<std::recursive_mutex>()) {}
 
-  PRTree(std::string fname) { load(fname); }
+  PRTree(const std::string& fname) : tree_mutex_(std::make_unique<std::recursive_mutex>()) {
+    load(fname);
+  }
 
   // Helper: Validate bounding box coordinates (reject NaN/Inf, enforce min <=
   // max)
@@ -678,14 +711,15 @@ public:
   }
 
   // Constructor for float32 input (no refinement, pure float32 performance)
-  PRTree(const py::array_t<T> &idx, const py::array_t<float> &x) {
+  PRTree(const py::array_t<T> &idx, const py::array_t<float> &x)
+      : tree_mutex_(std::make_unique<std::recursive_mutex>()) {
     const auto &buff_info_idx = idx.request();
     const auto &shape_idx = buff_info_idx.shape;
     const auto &buff_info_x = x.request();
     const auto &shape_x = buff_info_x.shape;
     if (unlikely(shape_idx[0] != shape_x[0])) {
       throw std::runtime_error(
-          "Both index and boudning box must have the same length");
+          "Both index and bounding box must have the same length");
     }
     if (unlikely(shape_x[1] != 2 * D)) {
       throw std::runtime_error(
@@ -699,8 +733,19 @@ public:
     // Note: idx2exact is NOT populated for float32 input (no refinement)
 
     DataType<T, D> *b, *e;
-    void *placement = std::malloc(sizeof(DataType<T, D>) * length);
-    b = reinterpret_cast<DataType<T, D> *>(placement);
+    // Phase 1: RAII memory management to prevent leaks on exception
+    struct MallocDeleter {
+      void operator()(void* ptr) const {
+        if (ptr) std::free(ptr);
+      }
+    };
+    std::unique_ptr<void, MallocDeleter> placement(
+        std::malloc(sizeof(DataType<T, D>) * length)
+    );
+    if (!placement) {
+      throw std::bad_alloc();
+    }
+    b = reinterpret_cast<DataType<T, D> *>(placement.get());
     e = b + length;
 
     for (T i = 0; i < length; i++) {
@@ -736,19 +781,20 @@ public:
       auto ri_i = ri(i);
       idx2bb.emplace_hint(idx2bb.end(), std::move(ri_i), std::move(bb));
     }
-    build(b, e, placement);
-    std::free(placement);
+    build(b, e, placement.get());
+    // Phase 1: No need to free - unique_ptr handles cleanup automatically
   }
 
   // Constructor for float64 input (float32 tree + double refinement)
-  PRTree(const py::array_t<T> &idx, const py::array_t<double> &x) {
+  PRTree(const py::array_t<T> &idx, const py::array_t<double> &x)
+      : tree_mutex_(std::make_unique<std::recursive_mutex>()) {
     const auto &buff_info_idx = idx.request();
     const auto &shape_idx = buff_info_idx.shape;
     const auto &buff_info_x = x.request();
     const auto &shape_x = buff_info_x.shape;
     if (unlikely(shape_idx[0] != shape_x[0])) {
       throw std::runtime_error(
-          "Both index and boudning box must have the same length");
+          "Both index and bounding box must have the same length");
     }
     if (unlikely(shape_x[1] != 2 * D)) {
       throw std::runtime_error(
@@ -762,8 +808,19 @@ public:
     idx2exact.reserve(length); // Reserve space for exact coordinates
 
     DataType<T, D> *b, *e;
-    void *placement = std::malloc(sizeof(DataType<T, D>) * length);
-    b = reinterpret_cast<DataType<T, D> *>(placement);
+    // Phase 1: RAII memory management to prevent leaks on exception
+    struct MallocDeleter {
+      void operator()(void* ptr) const {
+        if (ptr) std::free(ptr);
+      }
+    };
+    std::unique_ptr<void, MallocDeleter> placement(
+        std::malloc(sizeof(DataType<T, D>) * length)
+    );
+    if (!placement) {
+      throw std::bad_alloc();
+    }
+    b = reinterpret_cast<DataType<T, D> *>(placement.get());
     e = b + length;
 
     for (T i = 0; i < length; i++) {
@@ -805,8 +862,8 @@ public:
       auto ri_i = ri(i);
       idx2bb.emplace_hint(idx2bb.end(), std::move(ri_i), std::move(bb));
     }
-    build(b, e, placement);
-    std::free(placement);
+    build(b, e, placement.get());
+    // Phase 1: No need to free - unique_ptr handles cleanup automatically
   }
 
   void set_obj(const T &idx,
@@ -829,6 +886,9 @@ public:
 
   void insert(const T &idx, const py::array_t<float> &x,
               const std::optional<std::string> objdumps = std::nullopt) {
+    // Phase 1: Thread-safety - protect entire insert operation
+    std::lock_guard<std::recursive_mutex> lock(*tree_mutex_);
+
 #ifdef MY_DEBUG
     ProfilerStart("insert.prof");
     std::cout << "profiler start of insert" << std::endl;
@@ -839,12 +899,17 @@ public:
     const auto &buff_info_x = x.request();
     const auto &shape_x = buff_info_x.shape;
     const auto &ndim = buff_info_x.ndim;
+    // Phase 4: Improved error messages with context
     if (unlikely((shape_x[0] != 2 * D || ndim != 1))) {
-      throw std::runtime_error("invalid shape.");
+      throw std::runtime_error(
+          "Invalid shape for bounding box array. Expected shape (" +
+          std::to_string(2 * D) + ",) but got shape (" +
+          std::to_string(shape_x[0]) + ",) with ndim=" + std::to_string(ndim));
     }
     auto it = idx2bb.find(idx);
     if (unlikely(it != idx2bb.end())) {
-      throw std::runtime_error("Given index is already included.");
+      throw std::runtime_error(
+          "Index already exists in tree: " + std::to_string(idx));
     }
     {
       Real minima[D];
@@ -949,12 +1014,26 @@ public:
   }
 
   void rebuild() {
+    // Phase 1: Thread-safety - protect entire rebuild operation
+    std::lock_guard<std::recursive_mutex> lock(*tree_mutex_);
+
     std::stack<size_t> sta;
     T length = idx2bb.size();
     DataType<T, D> *b, *e;
 
-    void *placement = std::malloc(sizeof(DataType<T, D>) * length);
-    b = reinterpret_cast<DataType<T, D> *>(placement);
+    // Phase 1: RAII memory management to prevent leaks on exception
+    struct MallocDeleter {
+      void operator()(void* ptr) const {
+        if (ptr) std::free(ptr);
+      }
+    };
+    std::unique_ptr<void, MallocDeleter> placement(
+        std::malloc(sizeof(DataType<T, D>) * length)
+    );
+    if (!placement) {
+      throw std::bad_alloc();
+    }
+    b = reinterpret_cast<DataType<T, D> *>(placement.get());
     e = b + length;
 
     T i = 0;
@@ -980,8 +1059,8 @@ public:
       }
     }
 
-    build(b, e, placement);
-    std::free(placement);
+    build(b, e, placement.get());
+    // Phase 1: No need to free - unique_ptr handles cleanup automatically
   }
 
   template <class iterator>
@@ -1339,9 +1418,15 @@ public:
   }
 
   void erase(const T idx) {
+    // Phase 1: Thread-safety - protect entire erase operation
+    std::lock_guard<std::recursive_mutex> lock(*tree_mutex_);
+
     auto it = idx2bb.find(idx);
     if (unlikely(it == idx2bb.end())) {
-      throw std::runtime_error("Given index is not found.");
+      // Phase 4: Improved error message with context (backward compatible)
+      throw std::runtime_error(
+          "Given index is not found. (Index: " + std::to_string(idx) +
+          ", tree size: " + std::to_string(idx2bb.size()) + ")");
     }
     BB<D> target = it->second;
 
@@ -1359,7 +1444,15 @@ public:
     }
   }
 
-  int64_t size() { return static_cast<int64_t>(idx2bb.size()); }
+  int64_t size() const noexcept {
+    std::lock_guard<std::recursive_mutex> lock(*tree_mutex_);
+    return static_cast<int64_t>(idx2bb.size());
+  }
+
+  bool empty() const noexcept {
+    std::lock_guard<std::recursive_mutex> lock(*tree_mutex_);
+    return idx2bb.empty();
+  }
 
   /**
    * Find all pairs of intersecting AABBs in the tree.

@@ -2,6 +2,7 @@ cmake-build-*/
 docker/
 ldata/
 build/
+build_*/
 dist/
 _build/
 _generate/
@@ -41,3 +42,14 @@ coverage.xml
 *.tmp
 *.bak
 *~
+
+# Phase 0 profiling artifacts (keep templates, ignore generated data)
+docs/baseline/reports/*.txt
+docs/baseline/reports/*.out
+docs/baseline/reports/*.data
+docs/baseline/flamegraphs/*.svg
+*_benchmark_results.csv
+*.prof
+perf.data
+perf.data.old
+cachegrind.out*
