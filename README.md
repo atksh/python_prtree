@@ -184,16 +184,15 @@ results = tree.batch_query(queries)  # Returns [[], [], ...]
 ## Installation from Source
 
 ```bash
-# Install dependencies
-pip install -U cmake pybind11 numpy
-
 # Clone with submodules
-git clone --recursive https://github.com/atksh/python_prtree
+git clone --recursive https://github.com/atksh/python_prtree.git
 cd python_prtree
 
-# Build and install
-python setup.py install
+# Install in development mode with all dependencies
+pip install -e ".[dev]"
 ```
+
+For detailed development setup, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## API Reference
 

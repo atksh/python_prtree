@@ -135,21 +135,28 @@ install: ## Install package
 	$(PIP) install .
 	@echo "$(GREEN)✓ Installation complete$(RESET)"
 
-dev-install: ## Install in development mode (pip install -e .)
+dev-install: ## Install in development mode with all dependencies
 	@echo "$(BOLD)Installing in development mode...$(RESET)"
-	$(PIP) install -e .
+	$(PIP) install -e ".[dev,docs,benchmark]"
 	@echo "$(GREEN)✓ Development installation complete$(RESET)"
 
 install-deps: ## Install development dependencies
 	@echo "$(BOLD)Installing development dependencies...$(RESET)"
-	$(PIP) install pytest pytest-cov pytest-xdist numpy
+	$(PIP) install -e ".[dev]"
 	@echo "$(GREEN)✓ Dependencies installed$(RESET)"
 
-format: ## Format C++ code (requires clang-format)
+format: ## Format code (Python with black, C++ with clang-format)
+	@echo "$(BOLD)Formatting Python code...$(RESET)"
+	@if command -v black >/dev/null 2>&1 || $(PYTHON) -m black --version >/dev/null 2>&1; then \
+		$(PYTHON) -m black $(SRC_DIR) $(TEST_DIR); \
+		echo "$(GREEN)✓ Python formatting complete$(RESET)"; \
+	else \
+		echo "$(YELLOW)Warning: black not installed (pip install black)$(RESET)"; \
+	fi
+	@echo "$(BOLD)Formatting C++ code...$(RESET)"
 	@if command -v clang-format >/dev/null 2>&1; then \
-		echo "$(BOLD)Formatting C++ code...$(RESET)"; \
 		find $(CPP_DIR) -name '*.h' -o -name '*.cc' | xargs clang-format -i; \
-		echo "$(GREEN)✓ Formatting complete$(RESET)"; \
+		echo "$(GREEN)✓ C++ formatting complete$(RESET)"; \
 	else \
 		echo "$(YELLOW)Warning: clang-format not installed$(RESET)"; \
 	fi
@@ -162,15 +169,25 @@ lint-cpp: ## Lint C++ code (requires clang-tidy)
 		echo "$(YELLOW)Warning: clang-tidy not installed$(RESET)"; \
 	fi
 
-lint-python: ## Lint Python code (requires flake8)
-	@if command -v flake8 >/dev/null 2>&1; then \
-		echo "$(BOLD)Linting Python code...$(RESET)"; \
-		flake8 $(SRC_DIR) $(TEST_DIR) --max-line-length=100; \
+lint-python: ## Lint Python code (requires ruff)
+	@echo "$(BOLD)Linting Python code with ruff...$(RESET)"
+	@if command -v ruff >/dev/null 2>&1 || $(PYTHON) -m ruff --version >/dev/null 2>&1; then \
+		$(PYTHON) -m ruff check $(SRC_DIR) $(TEST_DIR); \
+		echo "$(GREEN)✓ Linting complete$(RESET)"; \
 	else \
-		echo "$(YELLOW)Warning: flake8 not installed$(RESET)"; \
+		echo "$(YELLOW)Warning: ruff not installed (pip install ruff)$(RESET)"; \
 	fi
 
-lint: lint-cpp lint-python ## Lint all code
+type-check: ## Type check Python code (requires mypy)
+	@echo "$(BOLD)Type checking Python code...$(RESET)"
+	@if command -v mypy >/dev/null 2>&1 || $(PYTHON) -m mypy --version >/dev/null 2>&1; then \
+		$(PYTHON) -m mypy $(SRC_DIR); \
+		echo "$(GREEN)✓ Type checking complete$(RESET)"; \
+	else \
+		echo "$(YELLOW)Warning: mypy not installed (pip install mypy)$(RESET)"; \
+	fi
+
+lint: lint-cpp lint-python type-check ## Lint all code
 
 docs: ## Generate documentation (requires Doxygen)
 	@if command -v doxygen >/dev/null 2>&1; then \

@@ -1,6 +1,8 @@
-include README.md LICENSE
-include requirements.txt
+include README.md LICENSE CHANGES.md CONTRIBUTING.md DEVELOPMENT.md
+include pyproject.toml setup.py
 global-include CMakeLists.txt *.cmake
-recursive-include cpp *
-recursive-include src *
+recursive-include cpp *.h *.cc
+recursive-include src *.py
 recursive-include third *
+exclude third/.git*
+prune third/**/.git
