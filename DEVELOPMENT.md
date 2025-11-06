@@ -6,19 +6,31 @@ Welcome to the python_prtree development guide! This document will help you get 
 
 ```
 python_prtree/
-├── src/                    # Python source code
-│   └── python_prtree/     # Main package
-├── cpp/                    # C++ implementation
+├── include/                # C++ public headers
+│   └── prtree/
+│       ├── core/          # Core algorithm
+│       └── utils/         # Utilities
+├── src/                    # Source code
+│   ├── cpp/               # C++ implementation
+│   │   └── bindings/     # Python bindings
+│   └── python_prtree/    # Python package
 ├── tests/                  # Test suite
 │   ├── unit/              # Unit tests
 │   ├── integration/       # Integration tests
 │   └── e2e/               # End-to-end tests
-├── tools/                  # Development tools and scripts
 ├── benchmarks/             # Performance benchmarks
+│   ├── cpp/               # C++ benchmarks
+│   └── python/            # Python benchmarks
 ├── docs/                   # Documentation
+│   ├── examples/          # Example code
+│   ├── images/            # Images
+│   └── baseline/          # Benchmark data
+├── tools/                  # Development tools
 ├── .github/workflows/      # CI/CD configuration
 └── third/                  # Third-party dependencies (git submodules)
 ```
+
+For a detailed explanation of the architecture, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Prerequisites
 
