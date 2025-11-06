@@ -50,7 +50,6 @@ set(PRTREE_SOURCES
 # Include directories
 set(PRTREE_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/cpp  # Backward compatibility during migration
 )
 
 option(SNAPPY_BUILD_TESTS "" OFF)

@@ -5,7 +5,6 @@ global-include CMakeLists.txt *.cmake
 # C++ headers and source
 recursive-include include *.h
 recursive-include src/cpp *.h *.cc *.cpp
-recursive-include cpp *.h *.cc  # Legacy support during migration
 
 # Python source
 recursive-include src/python_prtree *.py *.typed
