@@ -1,0 +1,27 @@
+System Information
+==================
+
+CPU:
+Model name:          unknown
+Thread(s) per core:  1
+Core(s) per socket:  16
+Socket(s):           1
+
+Memory:
+               total        used        free      shared  buff/cache   available
+Mem:            13Gi       340Mi        12Gi          0B       126Mi        12Gi
+Swap:             0B          0B          0B
+
+Kernel:
+Linux runsc 4.4.0 #1 SMP Sun Jan 10 15:06:54 PST 2016 x86_64 x86_64 x86_64 GNU/Linux
+
+Compiler:
+g++ (GCC) 13.3.0
+
+Build Configuration:
+- Build Type: Release with profiling symbols
+- Optimization: -O3
+- Profiling Flags: -g -fno-omit-frame-pointer
+- CXX Standard: C++17
+
+Date: 2025-11-04
