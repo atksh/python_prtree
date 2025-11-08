@@ -77,6 +77,50 @@ private:
 
   mutable std::unique_ptr<std::recursive_mutex> tree_mutex_;
 
+  // Precision control parameters
+  Real relative_epsilon_ = 1e-6;   // Relative epsilon for adaptive precision
+  Real absolute_epsilon_ = 1e-8;   // Absolute epsilon (backward compatible default)
+  bool use_adaptive_epsilon_ = true;  // Use adaptive epsilon based on coordinate magnitude
+  bool detect_subnormal_ = true;   // Detect and handle subnormal numbers
+
+  // Helper: Calculate adaptive epsilon for insert operations
+  Real calculate_adaptive_epsilon(const BB<D> &bb) const {
+    if (!use_adaptive_epsilon_) {
+      return absolute_epsilon_;
+    }
+
+    // Calculate the maximum extent of the bounding box
+    Real max_extent = 0.0;
+    for (int i = 0; i < D; ++i) {
+      Real extent = bb.max(i) - bb.min(i);
+      if (extent > max_extent) {
+        max_extent = extent;
+      }
+    }
+
+    // For degenerate boxes (points), use the magnitude of coordinates
+    if (max_extent < std::numeric_limits<Real>::epsilon()) {
+      Real max_magnitude = 0.0;
+      for (int i = 0; i < D; ++i) {
+        Real mag = std::max(std::abs(bb.min(i)), std::abs(bb.max(i)));
+        if (mag > max_magnitude) {
+          max_magnitude = mag;
+        }
+      }
+      max_extent = max_magnitude;
+    }
+
+    // Adaptive epsilon: relative to the scale + absolute minimum
+    // This ensures reasonable behavior across different coordinate scales
+    Real adaptive_eps = max_extent * relative_epsilon_ + absolute_epsilon_;
+
+    // Clamp to reasonable bounds to avoid numerical issues
+    Real min_epsilon = std::numeric_limits<Real>::epsilon() * 10.0;
+    Real max_epsilon = max_extent * 0.01;  // At most 1% of the extent
+
+    return std::max(min_epsilon, std::min(adaptive_eps, max_epsilon));
+  }
+
 public:
   template <class Archive> void serialize(Archive &archive) {
     archive(flat_tree, idx2bb, idx2data, global_idx, n_at_build, idx2exact);
@@ -124,6 +168,20 @@ public:
       if (!std::isfinite(min_val) || !std::isfinite(max_val)) {
         throw std::runtime_error(
             "Bounding box coordinates must be finite (no NaN or Inf)");
+      }
+
+      // Check for subnormal numbers if detection is enabled
+      if (detect_subnormal_) {
+        // A number is subnormal if it's non-zero but not normal
+        bool min_subnormal = (min_val != 0.0) && !std::isnormal(min_val);
+        bool max_subnormal = (max_val != 0.0) && !std::isnormal(max_val);
+
+        if (min_subnormal || max_subnormal) {
+          throw std::runtime_error(
+              "Bounding box contains subnormal numbers which may cause "
+              "precision issues. Consider rescaling coordinates or using "
+              "larger values. Subnormal detection can be disabled if needed.");
+        }
       }
 
       // Enforce min <= max
@@ -357,9 +415,11 @@ public:
     idx2bb.emplace(idx, bb);
     set_obj(idx, objdumps);
 
+    // Use adaptive epsilon based on bounding box scale
+    Real adaptive_eps = calculate_adaptive_epsilon(bb);
     Real delta[D];
     for (int i = 0; i < D; ++i) {
-      delta[i] = bb.max(i) - bb.min(i) + 0.00000001;
+      delta[i] = bb.max(i) - bb.min(i) + adaptive_eps;
     }
 
     // find the leaf node to insert
@@ -503,9 +563,11 @@ public:
     idx2exact[idx] = exact_coords; // Store exact coordinates for refinement
     set_obj(idx, objdumps);
 
+    // Use adaptive epsilon based on bounding box scale
+    Real adaptive_eps = calculate_adaptive_epsilon(bb);
     Real delta[D];
     for (int i = 0; i < D; ++i) {
-      delta[i] = bb.max(i) - bb.min(i) + 0.00000001;
+      delta[i] = bb.max(i) - bb.min(i) + adaptive_eps;
     }
 
     // find the leaf node to insert
@@ -1194,4 +1256,61 @@ public:
         capsule                     // capsule for cleanup
     );
   }
+
+  // Precision control methods
+
+  /**
+   * Set relative epsilon for adaptive precision calculation.
+   * This epsilon is multiplied by the coordinate scale to determine
+   * the precision threshold for insert operations.
+   *
+   * @param epsilon Relative epsilon (default: 1e-6)
+   */
+  void set_relative_epsilon(Real epsilon) {
+    if (epsilon <= 0.0 || !std::isfinite(epsilon)) {
+      throw std::runtime_error("Relative epsilon must be positive and finite");
+    }
+    relative_epsilon_ = epsilon;
+  }
+
+  /**
+   * Set absolute epsilon for precision calculation.
+   * This is the minimum epsilon used regardless of coordinate scale,
+   * ensuring backward compatibility and reasonable behavior for small coordinates.
+   *
+   * @param epsilon Absolute epsilon (default: 1e-8)
+   */
+  void set_absolute_epsilon(Real epsilon) {
+    if (epsilon <= 0.0 || !std::isfinite(epsilon)) {
+      throw std::runtime_error("Absolute epsilon must be positive and finite");
+    }
+    absolute_epsilon_ = epsilon;
+  }
+
+  /**
+   * Enable or disable adaptive epsilon calculation.
+   * When disabled, only absolute_epsilon is used (backward compatible behavior).
+   *
+   * @param enabled True to enable adaptive epsilon (default: true)
+   */
+  void set_adaptive_epsilon(bool enabled) {
+    use_adaptive_epsilon_ = enabled;
+  }
+
+  /**
+   * Enable or disable subnormal number detection.
+   * When enabled, validation will reject subnormal numbers to avoid precision issues.
+   *
+   * @param enabled True to enable detection (default: true)
+   */
+  void set_subnormal_detection(bool enabled) {
+    detect_subnormal_ = enabled;
+  }
+
+  // Getters for precision parameters
+
+  Real get_relative_epsilon() const { return relative_epsilon_; }
+  Real get_absolute_epsilon() const { return absolute_epsilon_; }
+  bool get_adaptive_epsilon() const { return use_adaptive_epsilon_; }
+  bool get_subnormal_detection() const { return detect_subnormal_; }
 };

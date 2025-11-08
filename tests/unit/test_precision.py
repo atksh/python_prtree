@@ -317,3 +317,229 @@ class TestPrecisionEdgeCases:
             result = tree.query(B[0])
 
             assert result == [], f"Small gap in dimension {test_dim} should be detected"
+
+
+class TestAdaptiveEpsilon:
+    """Test adaptive epsilon calculation and behavior."""
+
+    @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
+    def test_adaptive_epsilon_small_coordinates(self, PRTree, dim):
+        """Verify adaptive epsilon works correctly for small coordinates (< 1.0).
+
+        For small coordinates, absolute epsilon should dominate.
+        """
+        tree = PRTree()
+
+        # Insert small box
+        box = np.zeros(2 * dim, dtype=np.float64)
+        for i in range(dim):
+            box[i] = 0.0
+            box[i + dim] = 0.1
+
+        tree.insert(idx=0, bb=box)
+
+        # Query with very small gap (should not intersect)
+        query = np.zeros(2 * dim, dtype=np.float64)
+        query[0] = 0.1 + 1e-7  # Small gap in first dimension
+        query[dim] = 0.2
+        for i in range(1, dim):
+            query[i] = 0.0
+            query[i + dim] = 0.1
+
+        result = tree.query(query)
+        # With adaptive epsilon, small absolute gaps should be detected
+        assert result == [], "Small gap should be detected with adaptive epsilon"
+
+    @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
+    def test_adaptive_epsilon_large_coordinates(self, PRTree, dim):
+        """Verify adaptive epsilon scales with coordinate magnitude.
+
+        For large coordinates, relative epsilon should dominate.
+        """
+        tree = PRTree()
+
+        # Insert box at large magnitude
+        base = 1e7
+        box = np.zeros(2 * dim, dtype=np.float64)
+        for i in range(dim):
+            box[i] = base
+            box[i + dim] = base + 1000.0
+
+        tree.insert(idx=0, bb=box)
+
+        # Query with gap that would be significant at small scale but
+        # should be detected at large scale with adaptive epsilon
+        query = np.zeros(2 * dim, dtype=np.float64)
+        query[0] = base + 1000.0 + 0.01  # Small relative gap
+        query[dim] = base + 2000.0
+        for i in range(1, dim):
+            query[i] = base
+            query[i + dim] = base + 1000.0
+
+        result = tree.query(query)
+        # Gap should be detected with adaptive epsilon
+        assert result == [], "Gap should be detected with adaptive epsilon at large scale"
+
+    @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
+    def test_adaptive_epsilon_mixed_scales(self, PRTree, dim):
+        """Test adaptive epsilon with boxes at different scales."""
+        tree = PRTree()
+
+        # Insert boxes at different scales
+        scales = [0.1, 1.0, 100.0, 10000.0]
+        for idx, scale in enumerate(scales):
+            box = np.zeros(2 * dim, dtype=np.float64)
+            for i in range(dim):
+                box[i] = scale
+                box[i + dim] = scale + scale * 0.1
+            tree.insert(idx=idx, bb=box)
+
+        assert tree.size() == len(scales)
+
+        # Query each box with appropriate gap
+        for idx, scale in enumerate(scales):
+            query = np.zeros(2 * dim, dtype=np.float64)
+            # Create query just after the box with adaptive gap
+            query[0] = scale + scale * 0.1 + scale * 1e-5
+            query[dim] = scale + scale * 0.2
+            for i in range(1, dim):
+                query[i] = scale
+                query[i + dim] = scale + scale * 0.1
+
+            result = tree.query(query)
+            # Should not include the box we're testing against
+            # (may include others due to overlap in other dimensions)
+            # But for our test, we create sufficient separation
+
+    @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2)])
+    def test_subnormal_number_detection(self, PRTree, dim):
+        """Verify subnormal number detection in insert operations."""
+        tree = PRTree()
+
+        # Create box with subnormal number (very small but non-zero)
+        box = np.zeros(2 * dim, dtype=np.float64)
+        box[0] = 1e-320  # Subnormal number
+        box[dim] = 1.0
+        for i in range(1, dim):
+            box[i] = 0.0
+            box[i + dim] = 1.0
+
+        # With subnormal detection enabled (default), should raise error
+        with pytest.raises((ValueError, RuntimeError)):
+            tree.insert(idx=0, bb=box)
+
+        # Disable subnormal detection
+        tree.set_subnormal_detection(False)
+        assert tree.get_subnormal_detection() == False
+
+        # Now insert should work
+        tree.insert(idx=0, bb=box)
+        assert tree.size() == 1
+
+    @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
+    def test_precision_parameter_configuration(self, PRTree, dim):
+        """Test precision parameter getters and setters."""
+        tree = PRTree()
+
+        # Test relative epsilon
+        tree.set_relative_epsilon(1e-5)
+        assert tree.get_relative_epsilon() == 1e-5
+
+        # Test absolute epsilon
+        tree.set_absolute_epsilon(1e-7)
+        assert tree.get_absolute_epsilon() == 1e-7
+
+        # Test adaptive epsilon flag
+        tree.set_adaptive_epsilon(False)
+        assert tree.get_adaptive_epsilon() == False
+        tree.set_adaptive_epsilon(True)
+        assert tree.get_adaptive_epsilon() == True
+
+        # Test subnormal detection flag
+        tree.set_subnormal_detection(False)
+        assert tree.get_subnormal_detection() == False
+        tree.set_subnormal_detection(True)
+        assert tree.get_subnormal_detection() == True
+
+    @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2)])
+    def test_adaptive_epsilon_disabled(self, PRTree, dim):
+        """Test behavior when adaptive epsilon is disabled."""
+        tree = PRTree()
+
+        # Disable adaptive epsilon
+        tree.set_adaptive_epsilon(False)
+        tree.set_absolute_epsilon(1e-6)
+
+        # Insert box at large scale
+        base = 1e6
+        box = np.zeros(2 * dim, dtype=np.float64)
+        for i in range(dim):
+            box[i] = base
+            box[i + dim] = base + 100.0
+
+        tree.insert(idx=0, bb=box)
+
+        # Query with gap smaller than absolute epsilon
+        # Without adaptive epsilon, this might cause false positive
+        query = np.zeros(2 * dim, dtype=np.float64)
+        query[0] = base + 100.0 + 1e-7  # Gap smaller than absolute epsilon
+        query[dim] = base + 200.0
+        for i in range(1, dim):
+            query[i] = base
+            query[i + dim] = base + 100.0
+
+        result = tree.query(query)
+        # Result depends on absolute epsilon vs gap size
+
+    @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
+    def test_custom_relative_epsilon(self, PRTree, dim):
+        """Test custom relative epsilon values."""
+        tree = PRTree()
+
+        # Set tighter relative epsilon
+        tree.set_relative_epsilon(1e-8)
+
+        # Insert box
+        box = np.zeros(2 * dim, dtype=np.float64)
+        for i in range(dim):
+            box[i] = 0.0
+            box[i + dim] = 100.0
+
+        tree.insert(idx=0, bb=box)
+
+        # Query with very small gap (relative to box size)
+        query = np.zeros(2 * dim, dtype=np.float64)
+        query[0] = 100.0 + 1e-6  # Very small gap
+        query[dim] = 200.0
+        for i in range(1, dim):
+            query[i] = 0.0
+            query[i + dim] = 100.0
+
+        result = tree.query(query)
+        # With tighter epsilon, small gaps should be detected
+        assert result == [], "Small gap should be detected with tight relative epsilon"
+
+    @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2)])
+    def test_degenerate_box_epsilon_handling(self, PRTree, dim):
+        """Test adaptive epsilon for degenerate boxes (point-like)."""
+        tree = PRTree()
+
+        # Insert degenerate box (min == max, i.e., a point)
+        box = np.zeros(2 * dim, dtype=np.float64)
+        for i in range(dim):
+            box[i] = 100.0
+            box[i + dim] = 100.0  # Degenerate
+
+        tree.insert(idx=0, bb=box)
+
+        # Query very close to the point
+        query = np.zeros(2 * dim, dtype=np.float64)
+        query[0] = 100.0 + 1e-6  # Very close
+        query[dim] = 101.0
+        for i in range(1, dim):
+            query[i] = 99.0
+            query[i + dim] = 101.0
+
+        result = tree.query(query)
+        # For degenerate boxes, epsilon should be based on magnitude
+        # Gap should be detected

@@ -80,6 +80,42 @@ PYBIND11_MODULE(PRTree, m) {
           Find all pairs of intersecting AABBs.
           Returns a numpy array of shape (n_pairs, 2) where each row contains
           a pair of indices (i, j) with i < j representing intersecting AABBs.
+        )pbdoc")
+      .def("set_relative_epsilon", &PRTree<T, B, 2>::set_relative_epsilon,
+           py::arg("epsilon"),
+           R"pbdoc(
+          Set relative epsilon for adaptive precision calculation.
+        )pbdoc")
+      .def("set_absolute_epsilon", &PRTree<T, B, 2>::set_absolute_epsilon,
+           py::arg("epsilon"),
+           R"pbdoc(
+          Set absolute epsilon for precision calculation.
+        )pbdoc")
+      .def("set_adaptive_epsilon", &PRTree<T, B, 2>::set_adaptive_epsilon,
+           py::arg("enabled"),
+           R"pbdoc(
+          Enable or disable adaptive epsilon calculation.
+        )pbdoc")
+      .def("set_subnormal_detection", &PRTree<T, B, 2>::set_subnormal_detection,
+           py::arg("enabled"),
+           R"pbdoc(
+          Enable or disable subnormal number detection.
+        )pbdoc")
+      .def("get_relative_epsilon", &PRTree<T, B, 2>::get_relative_epsilon,
+           R"pbdoc(
+          Get current relative epsilon value.
+        )pbdoc")
+      .def("get_absolute_epsilon", &PRTree<T, B, 2>::get_absolute_epsilon,
+           R"pbdoc(
+          Get current absolute epsilon value.
+        )pbdoc")
+      .def("get_adaptive_epsilon", &PRTree<T, B, 2>::get_adaptive_epsilon,
+           R"pbdoc(
+          Check if adaptive epsilon is enabled.
+        )pbdoc")
+      .def("get_subnormal_detection", &PRTree<T, B, 2>::get_subnormal_detection,
+           R"pbdoc(
+          Check if subnormal detection is enabled.
         )pbdoc");
 
   py::class_<PRTree<T, B, 3>>(m, "_PRTree3D")
@@ -146,6 +182,42 @@ PYBIND11_MODULE(PRTree, m) {
           Find all pairs of intersecting AABBs.
           Returns a numpy array of shape (n_pairs, 2) where each row contains
           a pair of indices (i, j) with i < j representing intersecting AABBs.
+        )pbdoc")
+      .def("set_relative_epsilon", &PRTree<T, B, 3>::set_relative_epsilon,
+           py::arg("epsilon"),
+           R"pbdoc(
+          Set relative epsilon for adaptive precision calculation.
+        )pbdoc")
+      .def("set_absolute_epsilon", &PRTree<T, B, 3>::set_absolute_epsilon,
+           py::arg("epsilon"),
+           R"pbdoc(
+          Set absolute epsilon for precision calculation.
+        )pbdoc")
+      .def("set_adaptive_epsilon", &PRTree<T, B, 3>::set_adaptive_epsilon,
+           py::arg("enabled"),
+           R"pbdoc(
+          Enable or disable adaptive epsilon calculation.
+        )pbdoc")
+      .def("set_subnormal_detection", &PRTree<T, B, 3>::set_subnormal_detection,
+           py::arg("enabled"),
+           R"pbdoc(
+          Enable or disable subnormal number detection.
+        )pbdoc")
+      .def("get_relative_epsilon", &PRTree<T, B, 3>::get_relative_epsilon,
+           R"pbdoc(
+          Get current relative epsilon value.
+        )pbdoc")
+      .def("get_absolute_epsilon", &PRTree<T, B, 3>::get_absolute_epsilon,
+           R"pbdoc(
+          Get current absolute epsilon value.
+        )pbdoc")
+      .def("get_adaptive_epsilon", &PRTree<T, B, 3>::get_adaptive_epsilon,
+           R"pbdoc(
+          Check if adaptive epsilon is enabled.
+        )pbdoc")
+      .def("get_subnormal_detection", &PRTree<T, B, 3>::get_subnormal_detection,
+           R"pbdoc(
+          Check if subnormal detection is enabled.
         )pbdoc");
 
   py::class_<PRTree<T, B, 4>>(m, "_PRTree4D")
@@ -212,6 +284,42 @@ PYBIND11_MODULE(PRTree, m) {
           Find all pairs of intersecting AABBs.
           Returns a numpy array of shape (n_pairs, 2) where each row contains
           a pair of indices (i, j) with i < j representing intersecting AABBs.
+        )pbdoc")
+      .def("set_relative_epsilon", &PRTree<T, B, 4>::set_relative_epsilon,
+           py::arg("epsilon"),
+           R"pbdoc(
+          Set relative epsilon for adaptive precision calculation.
+        )pbdoc")
+      .def("set_absolute_epsilon", &PRTree<T, B, 4>::set_absolute_epsilon,
+           py::arg("epsilon"),
+           R"pbdoc(
+          Set absolute epsilon for precision calculation.
+        )pbdoc")
+      .def("set_adaptive_epsilon", &PRTree<T, B, 4>::set_adaptive_epsilon,
+           py::arg("enabled"),
+           R"pbdoc(
+          Enable or disable adaptive epsilon calculation.
+        )pbdoc")
+      .def("set_subnormal_detection", &PRTree<T, B, 4>::set_subnormal_detection,
+           py::arg("enabled"),
+           R"pbdoc(
+          Enable or disable subnormal number detection.
+        )pbdoc")
+      .def("get_relative_epsilon", &PRTree<T, B, 4>::get_relative_epsilon,
+           R"pbdoc(
+          Get current relative epsilon value.
+        )pbdoc")
+      .def("get_absolute_epsilon", &PRTree<T, B, 4>::get_absolute_epsilon,
+           R"pbdoc(
+          Get current absolute epsilon value.
+        )pbdoc")
+      .def("get_adaptive_epsilon", &PRTree<T, B, 4>::get_adaptive_epsilon,
+           R"pbdoc(
+          Check if adaptive epsilon is enabled.
+        )pbdoc")
+      .def("get_subnormal_detection", &PRTree<T, B, 4>::get_subnormal_detection,
+           R"pbdoc(
+          Check if subnormal detection is enabled.
         )pbdoc");
 
 #ifdef VERSION_INFO
