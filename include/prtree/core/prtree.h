@@ -59,21 +59,15 @@
 #include <gperftools/profiler.h>
 #endif
 
-using Real = float;
-
 namespace py = pybind11;
 
-template <IndexType T, int B = 6, int D = 2> class PRTree {
+template <IndexType T, int B = 6, int D = 2, typename Real = float> class PRTree {
 private:
-  vec<PRTreeElement<T, B, D>> flat_tree;
-  std::unordered_map<T, BB<D>> idx2bb;
+  vec<PRTreeElement<T, B, D, Real>> flat_tree;
+  std::unordered_map<T, BB<D, Real>> idx2bb;
   std::unordered_map<T, std::string> idx2data;
   int64_t n_at_build = 0;
   std::atomic<T> global_idx = 0;
-
-  // Double-precision storage for exact refinement (optional, only when built
-  // from float64)
-  std::unordered_map<T, std::array<double, 2 * D>> idx2exact;
 
   mutable std::unique_ptr<std::recursive_mutex> tree_mutex_;
 
@@ -84,7 +78,7 @@ private:
   bool detect_subnormal_ = true;   // Detect and handle subnormal numbers
 
   // Helper: Calculate adaptive epsilon for insert operations
-  Real calculate_adaptive_epsilon(const BB<D> &bb) const {
+  Real calculate_adaptive_epsilon(const BB<D, Real> &bb) const {
     if (!use_adaptive_epsilon_) {
       return absolute_epsilon_;
     }
@@ -123,7 +117,7 @@ private:
 
 public:
   template <class Archive> void serialize(Archive &archive) {
-    archive(flat_tree, idx2bb, idx2data, global_idx, n_at_build, idx2exact);
+    archive(flat_tree, idx2bb, idx2data, global_idx, n_at_build);
   }
 
   void save(const std::string& fname) const {
@@ -134,8 +128,7 @@ public:
               cereal::make_nvp("idx2bb", idx2bb),
               cereal::make_nvp("idx2data", idx2data),
               cereal::make_nvp("global_idx", global_idx),
-              cereal::make_nvp("n_at_build", n_at_build),
-              cereal::make_nvp("idx2exact", idx2exact));
+              cereal::make_nvp("n_at_build", n_at_build));
   }
 
   void load(const std::string& fname) {
@@ -146,8 +139,7 @@ public:
               cereal::make_nvp("idx2bb", idx2bb),
               cereal::make_nvp("idx2data", idx2data),
               cereal::make_nvp("global_idx", global_idx),
-              cereal::make_nvp("n_at_build", n_at_build),
-              cereal::make_nvp("idx2exact", idx2exact));
+              cereal::make_nvp("n_at_build", n_at_build));
   }
 
   PRTree() : tree_mutex_(std::make_unique<std::recursive_mutex>()) {}
@@ -192,8 +184,8 @@ public:
     }
   }
 
-  // Constructor for float32 input (no refinement, pure float32 performance)
-  PRTree(const py::array_t<T> &idx, const py::array_t<float> &x)
+  // Unified constructor for any Real type (float32 or float64)
+  PRTree(const py::array_t<T> &idx, const py::array_t<Real> &x)
       : tree_mutex_(std::make_unique<std::recursive_mutex>()) {
     const auto &buff_info_idx = idx.request();
     const auto &shape_idx = buff_info_idx.shape;
@@ -212,9 +204,8 @@ public:
     auto rx = x.template unchecked<2>();
     T length = shape_idx[0];
     idx2bb.reserve(length);
-    // Note: idx2exact is NOT populated for float32 input (no refinement)
 
-    DataType<T, D> *b, *e;
+    DataType<T, D, Real> *b, *e;
     // Phase 1: RAII memory management to prevent leaks on exception
     struct MallocDeleter {
       void operator()(void* ptr) const {
@@ -222,12 +213,12 @@ public:
       }
     };
     std::unique_ptr<void, MallocDeleter> placement(
-        std::malloc(sizeof(DataType<T, D>) * length)
+        std::malloc(sizeof(DataType<T, D, Real>) * length)
     );
     if (!placement) {
       throw std::bad_alloc();
     }
-    b = reinterpret_cast<DataType<T, D> *>(placement.get());
+    b = reinterpret_cast<DataType<T, D, Real> *>(placement.get());
     e = b + length;
 
     for (T i = 0; i < length; i++) {
@@ -235,21 +226,21 @@ public:
       Real maxima[D];
 
       for (int j = 0; j < D; ++j) {
-        minima[j] = rx(i, j); // Direct float32 assignment
+        minima[j] = rx(i, j);  // Direct assignment with native Real type
         maxima[j] = rx(i, j + D);
       }
 
       // Validate bounding box (reject NaN/Inf, enforce min <= max)
-      float coords[2 * D];
+      Real coords[2 * D];
       for (int j = 0; j < D; ++j) {
         coords[j] = minima[j];
         coords[j + D] = maxima[j];
       }
       validate_box(coords, D);
 
-      auto bb = BB<D>(minima, maxima);
+      auto bb = BB<D, Real>(minima, maxima);
       auto ri_i = ri(i);
-      new (b + i) DataType<T, D>{std::move(ri_i), std::move(bb)};
+      new (b + i) DataType<T, D, Real>{std::move(ri_i), std::move(bb)};
     }
 
     for (T i = 0; i < length; i++) {
@@ -259,88 +250,7 @@ public:
         minima[j] = rx(i, j);
         maxima[j] = rx(i, j + D);
       }
-      auto bb = BB<D>(minima, maxima);
-      auto ri_i = ri(i);
-      idx2bb.emplace_hint(idx2bb.end(), std::move(ri_i), std::move(bb));
-    }
-    build(b, e, placement.get());
-    // Phase 1: No need to free - unique_ptr handles cleanup automatically
-  }
-
-  // Constructor for float64 input (float32 tree + double refinement)
-  PRTree(const py::array_t<T> &idx, const py::array_t<double> &x)
-      : tree_mutex_(std::make_unique<std::recursive_mutex>()) {
-    const auto &buff_info_idx = idx.request();
-    const auto &shape_idx = buff_info_idx.shape;
-    const auto &buff_info_x = x.request();
-    const auto &shape_x = buff_info_x.shape;
-    if (unlikely(shape_idx[0] != shape_x[0])) {
-      throw std::runtime_error(
-          "Both index and bounding box must have the same length");
-    }
-    if (unlikely(shape_x[1] != 2 * D)) {
-      throw std::runtime_error(
-          "Bounding box must have the shape (length, 2 * dim)");
-    }
-
-    auto ri = idx.template unchecked<1>();
-    auto rx = x.template unchecked<2>();
-    T length = shape_idx[0];
-    idx2bb.reserve(length);
-    idx2exact.reserve(length); // Reserve space for exact coordinates
-
-    DataType<T, D> *b, *e;
-    // Phase 1: RAII memory management to prevent leaks on exception
-    struct MallocDeleter {
-      void operator()(void* ptr) const {
-        if (ptr) std::free(ptr);
-      }
-    };
-    std::unique_ptr<void, MallocDeleter> placement(
-        std::malloc(sizeof(DataType<T, D>) * length)
-    );
-    if (!placement) {
-      throw std::bad_alloc();
-    }
-    b = reinterpret_cast<DataType<T, D> *>(placement.get());
-    e = b + length;
-
-    for (T i = 0; i < length; i++) {
-      Real minima[D];
-      Real maxima[D];
-      std::array<double, 2 * D> exact_coords;
-
-      for (int j = 0; j < D; ++j) {
-        double val_min = rx(i, j);
-        double val_max = rx(i, j + D);
-        exact_coords[j] = val_min; // Store exact double for refinement
-        exact_coords[j + D] = val_max;
-      }
-
-      // Validate bounding box with double precision (reject NaN/Inf, enforce
-      // min <= max)
-      validate_box(exact_coords.data(), D);
-
-      // Convert to float32 for tree after validation
-      for (int j = 0; j < D; ++j) {
-        minima[j] = static_cast<Real>(exact_coords[j]);
-        maxima[j] = static_cast<Real>(exact_coords[j + D]);
-      }
-
-      auto bb = BB<D>(minima, maxima);
-      auto ri_i = ri(i);
-      idx2exact[ri_i] = exact_coords; // Store exact coordinates
-      new (b + i) DataType<T, D>{std::move(ri_i), std::move(bb)};
-    }
-
-    for (T i = 0; i < length; i++) {
-      Real minima[D];
-      Real maxima[D];
-      for (int j = 0; j < D; ++j) {
-        minima[j] = static_cast<Real>(rx(i, j));
-        maxima[j] = static_cast<Real>(rx(i, j + D));
-      }
-      auto bb = BB<D>(minima, maxima);
+      auto bb = BB<D, Real>(minima, maxima);
       auto ri_i = ri(i);
       idx2bb.emplace_hint(idx2bb.end(), std::move(ri_i), std::move(bb));
     }
@@ -366,8 +276,8 @@ public:
     return obj;
   }
 
-  // Insert with float32 coordinates (no double-precision refinement)
-  void insert(const T &idx, const py::array_t<float> &x,
+  // Unified insert for any Real type (float32 or float64)
+  void insert(const T &idx, const py::array_t<Real> &x,
               const std::optional<std::string> objdumps = std::nullopt) {
     // Phase 1: Thread-safety - protect entire insert operation
     std::lock_guard<std::recursive_mutex> lock(*tree_mutex_);
@@ -377,7 +287,7 @@ public:
     std::cout << "profiler start of insert" << std::endl;
 #endif
     vec<size_t> cands;
-    BB<D> bb;
+    BB<D, Real> bb;
 
     const auto &buff_info_x = x.request();
     const auto &shape_x = buff_info_x.shape;
@@ -403,14 +313,14 @@ public:
       }
 
       // Validate bounding box (reject NaN/Inf, enforce min <= max)
-      float coords[2 * D];
+      Real coords[2 * D];
       for (int j = 0; j < D; ++j) {
         coords[j] = minima[j];
         coords[j + D] = maxima[j];
       }
       validate_box(coords, D);
 
-      bb = BB<D>(minima, maxima);
+      bb = BB<D, Real>(minima, maxima);
     }
     idx2bb.emplace(idx, bb);
     set_obj(idx, objdumps);
@@ -444,7 +354,7 @@ public:
       while (!que.empty()) {
         size_t i = que.front();
         que.pop();
-        PRTreeElement<T, B, D> &elem = flat_tree[i];
+        PRTreeElement<T, B, D, Real> &elem = flat_tree[i];
 
         if (elem.leaf && elem.leaf->mbb(bb)) {
           cands.push_back(i);
@@ -469,8 +379,8 @@ public:
     } else {
       Real min_diff_area = 1e100;
       for (const auto &i : cands) {
-        PRTreeLeaf<T, B, D> *leaf = flat_tree[i].leaf.get();
-        PRTreeLeaf<T, B, D> tmp_leaf = PRTreeLeaf<T, B, D>(*leaf);
+        PRTreeLeaf<T, B, D, Real> *leaf = flat_tree[i].leaf.get();
+        PRTreeLeaf<T, B, D, Real> tmp_leaf = PRTreeLeaf<T, B, D, Real>(*leaf);
         Real diff_area = -tmp_leaf.area();
         tmp_leaf.push(idx, bb);
         diff_area += tmp_leaf.area();
@@ -484,7 +394,7 @@ public:
     // update mbbs of all cands and their parents
     size_t i = min_leaf;
     while (true) {
-      PRTreeElement<T, B, D> &elem = flat_tree[i];
+      PRTreeElement<T, B, D, Real> &elem = flat_tree[i];
 
       if (elem.leaf)
         elem.mbb += elem.leaf->mbb;
@@ -507,161 +417,13 @@ public:
 #endif
   }
 
-  // Insert with float64 coordinates (maintains double-precision refinement)
-  void insert(const T &idx, const py::array_t<double> &x,
-              const std::optional<std::string> objdumps = std::nullopt) {
-    // Phase 1: Thread-safety - protect entire insert operation
-    std::lock_guard<std::recursive_mutex> lock(*tree_mutex_);
-
-#ifdef MY_DEBUG
-    ProfilerStart("insert.prof");
-    std::cout << "profiler start of insert (float64)" << std::endl;
-#endif
-    vec<size_t> cands;
-    BB<D> bb;
-    std::array<double, 2 * D> exact_coords;
-
-    const auto &buff_info_x = x.request();
-    const auto &shape_x = buff_info_x.shape;
-    const auto &ndim = buff_info_x.ndim;
-    // Phase 4: Improved error messages with context
-    if (unlikely((shape_x[0] != 2 * D || ndim != 1))) {
-      throw std::runtime_error(
-          "Invalid shape for bounding box array. Expected shape (" +
-          std::to_string(2 * D) + ",) but got shape (" +
-          std::to_string(shape_x[0]) + ",) with ndim=" + std::to_string(ndim));
-    }
-    auto it = idx2bb.find(idx);
-    if (unlikely(it != idx2bb.end())) {
-      throw std::runtime_error(
-          "Index already exists in tree: " + std::to_string(idx));
-    }
-    {
-      Real minima[D];
-      Real maxima[D];
-
-      // Store exact double coordinates
-      for (int i = 0; i < D; ++i) {
-        double val_min = *x.data(i);
-        double val_max = *x.data(i + D);
-        exact_coords[i] = val_min;
-        exact_coords[i + D] = val_max;
-      }
-
-      // Validate bounding box with double precision (reject NaN/Inf, enforce min <= max)
-      validate_box(exact_coords.data(), D);
-
-      // Convert to float32 for tree after validation
-      for (int i = 0; i < D; ++i) {
-        minima[i] = static_cast<Real>(exact_coords[i]);
-        maxima[i] = static_cast<Real>(exact_coords[i + D]);
-      }
-
-      bb = BB<D>(minima, maxima);
-    }
-    idx2bb.emplace(idx, bb);
-    idx2exact[idx] = exact_coords; // Store exact coordinates for refinement
-    set_obj(idx, objdumps);
-
-    // Use adaptive epsilon based on bounding box scale
-    Real adaptive_eps = calculate_adaptive_epsilon(bb);
-    Real delta[D];
-    for (int i = 0; i < D; ++i) {
-      delta[i] = bb.max(i) - bb.min(i) + adaptive_eps;
-    }
-
-    // find the leaf node to insert
-    Real c = 0.0;
-    size_t count = flat_tree.size();
-    while (cands.empty()) {
-      Real d[D];
-      for (int i = 0; i < D; ++i) {
-        d[i] = delta[i] * c;
-      }
-      bb.expand(d);
-      c = (c + 1) * 2;
-
-      queue<size_t> que;
-      auto qpush_if_intersect = [&](const size_t &i) {
-        if (flat_tree[i](bb)) {
-          que.emplace(i);
-        }
-      };
-
-      qpush_if_intersect(0);
-      while (!que.empty()) {
-        size_t i = que.front();
-        que.pop();
-        PRTreeElement<T, B, D> &elem = flat_tree[i];
-
-        if (elem.leaf && elem.leaf->mbb(bb)) {
-          cands.push_back(i);
-        } else {
-          for (size_t offset = 0; offset < B; offset++) {
-            size_t j = i * B + offset + 1;
-            if (j < count)
-              qpush_if_intersect(j);
-          }
-        }
-      }
-    }
-
-    if (unlikely(cands.empty()))
-      throw std::runtime_error("cannnot determine where to insert");
-
-    // Now cands is the list of candidate leaf nodes to insert
-    bb = idx2bb.at(idx);
-    size_t min_leaf = 0;
-    if (cands.size() == 1) {
-      min_leaf = cands[0];
-    } else {
-      Real min_diff_area = 1e100;
-      for (const auto &i : cands) {
-        PRTreeLeaf<T, B, D> *leaf = flat_tree[i].leaf.get();
-        PRTreeLeaf<T, B, D> tmp_leaf = PRTreeLeaf<T, B, D>(*leaf);
-        Real diff_area = -tmp_leaf.area();
-        tmp_leaf.push(idx, bb);
-        diff_area += tmp_leaf.area();
-        if (diff_area < min_diff_area) {
-          min_diff_area = diff_area;
-          min_leaf = i;
-        }
-      }
-    }
-    flat_tree[min_leaf].leaf->push(idx, bb);
-    // update mbbs of all cands and their parents
-    size_t i = min_leaf;
-    while (true) {
-      PRTreeElement<T, B, D> &elem = flat_tree[i];
-
-      if (elem.leaf)
-        elem.mbb += elem.leaf->mbb;
-
-      if (i > 0) {
-        size_t j = (i - 1) / B;
-        flat_tree[j].mbb += flat_tree[i].mbb;
-      }
-      if (i == 0)
-        break;
-      i = (i - 1) / B;
-    }
-
-    if (size() > REBUILD_THRE * n_at_build) {
-      rebuild();
-    }
-#ifdef MY_DEBUG
-    ProfilerStop();
-    std::cout << "profiler end of insert (float64)" << std::endl;
-#endif
-  }
-
   void rebuild() {
     // Phase 1: Thread-safety - protect entire rebuild operation
     std::lock_guard<std::recursive_mutex> lock(*tree_mutex_);
 
     std::stack<size_t> sta;
     T length = idx2bb.size();
-    DataType<T, D> *b, *e;
+    DataType<T, D, Real> *b, *e;
 
     // Phase 1: RAII memory management to prevent leaks on exception
     struct MallocDeleter {
@@ -670,12 +432,12 @@ public:
       }
     };
     std::unique_ptr<void, MallocDeleter> placement(
-        std::malloc(sizeof(DataType<T, D>) * length)
+        std::malloc(sizeof(DataType<T, D, Real>) * length)
     );
     if (!placement) {
       throw std::bad_alloc();
     }
-    b = reinterpret_cast<DataType<T, D> *>(placement.get());
+    b = reinterpret_cast<DataType<T, D, Real> *>(placement.get());
     e = b + length;
 
     T i = 0;
@@ -684,11 +446,11 @@ public:
       size_t idx = sta.top();
       sta.pop();
 
-      PRTreeElement<T, B, D> &elem = flat_tree[idx];
+      PRTreeElement<T, B, D, Real> &elem = flat_tree[idx];
 
       if (elem.leaf) {
         for (const auto &datum : elem.leaf->data) {
-          new (b + i) DataType<T, D>{datum.first, datum.second};
+          new (b + i) DataType<T, D, Real>{datum.first, datum.second};
           i++;
         }
       } else {
@@ -711,31 +473,31 @@ public:
     ProfilerStart("build.prof");
     std::cout << "profiler start of build" << std::endl;
 #endif
-    std::unique_ptr<PRTreeNode<T, B, D>> root;
+    std::unique_ptr<PRTreeNode<T, B, D, Real>> root;
     {
       n_at_build = size();
-      vec<std::unique_ptr<PRTreeNode<T, B, D>>> prev_nodes;
-      std::unique_ptr<PRTreeNode<T, B, D>> p, q, r;
+      vec<std::unique_ptr<PRTreeNode<T, B, D, Real>>> prev_nodes;
+      std::unique_ptr<PRTreeNode<T, B, D, Real>> p, q, r;
 
-      auto first_tree = PseudoPRTree<T, B, D>(b, e);
+      auto first_tree = PseudoPRTree<T, B, D, Real>(b, e);
       auto first_leaves = first_tree.get_all_leaves(e - b);
       for (auto &leaf : first_leaves) {
-        auto pp = std::make_unique<PRTreeNode<T, B, D>>(leaf);
+        auto pp = std::make_unique<PRTreeNode<T, B, D, Real>>(leaf);
         prev_nodes.push_back(std::move(pp));
       }
       auto [bb, ee] = first_tree.as_X(placement, e - b);
       while (prev_nodes.size() > 1) {
-        auto tree = PseudoPRTree<T, B, D>(bb, ee);
+        auto tree = PseudoPRTree<T, B, D, Real>(bb, ee);
         auto leaves = tree.get_all_leaves(ee - bb);
         auto leaves_size = leaves.size();
 
-        vec<std::unique_ptr<PRTreeNode<T, B, D>>> tmp_nodes;
+        vec<std::unique_ptr<PRTreeNode<T, B, D, Real>>> tmp_nodes;
         tmp_nodes.reserve(leaves_size);
 
         for (auto &leaf : leaves) {
           int idx, jdx;
           int len = leaf->data.size();
-          auto pp = std::make_unique<PRTreeNode<T, B, D>>(leaf->mbb);
+          auto pp = std::make_unique<PRTreeNode<T, B, D, Real>>(leaf->mbb);
           if (likely(!leaf->data.empty())) {
             for (int i = 1; i < len; i++) {
               idx = leaf->data[len - i - 1].first; // reversed way
@@ -767,8 +529,8 @@ public:
     }
     // flatten built tree
     {
-      queue<std::pair<PRTreeNode<T, B, D> *, size_t>> que;
-      PRTreeNode<T, B, D> *p, *q;
+      queue<std::pair<PRTreeNode<T, B, D, Real> *, size_t>> que;
+      PRTreeNode<T, B, D, Real> *p, *q;
 
       int depth = 0;
 
@@ -851,9 +613,9 @@ public:
         is_point = true;
       }
     }
-    vec<BB<D>> X;
+    vec<BB<D, Real>> X;
     X.reserve(ndim == 1 ? 1 : shape_x[0]);
-    BB<D> bb;
+    BB<D, Real> bb;
     if (ndim == 1) {
       {
         Real minima[D];
@@ -866,7 +628,7 @@ public:
             maxima[i] = *x.data(i + D);
           }
         }
-        bb = BB<D>(minima, maxima);
+        bb = BB<D, Real>(minima, maxima);
       }
       X.push_back(std::move(bb));
     } else {
@@ -883,7 +645,7 @@ public:
               maxima[j] = *x.data(i, j + D);
             }
           }
-          bb = BB<D>(minima, maxima);
+          bb = BB<D, Real>(minima, maxima);
         }
         X.push_back(std::move(bb));
       }
@@ -923,7 +685,7 @@ public:
 #ifdef MY_DEBUG
     for (size_t i = 0; i < X.size(); ++i) {
       auto candidates = find(X[i]);
-      out[i] = refine_candidates(candidates, queries_exact[i]);
+      out[i] = candidates;
     }
 #else
     // Index-based parallel loop (safe, no pointer arithmetic)
@@ -950,7 +712,7 @@ public:
         size_t end = std::min(start + chunk_size, n_queries);
         for (size_t i = start; i < end; ++i) {
           auto candidates = find(X[i]);
-          out[i] = refine_candidates(candidates, queries_exact[i]);
+          out[i] = candidates;
         }
       });
     }
@@ -994,11 +756,11 @@ public:
         query_exact[i + D] = static_cast<double>(x.at(i + D));
       }
     }
-    const auto bb = BB<D>(minima, maxima);
+    const auto bb = BB<D, Real>(minima, maxima);
     auto candidates = find(bb);
 
     // Refine with double precision if exact coordinates are available
-    auto out = refine_candidates(candidates, query_exact);
+    auto out = candidates;
     return out;
   }
 
@@ -1020,41 +782,13 @@ public:
     return true;
   }
 
-  // Refine candidates using double-precision coordinates
-  vec<T> refine_candidates(const vec<T> &candidates,
-                           const std::array<double, 2 * D> &query_exact) const {
-    if (idx2exact.empty()) {
-      // No exact coordinates stored, return candidates as-is
-      return candidates;
-    }
-
-    vec<T> refined;
-    refined.reserve(candidates.size());
-
-    for (const T &idx : candidates) {
-      auto it = idx2exact.find(idx);
-      if (it != idx2exact.end()) {
-        // Check with double precision
-        if (intersects_exact(it->second, query_exact)) {
-          refined.push_back(idx);
-        }
-        // else: false positive from float32, filter it out
-      } else {
-        // No exact coords for this item (e.g., inserted as float32), keep it
-        refined.push_back(idx);
-      }
-    }
-
-    return refined;
-  }
-
-  vec<T> find(const BB<D> &target) {
+  vec<T> find(const BB<D, Real> &target) {
     vec<T> out;
-    auto find_func = [&](std::unique_ptr<PRTreeLeaf<T, B, D>> &leaf) {
+    auto find_func = [&](std::unique_ptr<PRTreeLeaf<T, B, D, Real>> &leaf) {
       (*leaf)(target, out);
     };
 
-    bfs<T, B, D>(std::move(find_func), flat_tree, target);
+    bfs<T, B, D, Real>(std::move(find_func), flat_tree, target);
     std::sort(out.begin(), out.end());
     return out;
   }
@@ -1070,17 +804,16 @@ public:
           "Given index is not found. (Index: " + std::to_string(idx) +
           ", tree size: " + std::to_string(idx2bb.size()) + ")");
     }
-    BB<D> target = it->second;
+    BB<D, Real> target = it->second;
 
-    auto erase_func = [&](std::unique_ptr<PRTreeLeaf<T, B, D>> &leaf) {
+    auto erase_func = [&](std::unique_ptr<PRTreeLeaf<T, B, D, Real>> &leaf) {
       leaf->del(idx, target);
     };
 
-    bfs<T, B, D>(std::move(erase_func), flat_tree, target);
+    bfs<T, B, D, Real>(std::move(erase_func), flat_tree, target);
 
     idx2bb.erase(idx);
     idx2data.erase(idx);
-    idx2exact.erase(idx); // Also remove from exact coordinates if present
     if (unlikely(REBUILD_THRE * size() < n_at_build)) {
       rebuild();
     }
@@ -1112,8 +845,7 @@ public:
   py::array_t<T> query_intersections() {
     // Collect all indices and bounding boxes
     vec<T> indices;
-    vec<BB<D>> bboxes;
-    vec<std::array<double, 2 * D>> exact_coords;
+    vec<BB<D, Real>> bboxes;
 
     if (unlikely(idx2bb.empty())) {
       // Return empty array of shape (0, 2)
@@ -1130,26 +862,10 @@ public:
 
     indices.reserve(idx2bb.size());
     bboxes.reserve(idx2bb.size());
-    exact_coords.reserve(idx2bb.size());
 
     for (const auto &pair : idx2bb) {
       indices.push_back(pair.first);
       bboxes.push_back(pair.second);
-
-      // Get exact coordinates if available
-      auto it = idx2exact.find(pair.first);
-      if (it != idx2exact.end()) {
-        exact_coords.push_back(it->second);
-      } else {
-        // Create dummy exact coords from float32 BB (won't be used for
-        // refinement)
-        std::array<double, 2 * D> dummy;
-        for (int i = 0; i < D; ++i) {
-          dummy[i] = static_cast<double>(pair.second.min(i));
-          dummy[i + D] = static_cast<double>(pair.second.max(i));
-        }
-        exact_coords.push_back(dummy);
-      }
     }
 
     const size_t n_items = indices.size();
@@ -1172,15 +888,10 @@ public:
 
         for (size_t i = t; i < n_items; i += n_threads) {
           const T idx_i = indices[i];
-          const BB<D> &bb_i = bboxes[i];
+          const BB<D, Real> &bb_i = bboxes[i];
 
           // Find all intersections with this bounding box
           auto candidates = find(bb_i);
-
-          // Refine candidates using exact coordinates if available
-          if (!idx2exact.empty()) {
-            candidates = refine_candidates(candidates, exact_coords[i]);
-          }
 
           // Keep only pairs where idx_i < idx_j to avoid duplicates
           for (const T &idx_j : candidates) {
@@ -1203,15 +914,10 @@ public:
 
     for (size_t i = 0; i < n_items; ++i) {
       const T idx_i = indices[i];
-      const BB<D> &bb_i = bboxes[i];
+      const BB<D, Real> &bb_i = bboxes[i];
 
       // Find all intersections with this bounding box
       auto candidates = find(bb_i);
-
-      // Refine candidates using exact coordinates if available
-      if (!idx2exact.empty()) {
-        candidates = refine_candidates(candidates, exact_coords[i]);
-      }
 
       // Keep only pairs where idx_i < idx_j to avoid duplicates
       for (const T &idx_j : candidates) {

@@ -19,22 +19,22 @@
 #include "prtree/core/detail/types.h"
 
 // Phase 8: Apply C++20 concept constraints
-template <IndexType T, int B = 6, int D = 2> class Leaf {
+template <IndexType T, int B = 6, int D = 2, typename Real = float> class Leaf {
 public:
-  BB<D> mbb;
-  svec<DataType<T, D>, B> data; // You can swap when filtering
+  BB<D, Real> mbb;
+  svec<DataType<T, D, Real>, B> data; // You can swap when filtering
   int axis = 0;
 
   // T is type of keys(ids) which will be returned when you post a query.
-  Leaf() { mbb = BB<D>(); }
+  Leaf() { mbb = BB<D, Real>(); }
   Leaf(const int _axis) {
     axis = _axis;
-    mbb = BB<D>();
+    mbb = BB<D, Real>();
   }
 
   void set_axis(const int &_axis) { axis = _axis; }
 
-  void push(const T &key, const BB<D> &target) {
+  void push(const T &key, const BB<D, Real> &target) {
     data.emplace_back(key, target);
     update_mbb();
   }
@@ -46,7 +46,7 @@ public:
     }
   }
 
-  bool filter(DataType<T, D> &value) { // false means given value is ignored
+  bool filter(DataType<T, D, Real> &value) { // false means given value is ignored
     // Phase 2: C++20 requires explicit 'this' capture
     auto comp = [this](const auto &a, const auto &b) noexcept {
       return a.second.val_for_comp(axis) < b.second.val_for_comp(axis);
@@ -54,7 +54,7 @@ public:
 
     if (data.size() < B) { // if there is room, just push the candidate
       auto iter = std::lower_bound(data.begin(), data.end(), value, comp);
-      DataType<T, D> tmp_value = DataType<T, D>(value);
+      DataType<T, D, Real> tmp_value = DataType<T, D, Real>(value);
       data.insert(iter, std::move(tmp_value));
       mbb += value.second;
       return true;
@@ -76,9 +76,9 @@ public:
 };
 
 // Phase 8: Apply C++20 concept constraints
-template <IndexType T, int B = 6, int D = 2> class PseudoPRTreeNode {
+template <IndexType T, int B = 6, int D = 2, typename Real = float> class PseudoPRTreeNode {
 public:
-  Leaf<T, B, D> leaves[2 * D];
+  Leaf<T, B, D, Real> leaves[2 * D];
   std::unique_ptr<PseudoPRTreeNode> left, right;
 
   PseudoPRTreeNode() {
@@ -98,7 +98,7 @@ public:
     archive(left, right, leaves);
   }
 
-  void address_of_leaves(vec<Leaf<T, B, D> *> &out) {
+  void address_of_leaves(vec<Leaf<T, B, D, Real> *> &out) {
     for (auto &leaf : leaves) {
       if (leaf.data.size() > 0) {
         out.emplace_back(&leaf);
@@ -120,20 +120,20 @@ public:
 };
 
 // Phase 8: Apply C++20 concept constraints
-template <IndexType T, int B = 6, int D = 2> class PseudoPRTree {
+template <IndexType T, int B = 6, int D = 2, typename Real = float> class PseudoPRTree {
 public:
-  std::unique_ptr<PseudoPRTreeNode<T, B, D>> root;
-  vec<Leaf<T, B, D> *> cache_children;
+  std::unique_ptr<PseudoPRTreeNode<T, B, D, Real>> root;
+  vec<Leaf<T, B, D, Real> *> cache_children;
   const int nthreads = std::max(1, (int)std::thread::hardware_concurrency());
 
-  PseudoPRTree() { root = std::make_unique<PseudoPRTreeNode<T, B, D>>(); }
+  PseudoPRTree() { root = std::make_unique<PseudoPRTreeNode<T, B, D, Real>>(); }
 
   template <class iterator> PseudoPRTree(const iterator &b, const iterator &e) {
     if (!root) {
-      root = std::make_unique<PseudoPRTreeNode<T, B, D>>();
+      root = std::make_unique<PseudoPRTreeNode<T, B, D, Real>>();
     }
     construct(root.get(), b, e, 0);
-    clean_data<T, D>(b, e);
+    clean_data<T, D, Real>(b, e);
   }
 
   template <class Archive> void serialize(Archive &archive) {
@@ -142,7 +142,7 @@ public:
   }
 
   template <class iterator>
-  void construct(PseudoPRTreeNode<T, B, D> *node, const iterator &b,
+  void construct(PseudoPRTreeNode<T, B, D, Real> *node, const iterator &b,
                  const iterator &e, const int depth) {
     if (e - b > 0 && node != nullptr) {
       bool use_recursive_threads = std::pow(2, depth + 1) <= nthreads;
@@ -152,20 +152,20 @@ public:
 
       vec<std::thread> threads;
       threads.reserve(2);
-      PseudoPRTreeNode<T, B, D> *node_left, *node_right;
+      PseudoPRTreeNode<T, B, D, Real> *node_left, *node_right;
 
       const int axis = depth % (2 * D);
       auto ee = node->filter(b, e);
       auto m = b;
       std::advance(m, (ee - b) / 2);
       std::nth_element(b, m, ee,
-                       [axis](const DataType<T, D> &lhs,
-                              const DataType<T, D> &rhs) noexcept {
+                       [axis](const DataType<T, D, Real> &lhs,
+                              const DataType<T, D, Real> &rhs) noexcept {
                          return lhs.second[axis] < rhs.second[axis];
                        });
 
       if (m - b > 0) {
-        node->left = std::make_unique<PseudoPRTreeNode<T, B, D>>(axis);
+        node->left = std::make_unique<PseudoPRTreeNode<T, B, D, Real>>(axis);
         node_left = node->left.get();
         if (use_recursive_threads) {
           threads.push_back(
@@ -175,7 +175,7 @@ public:
         }
       }
       if (ee - m > 0) {
-        node->right = std::make_unique<PseudoPRTreeNode<T, B, D>>(axis);
+        node->right = std::make_unique<PseudoPRTreeNode<T, B, D, Real>>(axis);
         node_right = node->right.get();
         if (use_recursive_threads) {
           threads.push_back(
@@ -191,7 +191,7 @@ public:
 
   auto get_all_leaves(const int hint) {
     if (cache_children.empty()) {
-      using U = PseudoPRTreeNode<T, B, D>;
+      using U = PseudoPRTreeNode<T, B, D, Real>;
       cache_children.reserve(hint);
       auto node = root.get();
       queue<U *> que;
@@ -210,15 +210,15 @@ public:
     return cache_children;
   }
 
-  std::pair<DataType<T, D> *, DataType<T, D> *> as_X(void *placement,
+  std::pair<DataType<T, D, Real> *, DataType<T, D, Real> *> as_X(void *placement,
                                                      const int hint) {
-    DataType<T, D> *b, *e;
+    DataType<T, D, Real> *b, *e;
     auto children = get_all_leaves(hint);
     T total = children.size();
-    b = reinterpret_cast<DataType<T, D> *>(placement);
+    b = reinterpret_cast<DataType<T, D, Real> *>(placement);
     e = b + total;
     for (T i = 0; i < total; i++) {
-      new (b + i) DataType<T, D>{i, children[i]->mbb};
+      new (b + i) DataType<T, D, Real>{i, children[i]->mbb};
     }
     return {b, e};
   }

@@ -17,14 +17,14 @@
 #include "prtree/core/detail/types.h"
 
 // Phase 8: Apply C++20 concept constraints
-template <IndexType T, int B = 6, int D = 2> class PRTreeLeaf {
+template <IndexType T, int B = 6, int D = 2, typename Real = float> class PRTreeLeaf {
 public:
-  BB<D> mbb;
-  svec<DataType<T, D>, B> data;
+  BB<D, Real> mbb;
+  svec<DataType<T, D, Real>, B> data;
 
-  PRTreeLeaf() { mbb = BB<D>(); }
+  PRTreeLeaf() { mbb = BB<D, Real>(); }
 
-  PRTreeLeaf(const Leaf<T, B, D> &leaf) {
+  PRTreeLeaf(const Leaf<T, B, D, Real> &leaf) {
     mbb = leaf.mbb;
     data = leaf.data;
   }
@@ -38,7 +38,7 @@ public:
     }
   }
 
-  void operator()(const BB<D> &target, vec<T> &out) const {
+  void operator()(const BB<D, Real> &target, vec<T> &out) const {
     if (mbb(target)) {
       for (const auto &x : data) {
         if (x.second(target)) {
@@ -48,7 +48,7 @@ public:
     }
   }
 
-  void del(const T &key, const BB<D> &target) {
+  void del(const T &key, const BB<D, Real> &target) {
     if (mbb(target)) {
       auto remove_it =
           std::remove_if(data.begin(), data.end(), [&](auto &datum) {
@@ -58,13 +58,13 @@ public:
     }
   }
 
-  void push(const T &key, const BB<D> &target) {
+  void push(const T &key, const BB<D, Real> &target) {
     data.emplace_back(key, target);
     update_mbb();
   }
 
   template <class Archive> void save(Archive &ar) const {
-    vec<DataType<T, D>> _data;
+    vec<DataType<T, D, Real>> _data;
     for (const auto &datum : data) {
       _data.push_back(datum);
     }
@@ -72,7 +72,7 @@ public:
   }
 
   template <class Archive> void load(Archive &ar) {
-    vec<DataType<T, D>> _data;
+    vec<DataType<T, D, Real>> _data;
     ar(mbb, _data);
     for (const auto &datum : _data) {
       data.push_back(datum);
@@ -81,49 +81,49 @@ public:
 };
 
 // Phase 8: Apply C++20 concept constraints
-template <IndexType T, int B = 6, int D = 2> class PRTreeNode {
+template <IndexType T, int B = 6, int D = 2, typename Real = float> class PRTreeNode {
 public:
-  BB<D> mbb;
-  std::unique_ptr<Leaf<T, B, D>> leaf;
-  std::unique_ptr<PRTreeNode<T, B, D>> head, next;
+  BB<D, Real> mbb;
+  std::unique_ptr<Leaf<T, B, D, Real>> leaf;
+  std::unique_ptr<PRTreeNode<T, B, D, Real>> head, next;
 
   PRTreeNode() {}
-  PRTreeNode(const BB<D> &_mbb) { mbb = _mbb; }
+  PRTreeNode(const BB<D, Real> &_mbb) { mbb = _mbb; }
 
-  PRTreeNode(BB<D> &&_mbb) noexcept { mbb = std::move(_mbb); }
+  PRTreeNode(BB<D, Real> &&_mbb) noexcept { mbb = std::move(_mbb); }
 
-  PRTreeNode(Leaf<T, B, D> *l) {
-    leaf = std::make_unique<Leaf<T, B, D>>();
+  PRTreeNode(Leaf<T, B, D, Real> *l) {
+    leaf = std::make_unique<Leaf<T, B, D, Real>>();
     mbb = l->mbb;
     leaf->mbb = std::move(l->mbb);
     leaf->data = std::move(l->data);
   }
 
-  bool operator()(const BB<D> &target) { return mbb(target); }
+  bool operator()(const BB<D, Real> &target) { return mbb(target); }
 };
 
 // Phase 8: Apply C++20 concept constraints
-template <IndexType T, int B = 6, int D = 2> class PRTreeElement {
+template <IndexType T, int B = 6, int D = 2, typename Real = float> class PRTreeElement {
 public:
-  BB<D> mbb;
-  std::unique_ptr<PRTreeLeaf<T, B, D>> leaf;
+  BB<D, Real> mbb;
+  std::unique_ptr<PRTreeLeaf<T, B, D, Real>> leaf;
   bool is_used = false;
 
   PRTreeElement() {
-    mbb = BB<D>();
+    mbb = BB<D, Real>();
     is_used = false;
   }
 
-  PRTreeElement(const PRTreeNode<T, B, D> &node) {
-    mbb = BB<D>(node.mbb);
+  PRTreeElement(const PRTreeNode<T, B, D, Real> &node) {
+    mbb = BB<D, Real>(node.mbb);
     if (node.leaf) {
-      Leaf<T, B, D> tmp_leaf = Leaf<T, B, D>(*node.leaf.get());
-      leaf = std::make_unique<PRTreeLeaf<T, B, D>>(tmp_leaf);
+      Leaf<T, B, D, Real> tmp_leaf = Leaf<T, B, D, Real>(*node.leaf.get());
+      leaf = std::make_unique<PRTreeLeaf<T, B, D, Real>>(tmp_leaf);
     }
     is_used = true;
   }
 
-  bool operator()(const BB<D> &target) { return is_used && mbb(target); }
+  bool operator()(const BB<D, Real> &target) { return is_used && mbb(target); }
 
   template <class Archive> void serialize(Archive &archive) {
     archive(mbb, leaf, is_used);
@@ -131,13 +131,13 @@ public:
 };
 
 // Phase 8: Apply C++20 concept constraints
-template <IndexType T, int B = 6, int D = 2>
+template <IndexType T, int B = 6, int D = 2, typename Real = float>
 void bfs(
-    const std::function<void(std::unique_ptr<PRTreeLeaf<T, B, D>> &)> &func,
-    vec<PRTreeElement<T, B, D>> &flat_tree, const BB<D> target) {
+    const std::function<void(std::unique_ptr<PRTreeLeaf<T, B, D, Real>> &)> &func,
+    vec<PRTreeElement<T, B, D, Real>> &flat_tree, const BB<D, Real> target) {
   queue<size_t> que;
   auto qpush_if_intersect = [&](const size_t &i) {
-    PRTreeElement<T, B, D> &r = flat_tree[i];
+    PRTreeElement<T, B, D, Real> &r = flat_tree[i];
     // std::cout << "i " << (long int) i << " : " << (bool) r.leaf << std::endl;
     if (r(target)) {
       // std::cout << " is pushed" << std::endl;
@@ -151,7 +151,7 @@ void bfs(
     size_t idx = que.front();
     // std::cout << "idx: " << (long int) idx << std::endl;
     que.pop();
-    PRTreeElement<T, B, D> &elem = flat_tree[idx];
+    PRTreeElement<T, B, D, Real> &elem = flat_tree[idx];
 
     if (elem.leaf) {
       // std::cout << "func called for " << (long int) idx << std::endl;
