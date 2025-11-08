@@ -1,3 +1,10 @@
+"""
+Setup script for building C++ extensions.
+
+Note: Project metadata is defined in pyproject.toml.
+This file is only used for building the C++ extensions via CMake.
+"""
+
 import os
 import platform
 import re
@@ -6,20 +13,8 @@ import sys
 from distutils.version import LooseVersion
 from multiprocessing import cpu_count
 
-from setuptools import Extension, find_packages, setup
+from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
-
-version = "v0.7.0"
-
-sys.path.append("./tests")
-
-here = os.path.abspath(os.path.dirname(__file__))
-with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
-    long_description = f.read()
-
-
-def _requires_from_file(filename):
-    return open(filename).read().splitlines()
 
 
 class CMakeExtension(Extension):
@@ -154,32 +149,6 @@ class CMakeBuild(build_ext):
 
 
 setup(
-    name="python_prtree",
-    version=version,
-    license="MIT",
-    description="Python implementation of Priority R-Tree",
-    author="atksh",
-    url="https://github.com/atksh/python_prtree",
     ext_modules=[CMakeExtension("python_prtree.PRTree")],
     cmdclass=dict(build_ext=CMakeBuild),
-    zip_safe=False,
-    python_requires=">=3.8",
-    install_requires=_requires_from_file("requirements.txt"),
-    package_dir={"": "src"},
-    packages=find_packages("src"),
-    test_suite="test_PRTree.suite",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
-    keywords="priority-rtree r-tree prtree rtree pybind11",
-    classifiers=[
-        "License :: OSI Approved :: MIT License",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "Programming Language :: Python :: 3.13",
-        "Programming Language :: Python :: 3.14",
-    ],
 )

@@ -1,0 +1,49 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Source code
+*.cc text
+*.h text
+*.py text
+*.md text
+*.txt text
+*.toml text
+*.yml text
+*.yaml text
+*.json text
+*.cmake text
+*.in text
+
+# Scripts
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Documentation
+*.rst text
+*.ipynb text
+
+# Binary files
+*.so binary
+*.pyd binary
+*.dylib binary
+*.dll binary
+*.a binary
+*.o binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+
+# Git
+.gitattributes export-ignore
+.gitignore export-ignore
+.github export-ignore
+
+# Language statistics for GitHub
+*.h linguist-language=C++
+*.cc linguist-language=C++
+include/prtree/** linguist-language=C++
+src/cpp/** linguist-language=C++
+benchmarks/cpp/** linguist-language=C++

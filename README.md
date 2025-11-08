@@ -184,16 +184,15 @@ results = tree.batch_query(queries)  # Returns [[], [], ...]
 ## Installation from Source
 
 ```bash
-# Install dependencies
-pip install -U cmake pybind11 numpy
-
 # Clone with submodules
-git clone --recursive https://github.com/atksh/python_prtree
+git clone --recursive https://github.com/atksh/python_prtree.git
 cd python_prtree
 
-# Build and install
-python setup.py install
+# Install in development mode with all dependencies
+pip install -e ".[dev]"
 ```
+
+For detailed development setup, see [DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## API Reference
 
@@ -237,6 +236,14 @@ PRTree2D(filename)  # Load from file
 Lars Arge, Mark de Berg, Herman Haverkort, Ke Yi
 SIGMOD 2004
 [Paper](https://www.cse.ust.hk/~yike/prtree/)
+
+## Documentation
+
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - How to contribute to the project
+- **[CHANGES.md](CHANGES.md)** - Version history and changelog
+- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** - Development environment setup
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Codebase structure and design
+- **[docs/MIGRATION.md](docs/MIGRATION.md)** - Migration guide between versions
 
 ## License
 

@@ -1,55 +1,59 @@
-cmake-build-*/
-docker/
-ldata/
-build/
-build_*/
-dist/
-_build/
-_generate/
-*.so
-*.so.*
-*.a
-*.py[cod]
-*.egg-info
-.eggs/
-.idea/
-input/*
-!input/.gitkeep
-__pycache__/
-.ipynb_checkpoints/
-.vscode/
-.DS_Store
-*.prof
-
-# Test coverage
-htmlcov/
-.coverage
-.coverage.*
-coverage.xml
-*.cover
-
-# Pytest
-.pytest_cache/
-.pytest_cache
-
 # Build artifacts
+build/
+dist/
+*.egg-info/
+*.so
+*.pyd
+*.dylib
+*.dll
+*.a
 *.o
-*.obj
-*.lib
-*.exp
 
-# Temporary files
-*.tmp
-*.bak
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg
+.Python
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
 *~
+.DS_Store
 
-# Phase 0 profiling artifacts (keep templates, ignore generated data)
-docs/baseline/reports/*.txt
-docs/baseline/reports/*.out
-docs/baseline/reports/*.data
-docs/baseline/flamegraphs/*.svg
-*_benchmark_results.csv
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# Profiling
 *.prof
-perf.data
-perf.data.old
-cachegrind.out*
+*.log
+callgrind.*
+perf.data*
+
+# Documentation
+docs/_build/
+site/
+
+# Local development
+.env
+.venv
+venv/
+ENV/
+env/

@@ -1,6 +1,21 @@
-include README.md LICENSE
-include requirements.txt
+include README.md LICENSE CHANGES.md CONTRIBUTING.md DEVELOPMENT.md ARCHITECTURE.md
+include pyproject.toml setup.py
 global-include CMakeLists.txt *.cmake
-recursive-include cpp *
-recursive-include src *
+
+# C++ headers and source
+recursive-include include *.h
+recursive-include src/cpp *.h *.cc *.cpp
+
+# Python source
+recursive-include src/python_prtree *.py *.typed
+
+# Third-party dependencies (git submodules)
 recursive-include third *
+exclude third/.git*
+prune third/**/.git
+
+# Exclude build artifacts and caches
+global-exclude *.pyc __pycache__ *.so *.pyd *.dylib
+prune build
+prune dist
+prune .pytest_cache

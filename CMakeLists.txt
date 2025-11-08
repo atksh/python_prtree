@@ -41,7 +41,16 @@ elseif(ENABLE_UBSAN)
 endif()
 
 project(PRTree)
-file(GLOB MYCPP ${CMAKE_CURRENT_SOURCE_DIR}/cpp/*)
+
+# Source files
+set(PRTREE_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/bindings/python_bindings.cc
+)
+
+# Include directories
+set(PRTREE_INCLUDE_DIRS
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
 
 option(SNAPPY_BUILD_TESTS "" OFF)
 option(SNAPPY_BUILD_BENCHMARKS "" OFF)
@@ -57,7 +66,13 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/pybind11/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/cereal/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third/snappy/)
 
-pybind11_add_module(PRTree ${MYCPP})
+pybind11_add_module(PRTree ${PRTREE_SOURCES})
+
+# Include directories
+target_include_directories(PRTree PRIVATE
+    ${PRTREE_INCLUDE_DIRS}
+)
+
 set_target_properties(snappy PROPERTIES
   POSITION_INDEPENDENT_CODE ON
 	C_VISIBILITY_PRESET hidden
@@ -93,8 +108,8 @@ if(BUILD_BENCHMARKS)
     message(STATUS "Building performance benchmarks")
 
     # Construction benchmark
-    add_executable(benchmark_construction benchmarks/benchmark_construction.cpp)
-    target_include_directories(benchmark_construction PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cpp)
+    add_executable(benchmark_construction benchmarks/cpp/benchmark_construction.cpp)
+    target_include_directories(benchmark_construction PRIVATE ${PRTREE_INCLUDE_DIRS})
     target_link_libraries(benchmark_construction PRIVATE cereal snappy)
     set_target_properties(benchmark_construction PROPERTIES
         CXX_STANDARD 20
@@ -103,8 +118,8 @@ if(BUILD_BENCHMARKS)
     )
 
     # Query benchmark
-    add_executable(benchmark_query benchmarks/benchmark_query.cpp)
-    target_include_directories(benchmark_query PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cpp)
+    add_executable(benchmark_query benchmarks/cpp/benchmark_query.cpp)
+    target_include_directories(benchmark_query PRIVATE ${PRTREE_INCLUDE_DIRS})
     target_link_libraries(benchmark_query PRIVATE cereal snappy)
     set_target_properties(benchmark_query PROPERTIES
         CXX_STANDARD 20
@@ -113,8 +128,8 @@ if(BUILD_BENCHMARKS)
     )
 
     # Multithreaded benchmark
-    add_executable(benchmark_parallel benchmarks/benchmark_parallel.cpp)
-    target_include_directories(benchmark_parallel PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cpp)
+    add_executable(benchmark_parallel benchmarks/cpp/benchmark_parallel.cpp)
+    target_include_directories(benchmark_parallel PRIVATE ${PRTREE_INCLUDE_DIRS})
     target_link_libraries(benchmark_parallel PRIVATE cereal snappy)
     set_target_properties(benchmark_parallel PROPERTIES
         CXX_STANDARD 20
@@ -123,8 +138,8 @@ if(BUILD_BENCHMARKS)
     )
 
     # Stress test
-    add_executable(stress_test_concurrent benchmarks/stress_test_concurrent.cpp)
-    target_include_directories(stress_test_concurrent PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cpp)
+    add_executable(stress_test_concurrent benchmarks/cpp/stress_test_concurrent.cpp)
+    target_include_directories(stress_test_concurrent PRIVATE ${PRTREE_INCLUDE_DIRS})
     target_link_libraries(stress_test_concurrent PRIVATE cereal snappy pthread)
     set_target_properties(stress_test_concurrent PROPERTIES
         CXX_STANDARD 20
