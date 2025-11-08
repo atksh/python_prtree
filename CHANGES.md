@@ -1,32 +1,48 @@
-# PRTree Improvements
+# Changelog
 
-## Critical Fixes
+All notable changes to this project will be documented in this file.
 
-### 1. Windows Crash Fixed
-- **Issue**: Fatal crash with `std::mutex` (not copyable, caused deadlocks)
-- **Fix**: Use `std::unique_ptr<std::recursive_mutex>`
-- **Result**: Thread-safe, no crashes, pybind11 compatible
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-### 2. Error Messages
-- Improved with context while maintaining backward compatibility
-- Example: `"Given index is not found. (Index: 999, tree size: 2)"`
+## [0.7.1] - 2025-11-08
 
-## Improvements Applied
+### Added
+- Modernized project structure for better OSS contribution experience (#52)
+  - Added comprehensive CONTRIBUTING.md with development guidelines
+  - Improved development tooling configuration
+  - Enhanced documentation for contributors
 
-- **C++20**: Migrated standard, added concepts for type safety
-- **Exception Safety**: noexcept + RAII (no memory leaks)
-- **Thread Safety**: Recursive mutex protects all mutable operations
+### Fixed
+- Fixed critical Windows crash with `std::mutex` (#51)
+  - Changed to `std::unique_ptr<std::recursive_mutex>` for thread-safe, pybind11-compatible implementation
+  - Resolved fatal crashes and deadlocks on Windows platform
+- Optimized CI workflows for better reliability and performance (#51)
 
-## Test Results
+### Improved
+- Expanded test coverage with comprehensive test suite (#48)
+  - Now includes 674 unit tests covering edge cases and various scenarios
+  - Improved test organization and structure
+- Added `query_intersections()` method for efficient AABB pair detection (#47)
+  - Enables finding all pairs of intersecting bounding boxes efficiently
 
-✅ **674/674 unit tests pass**
+### Changed
+- Upgraded dependency versions in CI workflows (#50)
+- Migrated to C++20 standard with concepts for type safety
+- Enhanced error messages with context while maintaining backward compatibility
+  - Example: `"Given index is not found. (Index: 999, tree size: 2)"`
 
-## Performance
-
+### Performance
 - Construction: 9-11M ops/sec (single-threaded)
 - Memory: 23 bytes/element
-- Parallel scaling: Limited by algorithm (Amdahl's law), not implementation
+- All 674 unit tests pass
 
-## Future Work
+## [0.7.0] - 2024-XX-XX
 
-- Parallel partitioning algorithm for better thread scaling (2-3x expected)
+### Added
+- Intersection bug fix
+- Python 3.13 support
+
+### Improvements
+- Exception Safety: noexcept + RAII (no memory leaks)
+- Thread Safety: Recursive mutex protects all mutable operations
