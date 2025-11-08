@@ -308,6 +308,7 @@ public:
     return obj;
   }
 
+  // Insert with float32 coordinates (no double-precision refinement)
   void insert(const T &idx, const py::array_t<float> &x,
               const std::optional<std::string> objdumps = std::nullopt) {
     // Phase 1: Thread-safety - protect entire insert operation
@@ -342,6 +343,15 @@ public:
         minima[i] = *x.data(i);
         maxima[i] = *x.data(i + D);
       }
+
+      // Validate bounding box (reject NaN/Inf, enforce min <= max)
+      float coords[2 * D];
+      for (int j = 0; j < D; ++j) {
+        coords[j] = minima[j];
+        coords[j + D] = maxima[j];
+      }
+      validate_box(coords, D);
+
       bb = BB<D>(minima, maxima);
     }
     idx2bb.emplace(idx, bb);
@@ -434,6 +444,152 @@ public:
 #ifdef MY_DEBUG
     ProfilerStop();
     std::cout << "profiler end of insert" << std::endl;
+#endif
+  }
+
+  // Insert with float64 coordinates (maintains double-precision refinement)
+  void insert(const T &idx, const py::array_t<double> &x,
+              const std::optional<std::string> objdumps = std::nullopt) {
+    // Phase 1: Thread-safety - protect entire insert operation
+    std::lock_guard<std::recursive_mutex> lock(*tree_mutex_);
+
+#ifdef MY_DEBUG
+    ProfilerStart("insert.prof");
+    std::cout << "profiler start of insert (float64)" << std::endl;
+#endif
+    vec<size_t> cands;
+    BB<D> bb;
+    std::array<double, 2 * D> exact_coords;
+
+    const auto &buff_info_x = x.request();
+    const auto &shape_x = buff_info_x.shape;
+    const auto &ndim = buff_info_x.ndim;
+    // Phase 4: Improved error messages with context
+    if (unlikely((shape_x[0] != 2 * D || ndim != 1))) {
+      throw std::runtime_error(
+          "Invalid shape for bounding box array. Expected shape (" +
+          std::to_string(2 * D) + ",) but got shape (" +
+          std::to_string(shape_x[0]) + ",) with ndim=" + std::to_string(ndim));
+    }
+    auto it = idx2bb.find(idx);
+    if (unlikely(it != idx2bb.end())) {
+      throw std::runtime_error(
+          "Index already exists in tree: " + std::to_string(idx));
+    }
+    {
+      Real minima[D];
+      Real maxima[D];
+
+      // Store exact double coordinates
+      for (int i = 0; i < D; ++i) {
+        double val_min = *x.data(i);
+        double val_max = *x.data(i + D);
+        exact_coords[i] = val_min;
+        exact_coords[i + D] = val_max;
+      }
+
+      // Validate bounding box with double precision (reject NaN/Inf, enforce min <= max)
+      validate_box(exact_coords.data(), D);
+
+      // Convert to float32 for tree after validation
+      for (int i = 0; i < D; ++i) {
+        minima[i] = static_cast<Real>(exact_coords[i]);
+        maxima[i] = static_cast<Real>(exact_coords[i + D]);
+      }
+
+      bb = BB<D>(minima, maxima);
+    }
+    idx2bb.emplace(idx, bb);
+    idx2exact[idx] = exact_coords; // Store exact coordinates for refinement
+    set_obj(idx, objdumps);
+
+    Real delta[D];
+    for (int i = 0; i < D; ++i) {
+      delta[i] = bb.max(i) - bb.min(i) + 0.00000001;
+    }
+
+    // find the leaf node to insert
+    Real c = 0.0;
+    size_t count = flat_tree.size();
+    while (cands.empty()) {
+      Real d[D];
+      for (int i = 0; i < D; ++i) {
+        d[i] = delta[i] * c;
+      }
+      bb.expand(d);
+      c = (c + 1) * 2;
+
+      queue<size_t> que;
+      auto qpush_if_intersect = [&](const size_t &i) {
+        if (flat_tree[i](bb)) {
+          que.emplace(i);
+        }
+      };
+
+      qpush_if_intersect(0);
+      while (!que.empty()) {
+        size_t i = que.front();
+        que.pop();
+        PRTreeElement<T, B, D> &elem = flat_tree[i];
+
+        if (elem.leaf && elem.leaf->mbb(bb)) {
+          cands.push_back(i);
+        } else {
+          for (size_t offset = 0; offset < B; offset++) {
+            size_t j = i * B + offset + 1;
+            if (j < count)
+              qpush_if_intersect(j);
+          }
+        }
+      }
+    }
+
+    if (unlikely(cands.empty()))
+      throw std::runtime_error("cannnot determine where to insert");
+
+    // Now cands is the list of candidate leaf nodes to insert
+    bb = idx2bb.at(idx);
+    size_t min_leaf = 0;
+    if (cands.size() == 1) {
+      min_leaf = cands[0];
+    } else {
+      Real min_diff_area = 1e100;
+      for (const auto &i : cands) {
+        PRTreeLeaf<T, B, D> *leaf = flat_tree[i].leaf.get();
+        PRTreeLeaf<T, B, D> tmp_leaf = PRTreeLeaf<T, B, D>(*leaf);
+        Real diff_area = -tmp_leaf.area();
+        tmp_leaf.push(idx, bb);
+        diff_area += tmp_leaf.area();
+        if (diff_area < min_diff_area) {
+          min_diff_area = diff_area;
+          min_leaf = i;
+        }
+      }
+    }
+    flat_tree[min_leaf].leaf->push(idx, bb);
+    // update mbbs of all cands and their parents
+    size_t i = min_leaf;
+    while (true) {
+      PRTreeElement<T, B, D> &elem = flat_tree[i];
+
+      if (elem.leaf)
+        elem.mbb += elem.leaf->mbb;
+
+      if (i > 0) {
+        size_t j = (i - 1) / B;
+        flat_tree[j].mbb += flat_tree[i].mbb;
+      }
+      if (i == 0)
+        break;
+      i = (i - 1) / B;
+    }
+
+    if (size() > REBUILD_THRE * n_at_build) {
+      rebuild();
+    }
+#ifdef MY_DEBUG
+    ProfilerStop();
+    std::cout << "profiler end of insert (float64)" << std::endl;
 #endif
   }
 

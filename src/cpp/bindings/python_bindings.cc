@@ -47,8 +47,21 @@ PYBIND11_MODULE(PRTree, m) {
       .def("get_obj", &PRTree<T, B, 2>::get_obj, R"pbdoc(
           Get string by index
         )pbdoc")
-      .def("insert", &PRTree<T, B, 2>::insert, R"pbdoc(
-          Insert one to prtree
+      .def("insert",
+           py::overload_cast<const T &, const py::array_t<float> &,
+                             const std::optional<std::string>>(
+               &PRTree<T, B, 2>::insert),
+           py::arg("idx"), py::arg("bb"), py::arg("obj") = py::none(),
+           R"pbdoc(
+          Insert one to prtree (float32)
+        )pbdoc")
+      .def("insert",
+           py::overload_cast<const T &, const py::array_t<double> &,
+                             const std::optional<std::string>>(
+               &PRTree<T, B, 2>::insert),
+           py::arg("idx"), py::arg("bb"), py::arg("obj") = py::none(),
+           R"pbdoc(
+          Insert one to prtree (float64 with precision)
         )pbdoc")
       .def("save", &PRTree<T, B, 2>::save, R"pbdoc(
           cereal save
@@ -100,8 +113,21 @@ PYBIND11_MODULE(PRTree, m) {
       .def("get_obj", &PRTree<T, B, 3>::get_obj, R"pbdoc(
           Get string by index
         )pbdoc")
-      .def("insert", &PRTree<T, B, 3>::insert, R"pbdoc(
-          Insert one to prtree
+      .def("insert",
+           py::overload_cast<const T &, const py::array_t<float> &,
+                             const std::optional<std::string>>(
+               &PRTree<T, B, 3>::insert),
+           py::arg("idx"), py::arg("bb"), py::arg("obj") = py::none(),
+           R"pbdoc(
+          Insert one to prtree (float32)
+        )pbdoc")
+      .def("insert",
+           py::overload_cast<const T &, const py::array_t<double> &,
+                             const std::optional<std::string>>(
+               &PRTree<T, B, 3>::insert),
+           py::arg("idx"), py::arg("bb"), py::arg("obj") = py::none(),
+           R"pbdoc(
+          Insert one to prtree (float64 with precision)
         )pbdoc")
       .def("save", &PRTree<T, B, 3>::save, R"pbdoc(
           cereal save
@@ -153,8 +179,21 @@ PYBIND11_MODULE(PRTree, m) {
       .def("get_obj", &PRTree<T, B, 4>::get_obj, R"pbdoc(
           Get string by index
         )pbdoc")
-      .def("insert", &PRTree<T, B, 4>::insert, R"pbdoc(
-          Insert one to prtree
+      .def("insert",
+           py::overload_cast<const T &, const py::array_t<float> &,
+                             const std::optional<std::string>>(
+               &PRTree<T, B, 4>::insert),
+           py::arg("idx"), py::arg("bb"), py::arg("obj") = py::none(),
+           R"pbdoc(
+          Insert one to prtree (float32)
+        )pbdoc")
+      .def("insert",
+           py::overload_cast<const T &, const py::array_t<double> &,
+                             const std::optional<std::string>>(
+               &PRTree<T, B, 4>::insert),
+           py::arg("idx"), py::arg("bb"), py::arg("obj") = py::none(),
+           R"pbdoc(
+          Insert one to prtree (float64 with precision)
         )pbdoc")
       .def("save", &PRTree<T, B, 4>::save, R"pbdoc(
           cereal save
