@@ -83,15 +83,17 @@ python_prtree/
 **Purpose**: Implements the Priority R-Tree algorithm
 
 **Key Components**:
-- `prtree.h`: Main template class `PRTree<T, B, D>`
+- `prtree.h`: Main template class `PRTree<T, B, D, Real>`
   - `T`: Index type (typically `int64_t`)
   - `B`: Branching factor (default: 8)
   - `D`: Dimensions (2, 3, or 4)
+  - `Real`: Floating-point type (float or double) - **new in v0.7.0**
 
 **Design Principles**:
 - Header-only template library for performance
 - No Python dependencies at this layer
 - Pure C++ with C++20 features
+- Native precision support through Real template parameter
 
 ### 2. Utilities Layer (`include/prtree/utils/`)
 
@@ -116,11 +118,18 @@ python_prtree/
 - Handle numpy array conversions
 - Expose methods with Python-friendly signatures
 - Provide module-level documentation
+- Expose both float32 and float64 variants
+
+**Exposed Classes** (v0.7.0):
+- `_PRTree2D_float32`, `_PRTree2D_float64`
+- `_PRTree3D_float32`, `_PRTree3D_float64`
+- `_PRTree4D_float32`, `_PRTree4D_float64`
 
 **Design Principles**:
 - Thin binding layer (minimal logic)
 - Direct mapping to C++ API
 - Efficient numpy integration
+- Separate classes for each precision level
 
 ### 4. Python Wrapper Layer (`src/python_prtree/`)
 
@@ -135,37 +144,42 @@ python_prtree/
 - Python object storage (pickle serialization)
 - Convenient APIs (auto-indexing, return_obj parameter)
 - Type hints and documentation
+- **Automatic precision selection** (v0.7.0): Detects numpy dtype and selects float32/float64
+- **Precision auto-detection on load** (v0.7.0): Tries both precisions when loading files
+- **Precision settings preservation** (v0.7.0): Maintains epsilon settings across operations
 
 **Design Principles**:
 - Safety over raw performance
 - Pythonic API design
 - Backwards compatibility considerations
+- Zero-overhead precision selection
 
 ## Data Flow
 
-### Construction
+### Construction (v0.7.0)
 ```
 User Code
-  ↓ (numpy arrays)
+  ↓ (numpy arrays with dtype)
 PRTree2D/3D/4D (Python)
-  ↓ (arrays + validation)
-_PRTree2D/3D/4D (pybind11)
+  ↓ (dtype detection: float32 or float64?)
+  ↓ (select _PRTree{2D,3D,4D}_{float32,float64})
+_PRTree2D_float32 OR _PRTree2D_float64 (pybind11)
   ↓ (type conversion)
-PRTree<int64_t, 8, D> (C++)
-  ↓ (algorithm)
-Optimized R-Tree Structure
+PRTree<int64_t, 8, D, float> OR PRTree<int64_t, 8, D, double> (C++)
+  ↓ (algorithm with native precision)
+Optimized R-Tree Structure (float32 or float64)
 ```
 
-### Query
+### Query (v0.7.0)
 ```
 User Code
   ↓ (query box)
 PRTree2D.query() (Python)
   ↓ (empty tree check)
-_PRTree2D.query() (pybind11)
-  ↓ (type conversion)
-PRTree::find_one() (C++)
-  ↓ (tree traversal)
+_PRTree2D_float32.query() OR _PRTree2D_float64.query() (pybind11)
+  ↓ (type conversion with matching precision)
+PRTree<T,B,D,Real>::find_one(vec<Real>) (C++)
+  ↓ (tree traversal with native Real precision)
 Result Indices
   ↓ (optional: object retrieval)
 User Code
@@ -249,6 +263,26 @@ Extension installed in src/python_prtree/
 
 ## Design Decisions
 
+### Native Precision Support (v0.7.0)
+
+**Decision**: Template PRTree with Real type parameter instead of using idx2exact refinement
+
+**Rationale**:
+- Simpler architecture: Eliminated ~72 lines of refinement code
+- Better performance: No conversion overhead, no idx2exact map
+- True precision: Float64 maintains double precision throughout
+- Type safety: Compiler ensures precision consistency
+
+**Implementation**:
+- Added `Real` template parameter to PRTree and all detail classes
+- Exposed 6 separate C++ classes via pybind11
+- Python wrapper auto-selects based on numpy dtype
+
+**Trade-offs**:
+- Larger binary size (6 classes instead of 3)
+- Longer compilation time (more template instantiations)
+- Benefit: Cleaner code, better maintainability, true native precision
+
 ### Header-Only Core
 
 **Decision**: Keep core PRTree as header-only template library
@@ -257,6 +291,7 @@ Extension installed in src/python_prtree/
 - Enables full compiler optimization
 - Simplifies distribution
 - No need for .cc files at core layer
+- Required for Real template parameter
 
 **Trade-offs**:
 - Longer compilation times
