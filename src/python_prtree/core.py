@@ -52,6 +52,7 @@ class PRTreeBase:
         - float32 input → float32 tree (native float32 precision)
         - float64 input → float64 tree (native double precision)
         - No input → float64 tree (default to higher precision)
+        - filepath input → auto-detect precision from saved file
         """
         if self.Klass_float32 is None or self.Klass_float64 is None:
             raise NotImplementedError("Use PRTree2D, PRTree3D, or PRTree4D")
@@ -79,10 +80,32 @@ class PRTreeBase:
                 args[1] = np.asarray(boxes, dtype=np.float64)
                 use_float64 = True
 
-        # Select appropriate class
-        Klass = self.Klass_float64 if use_float64 else self.Klass_float32
-        self._tree = Klass(*args, **kwargs)
-        self._use_float64 = use_float64
+            # Select appropriate class
+            Klass = self.Klass_float64 if use_float64 else self.Klass_float32
+            self._tree = Klass(*args, **kwargs)
+            self._use_float64 = use_float64
+        elif len(args) == 1 and isinstance(args[0], str):
+            # Loading from file - try both precisions to auto-detect
+            filepath = args[0]
+
+            # Try float32 first (more common for saved files)
+            try:
+                self._tree = self.Klass_float32(filepath, **kwargs)
+                self._use_float64 = False
+            except Exception:
+                # If float32 fails, try float64
+                try:
+                    self._tree = self.Klass_float64(filepath, **kwargs)
+                    self._use_float64 = True
+                except Exception as e:
+                    # Both failed - raise informative error
+                    raise ValueError(f"Failed to load tree from {filepath}. "
+                                   f"File may be corrupted or in unsupported format.") from e
+        else:
+            # Empty constructor or other cases - default to float64
+            Klass = self.Klass_float64 if use_float64 else self.Klass_float32
+            self._tree = Klass(*args, **kwargs)
+            self._use_float64 = use_float64
 
     def __getattr__(self, name):
         """Delegate attribute access to underlying C++ tree."""
