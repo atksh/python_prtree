@@ -193,9 +193,33 @@ providing true native precision at each level for better performance and accurac
 
 ### Thread Safety
 
-- Query operations are thread-safe
-- Insert/erase operations are NOT thread-safe
-- Use external synchronization for concurrent updates
+**Read Operations (Thread-Safe):**
+- `query()` and `batch_query()` are thread-safe when used concurrently from multiple threads
+- Multiple threads can safely perform read operations simultaneously
+- No external synchronization needed for concurrent queries
+
+**Write Operations (Require Synchronization):**
+- `insert()`, `erase()`, and `rebuild()` modify the tree structure
+- These operations use internal mutex locks for atomicity
+- **Important**: Do NOT perform write operations concurrently with read operations
+- Use external synchronization (locks) to prevent concurrent reads and writes
+
+**Recommended Pattern:**
+```python
+import threading
+
+tree = PRTree2D([1, 2], [[0, 0, 1, 1], [2, 2, 3, 3]])
+lock = threading.Lock()
+
+# Multiple threads can query safely without locks
+def query_worker():
+    result = tree.query([0.5, 0.5, 1.5, 1.5])  # Safe without lock
+
+# Write operations need external synchronization
+def insert_worker(idx, box):
+    with lock:  # Protect against concurrent reads/writes
+        tree.insert(idx, box)
+```
 
 ## Installation from Source
 
