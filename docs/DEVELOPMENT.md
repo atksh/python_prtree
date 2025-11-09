@@ -19,8 +19,7 @@ python_prtree/
 │   ├── integration/       # Integration tests
 │   └── e2e/               # End-to-end tests
 ├── benchmarks/             # Performance benchmarks
-│   ├── cpp/               # C++ benchmarks
-│   └── python/            # Python benchmarks
+│   └── cpp/               # C++ benchmarks
 ├── docs/                   # Documentation
 │   ├── examples/          # Example code
 │   ├── images/            # Images
@@ -198,7 +197,6 @@ All project metadata and dependencies are defined in `pyproject.toml`:
 - `tests/unit/`: Unit tests for individual components
 - `tests/integration/`: Tests for component interactions
 - `tests/e2e/`: End-to-end workflow tests
-- `tests/legacy/`: Legacy test suite
 
 ### Writing Tests
 
@@ -343,9 +341,9 @@ pip install -e .
 
 ## Additional Resources
 
-- [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines
-- [README.md](README.md) - Project overview
-- [CHANGES.md](CHANGES.md) - Version history
+- [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines
+- [README.md](../README.md) - Project overview
+- [CHANGES.md](../CHANGES.md) - Version history
 - [GitHub Issues](https://github.com/atksh/python_prtree/issues) - Bug reports and feature requests
 
 ## Questions?
@@ -354,6 +352,6 @@ If you have questions or need help, please:
 
 1. Check existing [GitHub Issues](https://github.com/atksh/python_prtree/issues)
 2. Open a new issue with your question
-3. See [CONTRIBUTING.md](CONTRIBUTING.md) for more details
+3. See [CONTRIBUTING.md](../CONTRIBUTING.md) for more details
 
 Happy coding! 🎉

@@ -178,16 +178,6 @@ The library supports native float32 and float64 precision with automatic selecti
 - **Auto-detection**: Precision automatically selected based on numpy array dtype
 - **Save/Load**: Precision automatically detected when loading from file
 
-Advanced precision control available:
-```python
-# Configure precision parameters for challenging cases
-tree = PRTree2D(indices, boxes)
-tree.set_adaptive_epsilon(True)  # Adaptive epsilon based on box sizes
-tree.set_relative_epsilon(1e-6)   # Relative epsilon for intersection tests
-tree.set_absolute_epsilon(1e-12)  # Absolute epsilon for near-zero cases
-tree.set_subnormal_detection(True) # Handle subnormal numbers correctly
-```
-
 The new architecture eliminates the previous float32 tree + refinement approach,
 providing true native precision at each level for better performance and accuracy.
 
@@ -302,31 +292,6 @@ PRTree2D(filename)                     # Load from file
 
 - `n` → `int` (property)
   - Get the number of bounding boxes (same as `size()`)
-
-**Precision Control Methods:**
-- `set_adaptive_epsilon(enabled)` → `None`
-  - Enable/disable adaptive epsilon based on box sizes
-
-- `set_relative_epsilon(epsilon)` → `None`
-  - Set relative epsilon for intersection tests
-
-- `set_absolute_epsilon(epsilon)` → `None`
-  - Set absolute epsilon for near-zero cases
-
-- `set_subnormal_detection(enabled)` → `None`
-  - Enable/disable subnormal number detection
-
-- `get_adaptive_epsilon()` → `bool`
-  - Check if adaptive epsilon is enabled
-
-- `get_relative_epsilon()` → `float`
-  - Get current relative epsilon value
-
-- `get_absolute_epsilon()` → `float`
-  - Get current absolute epsilon value
-
-- `get_subnormal_detection()` → `bool`
-  - Check if subnormal detection is enabled
 
 ## Version History
 
