@@ -1,9 +1,14 @@
 """Core PRTree classes for 2D, 3D, and 4D spatial indexing."""
 
 import pickle
+import numpy as np
 from typing import Any, List, Optional, Sequence, Union
 
-from .PRTree import _PRTree2D, _PRTree3D, _PRTree4D
+from .PRTree import (
+    _PRTree2D_float32, _PRTree2D_float64,
+    _PRTree3D_float32, _PRTree3D_float64,
+    _PRTree4D_float32, _PRTree4D_float64,
+)
 
 __all__ = [
     "PRTree2D",
@@ -32,15 +37,75 @@ class PRTreeBase:
 
     Provides common functionality for 2D, 3D, and 4D spatial indexing
     with Priority R-Tree data structure.
+
+    Automatically selects float32 or float64 precision based on input dtype.
     """
 
-    Klass = None  # To be overridden by subclasses
+    Klass_float32 = None  # To be overridden by subclasses
+    Klass_float64 = None  # To be overridden by subclasses
 
     def __init__(self, *args, **kwargs):
-        """Initialize PRTree with optional indices and bounding boxes."""
-        if self.Klass is None:
+        """
+        Initialize PRTree with optional indices and bounding boxes.
+
+        Automatically selects precision based on input array dtype:
+        - float32 input → float32 tree (native float32 precision)
+        - float64 input → float64 tree (native double precision)
+        - No input → float64 tree (default to higher precision)
+        - filepath input → auto-detect precision from saved file
+        """
+        if self.Klass_float32 is None or self.Klass_float64 is None:
             raise NotImplementedError("Use PRTree2D, PRTree3D, or PRTree4D")
-        self._tree = self.Klass(*args, **kwargs)
+
+        # Determine precision based on input
+        use_float64 = True  # Default to float64 for empty constructor
+
+        if len(args) >= 2:
+            # Constructor with indices and boxes
+            boxes = args[1]
+            if hasattr(boxes, 'dtype'):
+                # NumPy array - check dtype
+                if boxes.dtype == np.float32:
+                    use_float64 = False
+                elif boxes.dtype == np.float64:
+                    use_float64 = True
+                else:
+                    # Other types (int, etc.) - convert to float64 for safety
+                    args = list(args)
+                    args[1] = np.asarray(boxes, dtype=np.float64)
+                    use_float64 = True
+            else:
+                # Convert to numpy array and default to float64
+                args = list(args)
+                args[1] = np.asarray(boxes, dtype=np.float64)
+                use_float64 = True
+
+            # Select appropriate class
+            Klass = self.Klass_float64 if use_float64 else self.Klass_float32
+            self._tree = Klass(*args, **kwargs)
+            self._use_float64 = use_float64
+        elif len(args) == 1 and isinstance(args[0], str):
+            # Loading from file - try both precisions to auto-detect
+            filepath = args[0]
+
+            # Try float32 first (more common for saved files)
+            try:
+                self._tree = self.Klass_float32(filepath, **kwargs)
+                self._use_float64 = False
+            except Exception:
+                # If float32 fails, try float64
+                try:
+                    self._tree = self.Klass_float64(filepath, **kwargs)
+                    self._use_float64 = True
+                except Exception as e:
+                    # Both failed - raise informative error
+                    raise ValueError(f"Failed to load tree from {filepath}. "
+                                   f"File may be corrupted or in unsupported format.") from e
+        else:
+            # Empty constructor or other cases - default to float64
+            Klass = self.Klass_float64 if use_float64 else self.Klass_float32
+            self._tree = Klass(*args, **kwargs)
+            self._use_float64 = use_float64
 
     def __getattr__(self, name):
         """Delegate attribute access to underlying C++ tree."""
@@ -95,7 +160,8 @@ class PRTreeBase:
                 elif "#roots is not 1" in error_msg:
                     # This is the library bug we're working around
                     # Index was valid, so recreate empty tree
-                    self._tree = self.Klass()
+                    Klass = self.Klass_float64 if self._use_float64 else self.Klass_float32
+                    self._tree = Klass()
                     return
                 else:
                     # Some other RuntimeError - re-raise it
@@ -151,10 +217,55 @@ class PRTreeBase:
         if bb is None:
             raise ValueError("Specify bounding box")
 
+        # Convert bb to numpy array with appropriate dtype
+        if not hasattr(bb, 'dtype'):
+            # Convert to numpy array matching tree precision
+            bb = np.asarray(bb, dtype=np.float64 if self._use_float64 else np.float32)
+
         objdumps = _dumps(obj)
         if self.n == 0:
-            self._tree = self.Klass([idx], [bb])
-            self._tree.set_obj(idx, objdumps)
+            # Reinitialize tree with correct precision and preserve settings
+            Klass = self.Klass_float64 if self._use_float64 else self.Klass_float32
+            old_tree = self._tree
+
+            # Check if subnormal detection is disabled - if so, use workaround
+            subnormal_disabled = (hasattr(old_tree, 'get_subnormal_detection') and
+                                  not old_tree.get_subnormal_detection())
+
+            if subnormal_disabled:
+                # Create with dummy valid box first
+                dummy_idx = -999999
+                dummy_bb = np.ones(len(bb), dtype=bb.dtype)
+                self._tree = Klass([dummy_idx], [dummy_bb])
+
+                # Preserve settings and disable subnormal detection
+                if hasattr(old_tree, 'get_relative_epsilon'):
+                    self._tree.set_relative_epsilon(old_tree.get_relative_epsilon())
+                if hasattr(old_tree, 'get_absolute_epsilon'):
+                    self._tree.set_absolute_epsilon(old_tree.get_absolute_epsilon())
+                if hasattr(old_tree, 'get_adaptive_epsilon'):
+                    self._tree.set_adaptive_epsilon(old_tree.get_adaptive_epsilon())
+                self._tree.set_subnormal_detection(False)
+
+                # Now insert the real box (tree is not empty, insert will work)
+                self._tree.insert(idx, bb, objdumps)
+                # Erase dummy
+                self._tree.erase(dummy_idx)
+            else:
+                # Normal path
+                self._tree = Klass([idx], [bb])
+
+                # Preserve settings from old tree
+                if hasattr(old_tree, 'get_relative_epsilon'):
+                    self._tree.set_relative_epsilon(old_tree.get_relative_epsilon())
+                if hasattr(old_tree, 'get_absolute_epsilon'):
+                    self._tree.set_absolute_epsilon(old_tree.get_absolute_epsilon())
+                if hasattr(old_tree, 'get_adaptive_epsilon'):
+                    self._tree.set_adaptive_epsilon(old_tree.get_adaptive_epsilon())
+                if hasattr(old_tree, 'get_subnormal_detection'):
+                    self._tree.set_subnormal_detection(old_tree.get_subnormal_detection())
+
+                self._tree.set_obj(idx, objdumps)
         else:
             self._tree.insert(idx, bb, objdumps)
 
@@ -202,7 +313,6 @@ class PRTreeBase:
         # Handle empty tree case to prevent segfault
         if self.n == 0:
             # Return empty list for each query
-            import numpy as np
             if hasattr(queries, 'shape'):
                 return [[] for _ in range(len(queries))]
             return []
@@ -217,12 +327,21 @@ class PRTree2D(PRTreeBase):
     Supports efficient querying of 2D bounding boxes:
     [xmin, ymin, xmax, ymax]
 
+    Automatically uses float32 or float64 precision based on input dtype.
+
     Example:
+        >>> # Float64 precision (default)
         >>> tree = PRTree2D([1, 2], [[0, 0, 1, 1], [2, 2, 3, 3]])
+        >>>
+        >>> # Explicit float32 precision
+        >>> import numpy as np
+        >>> tree_f32 = PRTree2D([1, 2], np.array([[0, 0, 1, 1], [2, 2, 3, 3]], dtype=np.float32))
+        >>>
         >>> results = tree.query([0.5, 0.5, 2.5, 2.5])
         >>> print(results)  # [1, 2]
     """
-    Klass = _PRTree2D
+    Klass_float32 = _PRTree2D_float32
+    Klass_float64 = _PRTree2D_float64
 
 
 class PRTree3D(PRTreeBase):
@@ -232,11 +351,14 @@ class PRTree3D(PRTreeBase):
     Supports efficient querying of 3D bounding boxes:
     [xmin, ymin, zmin, xmax, ymax, zmax]
 
+    Automatically uses float32 or float64 precision based on input dtype.
+
     Example:
         >>> tree = PRTree3D([1], [[0, 0, 0, 1, 1, 1]])
         >>> results = tree.query([0.5, 0.5, 0.5, 1.5, 1.5, 1.5])
     """
-    Klass = _PRTree3D
+    Klass_float32 = _PRTree3D_float32
+    Klass_float64 = _PRTree3D_float64
 
 
 class PRTree4D(PRTreeBase):
@@ -245,5 +367,8 @@ class PRTree4D(PRTreeBase):
 
     Supports efficient querying of 4D bounding boxes.
     Useful for spatio-temporal data or higher-dimensional spaces.
+
+    Automatically uses float32 or float64 precision based on input dtype.
     """
-    Klass = _PRTree4D
+    Klass_float32 = _PRTree4D_float32
+    Klass_float64 = _PRTree4D_float64

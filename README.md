@@ -171,9 +171,25 @@ results = tree.batch_query(queries)  # Returns [[], [], ...]
 
 ### Precision
 
-- **Float32 input**: Pure float32 for maximum speed
-- **Float64 input**: Float32 tree + double-precision refinement for accuracy
-- Handles boxes with very small gaps correctly (< 1e-5)
+The library supports native float32 and float64 precision with automatic selection:
+
+- **Float32 input**: Creates native float32 tree for maximum speed
+- **Float64 input**: Creates native float64 tree for full double precision
+- **Auto-detection**: Precision automatically selected based on numpy array dtype
+- **Save/Load**: Precision automatically detected when loading from file
+
+Advanced precision control available:
+```python
+# Configure precision parameters for challenging cases
+tree = PRTree2D(indices, boxes)
+tree.set_adaptive_epsilon(True)  # Adaptive epsilon based on box sizes
+tree.set_relative_epsilon(1e-6)   # Relative epsilon for intersection tests
+tree.set_absolute_epsilon(1e-12)  # Absolute epsilon for near-zero cases
+tree.set_subnormal_detection(True) # Handle subnormal numbers correctly
+```
+
+The new architecture eliminates the previous float32 tree + refinement approach,
+providing true native precision at each level for better performance and accuracy.
 
 ### Thread Safety
 
@@ -219,11 +235,14 @@ PRTree2D(filename)  # Load from file
 
 ## Version History
 
-### v0.7.0 (Latest)
+### v0.7.1 (Latest)
+- **Native precision support**: True float32/float64 precision throughout the entire stack
+- **Architectural refactoring**: Eliminated idx2exact complexity for simpler, faster code
+- **Auto-detection**: Precision automatically selected based on input dtype and when loading files
+- **Advanced precision control**: Adaptive epsilon, configurable relative/absolute epsilon, subnormal detection
 - **Fixed critical bug**: Boxes with small gaps (<1e-5) incorrectly reported as intersecting
 - **Breaking**: Minimum Python 3.8, serialization format changed
 - Added input validation (NaN/Inf rejection)
-- Improved precision handling
 
 ### v0.5.x
 - Added 4D support

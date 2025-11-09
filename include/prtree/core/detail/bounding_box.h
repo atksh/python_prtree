@@ -14,9 +14,7 @@
 
 #include "prtree/core/detail/types.h"
 
-using Real = float;
-
-template <int D = 2> class BB {
+template <int D = 2, typename Real = float> class BB {
 private:
   Real values[2 * D];
 

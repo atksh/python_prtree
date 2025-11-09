@@ -108,6 +108,50 @@ class TestErrorInsert:
         with pytest.raises((ValueError, RuntimeError)):
             tree.insert(idx=1, bb=box)
 
+    @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
+    def test_insert_with_nan_coordinates_float32(self, PRTree, dim):
+        """Verify that insert with NaN coordinates (float32) raises an error."""
+        tree = PRTree()
+
+        box = np.zeros(2 * dim, dtype=np.float32)
+        box[0] = np.nan
+
+        with pytest.raises((ValueError, RuntimeError)):
+            tree.insert(idx=1, bb=box)
+
+    @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
+    def test_insert_with_nan_coordinates_float64(self, PRTree, dim):
+        """Verify that insert with NaN coordinates (float64) raises an error."""
+        tree = PRTree()
+
+        box = np.zeros(2 * dim, dtype=np.float64)
+        box[0] = np.nan
+
+        with pytest.raises((ValueError, RuntimeError)):
+            tree.insert(idx=1, bb=box)
+
+    @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
+    def test_insert_with_inf_coordinates_float32(self, PRTree, dim):
+        """Verify that insert with Inf coordinates (float32) raises an error."""
+        tree = PRTree()
+
+        box = np.zeros(2 * dim, dtype=np.float32)
+        box[0] = np.inf
+
+        with pytest.raises((ValueError, RuntimeError)):
+            tree.insert(idx=1, bb=box)
+
+    @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
+    def test_insert_with_inf_coordinates_float64(self, PRTree, dim):
+        """Verify that insert with Inf coordinates (float64) raises an error."""
+        tree = PRTree()
+
+        box = np.zeros(2 * dim, dtype=np.float64)
+        box[0] = np.inf
+
+        with pytest.raises((ValueError, RuntimeError)):
+            tree.insert(idx=1, bb=box)
+
 
 class TestConsistencyInsert:
     """Test insert consistency."""
@@ -162,3 +206,98 @@ class TestConsistencyInsert:
         result2 = tree2.query(query_box)
 
         assert set(result1) == set(result2)
+
+
+class TestPrecisionInsert:
+    """Test insert with precision requirements."""
+
+    @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
+    def test_insert_float64_maintains_precision(self, PRTree, dim):
+        """Verify that float64 insert maintains double-precision refinement."""
+        # Create tree with float64 construction
+        A = np.zeros((1, 2 * dim), dtype=np.float64)
+        A[0, 0] = 0.0
+        A[0, dim] = 75.02750896
+        for i in range(1, dim):
+            A[0, i] = 0.0
+            A[0, i + dim] = 100.0
+
+        tree = PRTree(np.array([0], dtype=np.int64), A)
+
+        # Insert with float64 (small gap)
+        B = np.zeros(2 * dim, dtype=np.float64)
+        B[0] = 75.02751435
+        B[dim] = 100.0
+        for i in range(1, dim):
+            B[i] = 0.0
+            B[i + dim] = 100.0
+
+        tree.insert(idx=1, bb=B)
+
+        # Query should not find intersection due to small gap
+        result = tree.query(B)
+        assert 0 not in result, "Should not find item 0 due to small gap with float64 precision"
+        assert 1 in result, "Should find item 1 (self)"
+
+    @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3), (PRTree4D, 4)])
+    def test_insert_float32_loses_precision(self, PRTree, dim):
+        """Verify that float32 insert may lose precision for small gaps."""
+        # Create tree with float64 construction
+        A = np.zeros((1, 2 * dim), dtype=np.float64)
+        A[0, 0] = 0.0
+        A[0, dim] = 75.02750896
+        for i in range(1, dim):
+            A[0, i] = 0.0
+            A[0, i + dim] = 100.0
+
+        tree = PRTree(np.array([0], dtype=np.int64), A)
+
+        # Insert with float32 (small gap, may cause false positive)
+        B = np.zeros(2 * dim, dtype=np.float32)
+        B[0] = 75.02751435
+        B[dim] = 100.0
+        for i in range(1, dim):
+            B[i] = 0.0
+            B[i + dim] = 100.0
+
+        tree.insert(idx=1, bb=B)
+
+        # Query - item 1 won't have exact coordinates, so refinement won't apply to it
+        result = tree.query(B)
+        assert 1 in result, "Should find item 1 (self)"
+
+    @pytest.mark.parametrize("PRTree, dim", [(PRTree2D, 2), (PRTree3D, 3)])
+    def test_rebuild_preserves_idx2exact(self, PRTree, dim):
+        """Verify that rebuild() preserves idx2exact for precision."""
+        # Create tree with float64 to populate idx2exact
+        n = 10
+        idx = np.arange(n, dtype=np.int64)
+        boxes = np.random.rand(n, 2 * dim) * 100
+        boxes = boxes.astype(np.float64)
+        for i in range(dim):
+            boxes[:, i + dim] += boxes[:, i] + 1
+
+        tree = PRTree(idx, boxes)
+
+        # Insert more items to trigger rebuild
+        for i in range(n, n + 100):
+            box = np.random.rand(2 * dim) * 100
+            box = box.astype(np.float64)
+            for d in range(dim):
+                box[d + dim] += box[d] + 1
+            tree.insert(idx=i, bb=box)
+
+        # Create a small-gap query that should only work with float64 refinement
+        # Query box is to the right of boxes[0] with a small gap
+        query = np.zeros(2 * dim, dtype=np.float64)
+        query[0] = boxes[0, dim] + 1e-6  # Small gap after original box's max
+        query[dim] = boxes[0, dim] + 10.0  # Query max
+        for i in range(1, dim):
+            # Overlap in other dimensions
+            query[i] = boxes[0, i] - 10
+            query[i + dim] = boxes[0, i + dim] + 10
+
+        result = tree.query(query)
+        # Should not find item 0 if idx2exact is preserved and working
+        # The gap of 1e-6 should be detected with float64 precision
+        assert 0 not in result, "Should not find item 0 due to small gap (idx2exact should be preserved after rebuild)"

@@ -8,7 +8,7 @@ Thank you for your interest in contributing to python_prtree!
 
 - Python 3.8 or higher
 - CMake 3.12 or higher
-- C++17-compatible compiler (GCC 7+, Clang 5+, MSVC 2017+)
+- C++20-compatible compiler (GCC 10+, Clang 10+, MSVC 2019+)
 - Git
 
 ### Quick Start

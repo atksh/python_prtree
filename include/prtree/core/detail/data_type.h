@@ -13,19 +13,19 @@
 #include "prtree/core/detail/types.h"
 
 // Phase 8: Apply C++20 concept constraints
-template <IndexType T, int D = 2> class DataType {
+template <IndexType T, int D = 2, typename Real = float> class DataType {
 public:
-  BB<D> second;
+  BB<D, Real> second;
   T first;
 
   DataType() noexcept = default;
 
-  DataType(const T &f, const BB<D> &s) {
+  DataType(const T &f, const BB<D, Real> &s) {
     first = f;
     second = s;
   }
 
-  DataType(T &&f, BB<D> &&s) noexcept {
+  DataType(T &&f, BB<D, Real> &&s) noexcept {
     first = std::move(f);
     second = std::move(s);
   }
@@ -39,9 +39,9 @@ public:
   template <class Archive> void serialize(Archive &ar) { ar(first, second); }
 };
 
-template <class T, int D = 2>
-void clean_data(DataType<T, D> *b, DataType<T, D> *e) {
-  for (DataType<T, D> *it = e - 1; it >= b; --it) {
-    it->~DataType<T, D>();
+template <class T, int D = 2, typename Real = float>
+void clean_data(DataType<T, D, Real> *b, DataType<T, D, Real> *e) {
+  for (DataType<T, D, Real> *it = e - 1; it >= b; --it) {
+    it->~DataType<T, D, Real>();
   }
 }

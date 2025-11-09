@@ -59,27 +59,65 @@
 #include <gperftools/profiler.h>
 #endif
 
-using Real = float;
-
 namespace py = pybind11;
 
-template <IndexType T, int B = 6, int D = 2> class PRTree {
+template <IndexType T, int B = 6, int D = 2, typename Real = float> class PRTree {
 private:
-  vec<PRTreeElement<T, B, D>> flat_tree;
-  std::unordered_map<T, BB<D>> idx2bb;
+  vec<PRTreeElement<T, B, D, Real>> flat_tree;
+  std::unordered_map<T, BB<D, Real>> idx2bb;
   std::unordered_map<T, std::string> idx2data;
   int64_t n_at_build = 0;
   std::atomic<T> global_idx = 0;
 
-  // Double-precision storage for exact refinement (optional, only when built
-  // from float64)
-  std::unordered_map<T, std::array<double, 2 * D>> idx2exact;
-
   mutable std::unique_ptr<std::recursive_mutex> tree_mutex_;
+
+  // Precision control parameters
+  Real relative_epsilon_ = 1e-6;   // Relative epsilon for adaptive precision
+  Real absolute_epsilon_ = 1e-8;   // Absolute epsilon (backward compatible default)
+  bool use_adaptive_epsilon_ = true;  // Use adaptive epsilon based on coordinate magnitude
+  bool detect_subnormal_ = true;   // Detect and handle subnormal numbers
+
+  // Helper: Calculate adaptive epsilon for insert operations
+  Real calculate_adaptive_epsilon(const BB<D, Real> &bb) const {
+    if (!use_adaptive_epsilon_) {
+      return absolute_epsilon_;
+    }
+
+    // Calculate the maximum extent of the bounding box
+    Real max_extent = 0.0;
+    for (int i = 0; i < D; ++i) {
+      Real extent = bb.max(i) - bb.min(i);
+      if (extent > max_extent) {
+        max_extent = extent;
+      }
+    }
+
+    // For degenerate boxes (points), use the magnitude of coordinates
+    if (max_extent < std::numeric_limits<Real>::epsilon()) {
+      Real max_magnitude = 0.0;
+      for (int i = 0; i < D; ++i) {
+        Real mag = std::max(std::abs(bb.min(i)), std::abs(bb.max(i)));
+        if (mag > max_magnitude) {
+          max_magnitude = mag;
+        }
+      }
+      max_extent = max_magnitude;
+    }
+
+    // Adaptive epsilon: relative to the scale + absolute minimum
+    // This ensures reasonable behavior across different coordinate scales
+    Real adaptive_eps = max_extent * relative_epsilon_ + absolute_epsilon_;
+
+    // Clamp to reasonable bounds to avoid numerical issues
+    Real min_epsilon = std::numeric_limits<Real>::epsilon() * 10.0;
+    Real max_epsilon = max_extent * 0.01;  // At most 1% of the extent
+
+    return std::max(min_epsilon, std::min(adaptive_eps, max_epsilon));
+  }
 
 public:
   template <class Archive> void serialize(Archive &archive) {
-    archive(flat_tree, idx2bb, idx2data, global_idx, n_at_build, idx2exact);
+    archive(flat_tree, idx2bb, idx2data, global_idx, n_at_build);
   }
 
   void save(const std::string& fname) const {
@@ -90,8 +128,7 @@ public:
               cereal::make_nvp("idx2bb", idx2bb),
               cereal::make_nvp("idx2data", idx2data),
               cereal::make_nvp("global_idx", global_idx),
-              cereal::make_nvp("n_at_build", n_at_build),
-              cereal::make_nvp("idx2exact", idx2exact));
+              cereal::make_nvp("n_at_build", n_at_build));
   }
 
   void load(const std::string& fname) {
@@ -102,8 +139,7 @@ public:
               cereal::make_nvp("idx2bb", idx2bb),
               cereal::make_nvp("idx2data", idx2data),
               cereal::make_nvp("global_idx", global_idx),
-              cereal::make_nvp("n_at_build", n_at_build),
-              cereal::make_nvp("idx2exact", idx2exact));
+              cereal::make_nvp("n_at_build", n_at_build));
   }
 
   PRTree() : tree_mutex_(std::make_unique<std::recursive_mutex>()) {}
@@ -126,6 +162,20 @@ public:
             "Bounding box coordinates must be finite (no NaN or Inf)");
       }
 
+      // Check for subnormal numbers if detection is enabled
+      if (detect_subnormal_) {
+        // A number is subnormal if it's non-zero but not normal
+        bool min_subnormal = (min_val != 0.0) && !std::isnormal(min_val);
+        bool max_subnormal = (max_val != 0.0) && !std::isnormal(max_val);
+
+        if (min_subnormal || max_subnormal) {
+          throw std::runtime_error(
+              "Bounding box contains subnormal numbers which may cause "
+              "precision issues. Consider rescaling coordinates or using "
+              "larger values. Subnormal detection can be disabled if needed.");
+        }
+      }
+
       // Enforce min <= max
       if (min_val > max_val) {
         throw std::runtime_error(
@@ -134,8 +184,8 @@ public:
     }
   }
 
-  // Constructor for float32 input (no refinement, pure float32 performance)
-  PRTree(const py::array_t<T> &idx, const py::array_t<float> &x)
+  // Unified constructor for any Real type (float32 or float64)
+  PRTree(const py::array_t<T> &idx, const py::array_t<Real> &x)
       : tree_mutex_(std::make_unique<std::recursive_mutex>()) {
     const auto &buff_info_idx = idx.request();
     const auto &shape_idx = buff_info_idx.shape;
@@ -154,9 +204,8 @@ public:
     auto rx = x.template unchecked<2>();
     T length = shape_idx[0];
     idx2bb.reserve(length);
-    // Note: idx2exact is NOT populated for float32 input (no refinement)
 
-    DataType<T, D> *b, *e;
+    DataType<T, D, Real> *b, *e;
     // Phase 1: RAII memory management to prevent leaks on exception
     struct MallocDeleter {
       void operator()(void* ptr) const {
@@ -164,12 +213,12 @@ public:
       }
     };
     std::unique_ptr<void, MallocDeleter> placement(
-        std::malloc(sizeof(DataType<T, D>) * length)
+        std::malloc(sizeof(DataType<T, D, Real>) * length)
     );
     if (!placement) {
       throw std::bad_alloc();
     }
-    b = reinterpret_cast<DataType<T, D> *>(placement.get());
+    b = reinterpret_cast<DataType<T, D, Real> *>(placement.get());
     e = b + length;
 
     for (T i = 0; i < length; i++) {
@@ -177,21 +226,21 @@ public:
       Real maxima[D];
 
       for (int j = 0; j < D; ++j) {
-        minima[j] = rx(i, j); // Direct float32 assignment
+        minima[j] = rx(i, j);  // Direct assignment with native Real type
         maxima[j] = rx(i, j + D);
       }
 
       // Validate bounding box (reject NaN/Inf, enforce min <= max)
-      float coords[2 * D];
+      Real coords[2 * D];
       for (int j = 0; j < D; ++j) {
         coords[j] = minima[j];
         coords[j + D] = maxima[j];
       }
       validate_box(coords, D);
 
-      auto bb = BB<D>(minima, maxima);
+      auto bb = BB<D, Real>(minima, maxima);
       auto ri_i = ri(i);
-      new (b + i) DataType<T, D>{std::move(ri_i), std::move(bb)};
+      new (b + i) DataType<T, D, Real>{std::move(ri_i), std::move(bb)};
     }
 
     for (T i = 0; i < length; i++) {
@@ -201,88 +250,7 @@ public:
         minima[j] = rx(i, j);
         maxima[j] = rx(i, j + D);
       }
-      auto bb = BB<D>(minima, maxima);
-      auto ri_i = ri(i);
-      idx2bb.emplace_hint(idx2bb.end(), std::move(ri_i), std::move(bb));
-    }
-    build(b, e, placement.get());
-    // Phase 1: No need to free - unique_ptr handles cleanup automatically
-  }
-
-  // Constructor for float64 input (float32 tree + double refinement)
-  PRTree(const py::array_t<T> &idx, const py::array_t<double> &x)
-      : tree_mutex_(std::make_unique<std::recursive_mutex>()) {
-    const auto &buff_info_idx = idx.request();
-    const auto &shape_idx = buff_info_idx.shape;
-    const auto &buff_info_x = x.request();
-    const auto &shape_x = buff_info_x.shape;
-    if (unlikely(shape_idx[0] != shape_x[0])) {
-      throw std::runtime_error(
-          "Both index and bounding box must have the same length");
-    }
-    if (unlikely(shape_x[1] != 2 * D)) {
-      throw std::runtime_error(
-          "Bounding box must have the shape (length, 2 * dim)");
-    }
-
-    auto ri = idx.template unchecked<1>();
-    auto rx = x.template unchecked<2>();
-    T length = shape_idx[0];
-    idx2bb.reserve(length);
-    idx2exact.reserve(length); // Reserve space for exact coordinates
-
-    DataType<T, D> *b, *e;
-    // Phase 1: RAII memory management to prevent leaks on exception
-    struct MallocDeleter {
-      void operator()(void* ptr) const {
-        if (ptr) std::free(ptr);
-      }
-    };
-    std::unique_ptr<void, MallocDeleter> placement(
-        std::malloc(sizeof(DataType<T, D>) * length)
-    );
-    if (!placement) {
-      throw std::bad_alloc();
-    }
-    b = reinterpret_cast<DataType<T, D> *>(placement.get());
-    e = b + length;
-
-    for (T i = 0; i < length; i++) {
-      Real minima[D];
-      Real maxima[D];
-      std::array<double, 2 * D> exact_coords;
-
-      for (int j = 0; j < D; ++j) {
-        double val_min = rx(i, j);
-        double val_max = rx(i, j + D);
-        exact_coords[j] = val_min; // Store exact double for refinement
-        exact_coords[j + D] = val_max;
-      }
-
-      // Validate bounding box with double precision (reject NaN/Inf, enforce
-      // min <= max)
-      validate_box(exact_coords.data(), D);
-
-      // Convert to float32 for tree after validation
-      for (int j = 0; j < D; ++j) {
-        minima[j] = static_cast<Real>(exact_coords[j]);
-        maxima[j] = static_cast<Real>(exact_coords[j + D]);
-      }
-
-      auto bb = BB<D>(minima, maxima);
-      auto ri_i = ri(i);
-      idx2exact[ri_i] = exact_coords; // Store exact coordinates
-      new (b + i) DataType<T, D>{std::move(ri_i), std::move(bb)};
-    }
-
-    for (T i = 0; i < length; i++) {
-      Real minima[D];
-      Real maxima[D];
-      for (int j = 0; j < D; ++j) {
-        minima[j] = static_cast<Real>(rx(i, j));
-        maxima[j] = static_cast<Real>(rx(i, j + D));
-      }
-      auto bb = BB<D>(minima, maxima);
+      auto bb = BB<D, Real>(minima, maxima);
       auto ri_i = ri(i);
       idx2bb.emplace_hint(idx2bb.end(), std::move(ri_i), std::move(bb));
     }
@@ -308,7 +276,8 @@ public:
     return obj;
   }
 
-  void insert(const T &idx, const py::array_t<float> &x,
+  // Unified insert for any Real type (float32 or float64)
+  void insert(const T &idx, const py::array_t<Real> &x,
               const std::optional<std::string> objdumps = std::nullopt) {
     // Phase 1: Thread-safety - protect entire insert operation
     std::lock_guard<std::recursive_mutex> lock(*tree_mutex_);
@@ -318,7 +287,7 @@ public:
     std::cout << "profiler start of insert" << std::endl;
 #endif
     vec<size_t> cands;
-    BB<D> bb;
+    BB<D, Real> bb;
 
     const auto &buff_info_x = x.request();
     const auto &shape_x = buff_info_x.shape;
@@ -342,14 +311,25 @@ public:
         minima[i] = *x.data(i);
         maxima[i] = *x.data(i + D);
       }
-      bb = BB<D>(minima, maxima);
+
+      // Validate bounding box (reject NaN/Inf, enforce min <= max)
+      Real coords[2 * D];
+      for (int j = 0; j < D; ++j) {
+        coords[j] = minima[j];
+        coords[j + D] = maxima[j];
+      }
+      validate_box(coords, D);
+
+      bb = BB<D, Real>(minima, maxima);
     }
     idx2bb.emplace(idx, bb);
     set_obj(idx, objdumps);
 
+    // Use adaptive epsilon based on bounding box scale
+    Real adaptive_eps = calculate_adaptive_epsilon(bb);
     Real delta[D];
     for (int i = 0; i < D; ++i) {
-      delta[i] = bb.max(i) - bb.min(i) + 0.00000001;
+      delta[i] = bb.max(i) - bb.min(i) + adaptive_eps;
     }
 
     // find the leaf node to insert
@@ -374,7 +354,7 @@ public:
       while (!que.empty()) {
         size_t i = que.front();
         que.pop();
-        PRTreeElement<T, B, D> &elem = flat_tree[i];
+        PRTreeElement<T, B, D, Real> &elem = flat_tree[i];
 
         if (elem.leaf && elem.leaf->mbb(bb)) {
           cands.push_back(i);
@@ -399,8 +379,8 @@ public:
     } else {
       Real min_diff_area = 1e100;
       for (const auto &i : cands) {
-        PRTreeLeaf<T, B, D> *leaf = flat_tree[i].leaf.get();
-        PRTreeLeaf<T, B, D> tmp_leaf = PRTreeLeaf<T, B, D>(*leaf);
+        PRTreeLeaf<T, B, D, Real> *leaf = flat_tree[i].leaf.get();
+        PRTreeLeaf<T, B, D, Real> tmp_leaf = PRTreeLeaf<T, B, D, Real>(*leaf);
         Real diff_area = -tmp_leaf.area();
         tmp_leaf.push(idx, bb);
         diff_area += tmp_leaf.area();
@@ -414,7 +394,7 @@ public:
     // update mbbs of all cands and their parents
     size_t i = min_leaf;
     while (true) {
-      PRTreeElement<T, B, D> &elem = flat_tree[i];
+      PRTreeElement<T, B, D, Real> &elem = flat_tree[i];
 
       if (elem.leaf)
         elem.mbb += elem.leaf->mbb;
@@ -443,7 +423,7 @@ public:
 
     std::stack<size_t> sta;
     T length = idx2bb.size();
-    DataType<T, D> *b, *e;
+    DataType<T, D, Real> *b, *e;
 
     // Phase 1: RAII memory management to prevent leaks on exception
     struct MallocDeleter {
@@ -452,12 +432,12 @@ public:
       }
     };
     std::unique_ptr<void, MallocDeleter> placement(
-        std::malloc(sizeof(DataType<T, D>) * length)
+        std::malloc(sizeof(DataType<T, D, Real>) * length)
     );
     if (!placement) {
       throw std::bad_alloc();
     }
-    b = reinterpret_cast<DataType<T, D> *>(placement.get());
+    b = reinterpret_cast<DataType<T, D, Real> *>(placement.get());
     e = b + length;
 
     T i = 0;
@@ -466,11 +446,11 @@ public:
       size_t idx = sta.top();
       sta.pop();
 
-      PRTreeElement<T, B, D> &elem = flat_tree[idx];
+      PRTreeElement<T, B, D, Real> &elem = flat_tree[idx];
 
       if (elem.leaf) {
         for (const auto &datum : elem.leaf->data) {
-          new (b + i) DataType<T, D>{datum.first, datum.second};
+          new (b + i) DataType<T, D, Real>{datum.first, datum.second};
           i++;
         }
       } else {
@@ -493,31 +473,31 @@ public:
     ProfilerStart("build.prof");
     std::cout << "profiler start of build" << std::endl;
 #endif
-    std::unique_ptr<PRTreeNode<T, B, D>> root;
+    std::unique_ptr<PRTreeNode<T, B, D, Real>> root;
     {
       n_at_build = size();
-      vec<std::unique_ptr<PRTreeNode<T, B, D>>> prev_nodes;
-      std::unique_ptr<PRTreeNode<T, B, D>> p, q, r;
+      vec<std::unique_ptr<PRTreeNode<T, B, D, Real>>> prev_nodes;
+      std::unique_ptr<PRTreeNode<T, B, D, Real>> p, q, r;
 
-      auto first_tree = PseudoPRTree<T, B, D>(b, e);
+      auto first_tree = PseudoPRTree<T, B, D, Real>(b, e);
       auto first_leaves = first_tree.get_all_leaves(e - b);
       for (auto &leaf : first_leaves) {
-        auto pp = std::make_unique<PRTreeNode<T, B, D>>(leaf);
+        auto pp = std::make_unique<PRTreeNode<T, B, D, Real>>(leaf);
         prev_nodes.push_back(std::move(pp));
       }
       auto [bb, ee] = first_tree.as_X(placement, e - b);
       while (prev_nodes.size() > 1) {
-        auto tree = PseudoPRTree<T, B, D>(bb, ee);
+        auto tree = PseudoPRTree<T, B, D, Real>(bb, ee);
         auto leaves = tree.get_all_leaves(ee - bb);
         auto leaves_size = leaves.size();
 
-        vec<std::unique_ptr<PRTreeNode<T, B, D>>> tmp_nodes;
+        vec<std::unique_ptr<PRTreeNode<T, B, D, Real>>> tmp_nodes;
         tmp_nodes.reserve(leaves_size);
 
         for (auto &leaf : leaves) {
           int idx, jdx;
           int len = leaf->data.size();
-          auto pp = std::make_unique<PRTreeNode<T, B, D>>(leaf->mbb);
+          auto pp = std::make_unique<PRTreeNode<T, B, D, Real>>(leaf->mbb);
           if (likely(!leaf->data.empty())) {
             for (int i = 1; i < len; i++) {
               idx = leaf->data[len - i - 1].first; // reversed way
@@ -549,8 +529,8 @@ public:
     }
     // flatten built tree
     {
-      queue<std::pair<PRTreeNode<T, B, D> *, size_t>> que;
-      PRTreeNode<T, B, D> *p, *q;
+      queue<std::pair<PRTreeNode<T, B, D, Real> *, size_t>> que;
+      PRTreeNode<T, B, D, Real> *p, *q;
 
       int depth = 0;
 
@@ -604,7 +584,7 @@ public:
 #endif
   }
 
-  auto find_all(const py::array_t<float> &x) {
+  auto find_all(const py::array_t<Real> &x) {
 #ifdef MY_DEBUG
     ProfilerStart("find_all.prof");
     std::cout << "profiler start of find_all" << std::endl;
@@ -633,9 +613,9 @@ public:
         is_point = true;
       }
     }
-    vec<BB<D>> X;
+    vec<BB<D, Real>> X;
     X.reserve(ndim == 1 ? 1 : shape_x[0]);
-    BB<D> bb;
+    BB<D, Real> bb;
     if (ndim == 1) {
       {
         Real minima[D];
@@ -648,7 +628,7 @@ public:
             maxima[i] = *x.data(i + D);
           }
         }
-        bb = BB<D>(minima, maxima);
+        bb = BB<D, Real>(minima, maxima);
       }
       X.push_back(std::move(bb));
     } else {
@@ -665,7 +645,7 @@ public:
               maxima[j] = *x.data(i, j + D);
             }
           }
-          bb = BB<D>(minima, maxima);
+          bb = BB<D, Real>(minima, maxima);
         }
         X.push_back(std::move(bb));
       }
@@ -705,7 +685,7 @@ public:
 #ifdef MY_DEBUG
     for (size_t i = 0; i < X.size(); ++i) {
       auto candidates = find(X[i]);
-      out[i] = refine_candidates(candidates, queries_exact[i]);
+      out[i] = candidates;
     }
 #else
     // Index-based parallel loop (safe, no pointer arithmetic)
@@ -732,7 +712,7 @@ public:
         size_t end = std::min(start + chunk_size, n_queries);
         for (size_t i = start; i < end; ++i) {
           auto candidates = find(X[i]);
-          out[i] = refine_candidates(candidates, queries_exact[i]);
+          out[i] = candidates;
         }
       });
     }
@@ -748,40 +728,34 @@ public:
     return out;
   }
 
-  auto find_all_array(const py::array_t<float> &x) {
+  auto find_all_array(const py::array_t<Real> &x) {
     return list_list_to_arrays(std::move(find_all(x)));
   }
 
-  auto find_one(const vec<float> &x) {
+  auto find_one(const vec<Real> &x) {
     bool is_point = false;
     if (unlikely(!(x.size() == 2 * D || x.size() == D))) {
       throw std::runtime_error("invalid shape");
     }
     Real minima[D];
     Real maxima[D];
-    std::array<double, 2 * D> query_exact;
 
     if (x.size() == D) {
       is_point = true;
     }
     for (int i = 0; i < D; ++i) {
       minima[i] = x.at(i);
-      query_exact[i] = static_cast<double>(x.at(i));
 
       if (is_point) {
         maxima[i] = minima[i];
-        query_exact[i + D] = query_exact[i];
       } else {
         maxima[i] = x.at(i + D);
-        query_exact[i + D] = static_cast<double>(x.at(i + D));
       }
     }
-    const auto bb = BB<D>(minima, maxima);
+    const auto bb = BB<D, Real>(minima, maxima);
     auto candidates = find(bb);
 
-    // Refine with double precision if exact coordinates are available
-    auto out = refine_candidates(candidates, query_exact);
-    return out;
+    return candidates;
   }
 
   // Helper method: Check intersection with double precision (closed interval
@@ -802,41 +776,13 @@ public:
     return true;
   }
 
-  // Refine candidates using double-precision coordinates
-  vec<T> refine_candidates(const vec<T> &candidates,
-                           const std::array<double, 2 * D> &query_exact) const {
-    if (idx2exact.empty()) {
-      // No exact coordinates stored, return candidates as-is
-      return candidates;
-    }
-
-    vec<T> refined;
-    refined.reserve(candidates.size());
-
-    for (const T &idx : candidates) {
-      auto it = idx2exact.find(idx);
-      if (it != idx2exact.end()) {
-        // Check with double precision
-        if (intersects_exact(it->second, query_exact)) {
-          refined.push_back(idx);
-        }
-        // else: false positive from float32, filter it out
-      } else {
-        // No exact coords for this item (e.g., inserted as float32), keep it
-        refined.push_back(idx);
-      }
-    }
-
-    return refined;
-  }
-
-  vec<T> find(const BB<D> &target) {
+  vec<T> find(const BB<D, Real> &target) {
     vec<T> out;
-    auto find_func = [&](std::unique_ptr<PRTreeLeaf<T, B, D>> &leaf) {
+    auto find_func = [&](std::unique_ptr<PRTreeLeaf<T, B, D, Real>> &leaf) {
       (*leaf)(target, out);
     };
 
-    bfs<T, B, D>(std::move(find_func), flat_tree, target);
+    bfs<T, B, D, Real>(std::move(find_func), flat_tree, target);
     std::sort(out.begin(), out.end());
     return out;
   }
@@ -852,17 +798,16 @@ public:
           "Given index is not found. (Index: " + std::to_string(idx) +
           ", tree size: " + std::to_string(idx2bb.size()) + ")");
     }
-    BB<D> target = it->second;
+    BB<D, Real> target = it->second;
 
-    auto erase_func = [&](std::unique_ptr<PRTreeLeaf<T, B, D>> &leaf) {
+    auto erase_func = [&](std::unique_ptr<PRTreeLeaf<T, B, D, Real>> &leaf) {
       leaf->del(idx, target);
     };
 
-    bfs<T, B, D>(std::move(erase_func), flat_tree, target);
+    bfs<T, B, D, Real>(std::move(erase_func), flat_tree, target);
 
     idx2bb.erase(idx);
     idx2data.erase(idx);
-    idx2exact.erase(idx); // Also remove from exact coordinates if present
     if (unlikely(REBUILD_THRE * size() < n_at_build)) {
       rebuild();
     }
@@ -894,8 +839,7 @@ public:
   py::array_t<T> query_intersections() {
     // Collect all indices and bounding boxes
     vec<T> indices;
-    vec<BB<D>> bboxes;
-    vec<std::array<double, 2 * D>> exact_coords;
+    vec<BB<D, Real>> bboxes;
 
     if (unlikely(idx2bb.empty())) {
       // Return empty array of shape (0, 2)
@@ -912,26 +856,10 @@ public:
 
     indices.reserve(idx2bb.size());
     bboxes.reserve(idx2bb.size());
-    exact_coords.reserve(idx2bb.size());
 
     for (const auto &pair : idx2bb) {
       indices.push_back(pair.first);
       bboxes.push_back(pair.second);
-
-      // Get exact coordinates if available
-      auto it = idx2exact.find(pair.first);
-      if (it != idx2exact.end()) {
-        exact_coords.push_back(it->second);
-      } else {
-        // Create dummy exact coords from float32 BB (won't be used for
-        // refinement)
-        std::array<double, 2 * D> dummy;
-        for (int i = 0; i < D; ++i) {
-          dummy[i] = static_cast<double>(pair.second.min(i));
-          dummy[i + D] = static_cast<double>(pair.second.max(i));
-        }
-        exact_coords.push_back(dummy);
-      }
     }
 
     const size_t n_items = indices.size();
@@ -954,15 +882,10 @@ public:
 
         for (size_t i = t; i < n_items; i += n_threads) {
           const T idx_i = indices[i];
-          const BB<D> &bb_i = bboxes[i];
+          const BB<D, Real> &bb_i = bboxes[i];
 
           // Find all intersections with this bounding box
           auto candidates = find(bb_i);
-
-          // Refine candidates using exact coordinates if available
-          if (!idx2exact.empty()) {
-            candidates = refine_candidates(candidates, exact_coords[i]);
-          }
 
           // Keep only pairs where idx_i < idx_j to avoid duplicates
           for (const T &idx_j : candidates) {
@@ -985,15 +908,10 @@ public:
 
     for (size_t i = 0; i < n_items; ++i) {
       const T idx_i = indices[i];
-      const BB<D> &bb_i = bboxes[i];
+      const BB<D, Real> &bb_i = bboxes[i];
 
       // Find all intersections with this bounding box
       auto candidates = find(bb_i);
-
-      // Refine candidates using exact coordinates if available
-      if (!idx2exact.empty()) {
-        candidates = refine_candidates(candidates, exact_coords[i]);
-      }
 
       // Keep only pairs where idx_i < idx_j to avoid duplicates
       for (const T &idx_j : candidates) {
@@ -1038,4 +956,61 @@ public:
         capsule                     // capsule for cleanup
     );
   }
+
+  // Precision control methods
+
+  /**
+   * Set relative epsilon for adaptive precision calculation.
+   * This epsilon is multiplied by the coordinate scale to determine
+   * the precision threshold for insert operations.
+   *
+   * @param epsilon Relative epsilon (default: 1e-6)
+   */
+  void set_relative_epsilon(Real epsilon) {
+    if (epsilon <= 0.0 || !std::isfinite(epsilon)) {
+      throw std::runtime_error("Relative epsilon must be positive and finite");
+    }
+    relative_epsilon_ = epsilon;
+  }
+
+  /**
+   * Set absolute epsilon for precision calculation.
+   * This is the minimum epsilon used regardless of coordinate scale,
+   * ensuring backward compatibility and reasonable behavior for small coordinates.
+   *
+   * @param epsilon Absolute epsilon (default: 1e-8)
+   */
+  void set_absolute_epsilon(Real epsilon) {
+    if (epsilon <= 0.0 || !std::isfinite(epsilon)) {
+      throw std::runtime_error("Absolute epsilon must be positive and finite");
+    }
+    absolute_epsilon_ = epsilon;
+  }
+
+  /**
+   * Enable or disable adaptive epsilon calculation.
+   * When disabled, only absolute_epsilon is used (backward compatible behavior).
+   *
+   * @param enabled True to enable adaptive epsilon (default: true)
+   */
+  void set_adaptive_epsilon(bool enabled) {
+    use_adaptive_epsilon_ = enabled;
+  }
+
+  /**
+   * Enable or disable subnormal number detection.
+   * When enabled, validation will reject subnormal numbers to avoid precision issues.
+   *
+   * @param enabled True to enable detection (default: true)
+   */
+  void set_subnormal_detection(bool enabled) {
+    detect_subnormal_ = enabled;
+  }
+
+  // Getters for precision parameters
+
+  Real get_relative_epsilon() const { return relative_epsilon_; }
+  Real get_absolute_epsilon() const { return absolute_epsilon_; }
+  bool get_adaptive_epsilon() const { return use_adaptive_epsilon_; }
+  bool get_subnormal_detection() const { return detect_subnormal_; }
 };
