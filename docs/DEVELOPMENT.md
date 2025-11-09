@@ -36,7 +36,7 @@ For a detailed explanation of the architecture, see [ARCHITECTURE.md](ARCHITECTU
 
 - Python 3.8 or higher
 - CMake 3.22 or higher
-- C++17 compatible compiler
+- C++20 compatible compiler (GCC 10+, Clang 10+, MSVC 2019+)
 - Git (for submodules)
 
 ### Platform-Specific Requirements
