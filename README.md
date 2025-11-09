@@ -235,7 +235,7 @@ PRTree2D(filename)  # Load from file
 
 ## Version History
 
-### v0.7.0 (Latest)
+### v0.7.1 (Latest)
 - **Native precision support**: True float32/float64 precision throughout the entire stack
 - **Architectural refactoring**: Eliminated idx2exact complexity for simpler, faster code
 - **Auto-detection**: Precision automatically selected based on input dtype and when loading files

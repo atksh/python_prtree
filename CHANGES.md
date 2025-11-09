@@ -1,6 +1,6 @@
 # PRTree Improvements
 
-## v0.7.0 - Native Precision Support (2025-01-XX)
+## v0.7.1 - Native Precision Support (2025-11-09)
 
 ### Major Architectural Changes
 

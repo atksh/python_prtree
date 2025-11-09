@@ -32,7 +32,7 @@ https://github.com/atksh/python_prtree
 
 from .core import PRTree2D, PRTree3D, PRTree4D
 
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 
 __all__ = [
     "PRTree2D",
