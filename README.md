@@ -67,7 +67,7 @@ tree4d = PRTree4D(indices, boxes_4d)  # 4D boxes
 ```python
 # Query with point coordinates
 result = tree.query([0.5, 0.5])        # Returns indices
-result = tree.query(0.5, 0.5)          # Varargs also supported (2D only)
+result = tree.query(0.5, 0.5)          # Varargs also supported
 ```
 
 ### Dynamic Updates
@@ -178,24 +178,38 @@ The library supports native float32 and float64 precision with automatic selecti
 - **Auto-detection**: Precision automatically selected based on numpy array dtype
 - **Save/Load**: Precision automatically detected when loading from file
 
-Advanced precision control available:
-```python
-# Configure precision parameters for challenging cases
-tree = PRTree2D(indices, boxes)
-tree.set_adaptive_epsilon(True)  # Adaptive epsilon based on box sizes
-tree.set_relative_epsilon(1e-6)   # Relative epsilon for intersection tests
-tree.set_absolute_epsilon(1e-12)  # Absolute epsilon for near-zero cases
-tree.set_subnormal_detection(True) # Handle subnormal numbers correctly
-```
-
 The new architecture eliminates the previous float32 tree + refinement approach,
 providing true native precision at each level for better performance and accuracy.
 
 ### Thread Safety
 
-- Query operations are thread-safe
-- Insert/erase operations are NOT thread-safe
-- Use external synchronization for concurrent updates
+**Read Operations (Thread-Safe):**
+- `query()` and `batch_query()` are thread-safe when used concurrently from multiple threads
+- Multiple threads can safely perform read operations simultaneously
+- No external synchronization needed for concurrent queries
+
+**Write Operations (Require Synchronization):**
+- `insert()`, `erase()`, and `rebuild()` modify the tree structure
+- These operations use internal mutex locks for atomicity
+- **Important**: Do NOT perform write operations concurrently with read operations
+- Use external synchronization (locks) to prevent concurrent reads and writes
+
+**Recommended Pattern:**
+```python
+import threading
+
+tree = PRTree2D([1, 2], [[0, 0, 1, 1], [2, 2, 3, 3]])
+lock = threading.Lock()
+
+# Multiple threads can query safely without locks
+def query_worker():
+    result = tree.query([0.5, 0.5, 1.5, 1.5])  # Safe without lock
+
+# Write operations need external synchronization
+def insert_worker(idx, box):
+    with lock:  # Protect against concurrent reads/writes
+        tree.insert(idx, box)
+```
 
 ## Installation from Source
 
@@ -216,22 +230,68 @@ For detailed development setup, see [DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 #### Constructor
 ```python
-PRTree2D(indices=None, boxes=None)
-PRTree2D(filename)  # Load from file
+PRTree2D()                             # Empty tree
+PRTree2D(indices, boxes)               # With data
+PRTree2D(filename)                     # Load from file
 ```
 
+**Parameters:**
+- `indices` (optional): Array of integer indices for each bounding box
+- `boxes` (optional): Array of bounding boxes (shape: [n, 2*D] where D is dimension)
+- `filename` (optional): Path to saved tree file
+
 #### Methods
-- `query(box, return_obj=False)` - Find overlapping boxes
-- `batch_query(boxes)` - Parallel batch queries
-- `query_intersections()` - Find all intersecting pairs
-- `insert(idx, bb, obj=None)` - Add box
-- `erase(idx)` - Remove box
-- `rebuild()` - Rebuild tree for optimal performance
-- `save(filename)` - Save to binary file
-- `load(filename)` - Load from binary file
-- `size()` - Get number of boxes
-- `get_obj(idx)` - Get stored object
-- `set_obj(idx, obj)` - Update stored object
+
+**Query Methods:**
+- `query(*args, return_obj=False)` → `List[int]` or `List[Any]`
+  - Find all bounding boxes that overlap with the query box or point
+  - Accepts box coordinates as list/array or varargs (e.g., `query(x, y)` for 2D points)
+  - Set `return_obj=True` to return associated objects instead of indices
+
+- `batch_query(boxes)` → `List[List[int]]`
+  - Parallel batch queries for multiple query boxes
+  - Returns a list of result lists, one per query
+
+- `query_intersections()` → `np.ndarray`
+  - Find all pairs of intersecting bounding boxes
+  - Returns array of shape (n_pairs, 2) containing index pairs
+
+**Modification Methods:**
+- `insert(idx=None, bb=None, obj=None)` → `None`
+  - Add a new bounding box to the tree
+  - `idx`: Index for the box (auto-assigned if None)
+  - `bb`: Bounding box coordinates (required)
+  - `obj`: Optional Python object to associate with the box
+
+- `erase(idx)` → `None`
+  - Remove a bounding box by index
+
+- `rebuild()` → `None`
+  - Rebuild tree for optimal performance after many updates
+
+**Persistence Methods:**
+- `save(filename)` → `None`
+  - Save tree to binary file
+
+- `load(filename)` → `None`
+  - Load tree from binary file
+
+**Object Storage Methods:**
+- `get_obj(idx)` → `Any`
+  - Retrieve the Python object associated with a bounding box
+
+- `set_obj(idx, obj)` → `None`
+  - Update the Python object associated with a bounding box
+
+**Size and Properties:**
+- `size()` → `int`
+  - Get the number of bounding boxes in the tree
+
+- `len(tree)` → `int`
+  - Same as `size()`, allows using `len(tree)`
+
+- `n` → `int` (property)
+  - Get the number of bounding boxes (same as `size()`)
 
 ## Version History
 

@@ -103,9 +103,10 @@ make quick       # Quick test (clean + build + test)
    ```
 
 3. **Make changes**
-   - C++ code: `cpp/prtree.h`, `cpp/main.cc`
-   - Python wrapper: `src/python_prtree/__init__.py`
-   - Tests: `tests/test_PRTree.py`
+   - C++ core: `include/prtree/core/prtree.h`
+   - Python bindings: `src/cpp/bindings/python_bindings.cc`
+   - Python wrapper: `src/python_prtree/core.py`
+   - Tests: `tests/unit/`, `tests/integration/`, `tests/e2e/`
 
 4. **Build and test**
    ```bash
@@ -144,7 +145,7 @@ make quick       # Quick test (clean + build + test)
 
 3. **Implement feature**
    ```cpp
-   // cpp/prtree.h
+   // include/prtree/core/prtree.h
    // Add implementation
    ```
 
@@ -205,20 +206,30 @@ make test-coverage
 
 ```
 python_prtree/
-├── cpp/                    # C++ implementation
-│   ├── prtree.h           # PRTree core implementation
-│   ├── main.cc            # Python bindings
-│   ├── parallel.h         # Parallel processing utilities
-│   └── small_vector.h     # Optimized vector
-├── src/python_prtree/     # Python wrapper
-│   └── __init__.py
+├── include/               # C++ public headers
+│   └── prtree/
+│       ├── core/          # Core algorithm headers
+│       │   └── prtree.h   # PRTree core implementation
+│       └── utils/         # Utility headers
+│           ├── parallel.h # Parallel processing utilities
+│           └── small_vector.h # Optimized vector
+├── src/
+│   ├── cpp/               # C++ implementation
+│   │   └── bindings/      # Python bindings
+│   │       └── python_bindings.cc
+│   └── python_prtree/     # Python wrapper
+│       ├── __init__.py    # Package entry point
+│       └── core.py        # Main user-facing classes
 ├── tests/                 # Test suite
-│   └── test_PRTree.py
+│   ├── unit/              # Unit tests
+│   ├── integration/       # Integration tests
+│   └── e2e/               # End-to-end tests
 ├── third/                 # Third-party libraries (submodules)
 │   ├── pybind11/
 │   └── snappy/
 ├── CMakeLists.txt         # CMake configuration
-├── setup.py               # Packaging configuration
+├── pyproject.toml         # Project metadata and dependencies
+├── setup.py               # Build configuration
 ├── Makefile              # Development workflow
 └── README.md             # User documentation
 ```

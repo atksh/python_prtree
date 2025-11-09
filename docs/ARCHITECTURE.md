@@ -47,16 +47,15 @@ python_prtree/
 │   ├── e2e/                    # End-to-end tests
 │   │   ├── test_readme_examples.py
 │   │   └── test_user_workflows.py
+│   ├── legacy/                 # Legacy test suite
 │   └── conftest.py             # Shared test fixtures
 │
 ├── benchmarks/                 # Performance Benchmarks
-│   ├── cpp/                    # C++ benchmarks
-│   │   ├── benchmark_construction.cpp
-│   │   ├── benchmark_query.cpp
-│   │   ├── benchmark_parallel.cpp
-│   │   └── stress_test_concurrent.cpp
-│   └── python/                 # Python benchmarks (future)
-│       └── README.md
+│   └── cpp/                    # C++ benchmarks
+│       ├── benchmark_construction.cpp
+│       ├── benchmark_query.cpp
+│       ├── benchmark_parallel.cpp
+│       └── stress_test_concurrent.cpp
 │
 ├── docs/                       # Documentation
 │   ├── examples/               # Example notebooks and scripts

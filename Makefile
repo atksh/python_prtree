@@ -17,7 +17,7 @@ PIP := $(PYTHON) -m pip
 
 # Project directories
 SRC_DIR := src/python_prtree
-CPP_DIR := cpp
+CPP_DIR := src/cpp
 TEST_DIR := tests
 BUILD_DIR := build
 DIST_DIR := dist
