@@ -201,10 +201,48 @@ class PRTreeBase:
 
         objdumps = _dumps(obj)
         if self.n == 0:
-            # Reinitialize tree with correct precision
+            # Reinitialize tree with correct precision and preserve settings
             Klass = self.Klass_float64 if self._use_float64 else self.Klass_float32
-            self._tree = Klass([idx], [bb])
-            self._tree.set_obj(idx, objdumps)
+            old_tree = self._tree
+
+            # Check if subnormal detection is disabled - if so, use workaround
+            subnormal_disabled = (hasattr(old_tree, 'get_subnormal_detection') and
+                                  not old_tree.get_subnormal_detection())
+
+            if subnormal_disabled:
+                # Create with dummy valid box first
+                dummy_idx = -999999
+                dummy_bb = np.ones(len(bb), dtype=bb.dtype)
+                self._tree = Klass([dummy_idx], [dummy_bb])
+
+                # Preserve settings and disable subnormal detection
+                if hasattr(old_tree, 'get_relative_epsilon'):
+                    self._tree.set_relative_epsilon(old_tree.get_relative_epsilon())
+                if hasattr(old_tree, 'get_absolute_epsilon'):
+                    self._tree.set_absolute_epsilon(old_tree.get_absolute_epsilon())
+                if hasattr(old_tree, 'get_adaptive_epsilon'):
+                    self._tree.set_adaptive_epsilon(old_tree.get_adaptive_epsilon())
+                self._tree.set_subnormal_detection(False)
+
+                # Now insert the real box (tree is not empty, insert will work)
+                self._tree.insert(idx, bb, objdumps)
+                # Erase dummy
+                self._tree.erase(dummy_idx)
+            else:
+                # Normal path
+                self._tree = Klass([idx], [bb])
+
+                # Preserve settings from old tree
+                if hasattr(old_tree, 'get_relative_epsilon'):
+                    self._tree.set_relative_epsilon(old_tree.get_relative_epsilon())
+                if hasattr(old_tree, 'get_absolute_epsilon'):
+                    self._tree.set_absolute_epsilon(old_tree.get_absolute_epsilon())
+                if hasattr(old_tree, 'get_adaptive_epsilon'):
+                    self._tree.set_adaptive_epsilon(old_tree.get_adaptive_epsilon())
+                if hasattr(old_tree, 'get_subnormal_detection'):
+                    self._tree.set_subnormal_detection(old_tree.get_subnormal_detection())
+
+                self._tree.set_obj(idx, objdumps)
         else:
             self._tree.insert(idx, bb, objdumps)
 

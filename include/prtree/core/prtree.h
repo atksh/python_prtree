@@ -584,7 +584,7 @@ public:
 #endif
   }
 
-  auto find_all(const py::array_t<float> &x) {
+  auto find_all(const py::array_t<Real> &x) {
 #ifdef MY_DEBUG
     ProfilerStart("find_all.prof");
     std::cout << "profiler start of find_all" << std::endl;
@@ -728,40 +728,34 @@ public:
     return out;
   }
 
-  auto find_all_array(const py::array_t<float> &x) {
+  auto find_all_array(const py::array_t<Real> &x) {
     return list_list_to_arrays(std::move(find_all(x)));
   }
 
-  auto find_one(const vec<float> &x) {
+  auto find_one(const vec<Real> &x) {
     bool is_point = false;
     if (unlikely(!(x.size() == 2 * D || x.size() == D))) {
       throw std::runtime_error("invalid shape");
     }
     Real minima[D];
     Real maxima[D];
-    std::array<double, 2 * D> query_exact;
 
     if (x.size() == D) {
       is_point = true;
     }
     for (int i = 0; i < D; ++i) {
       minima[i] = x.at(i);
-      query_exact[i] = static_cast<double>(x.at(i));
 
       if (is_point) {
         maxima[i] = minima[i];
-        query_exact[i + D] = query_exact[i];
       } else {
         maxima[i] = x.at(i + D);
-        query_exact[i + D] = static_cast<double>(x.at(i + D));
       }
     }
     const auto bb = BB<D, Real>(minima, maxima);
     auto candidates = find(bb);
 
-    // Refine with double precision if exact coordinates are available
-    auto out = candidates;
-    return out;
+    return candidates;
   }
 
   // Helper method: Check intersection with double precision (closed interval
