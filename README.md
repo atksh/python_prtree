@@ -299,7 +299,7 @@ PRTree2D(filename)                     # Load from file
 - **Native precision support**: True float32/float64 precision throughout the entire stack
 - **Architectural refactoring**: Eliminated idx2exact complexity for simpler, faster code
 - **Auto-detection**: Precision automatically selected based on input dtype and when loading files
-- **Advanced precision control**: Adaptive epsilon, configurable relative/absolute epsilon, subnormal detection
+- **C++ precision enhancements**: Adaptive epsilon, configurable epsilon, subnormal detection (internal)
 - **Fixed critical bug**: Boxes with small gaps (<1e-5) incorrectly reported as intersecting
 - **Breaking**: Minimum Python 3.8, serialization format changed
 - Added input validation (NaN/Inf rejection)

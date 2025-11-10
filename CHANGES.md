@@ -25,21 +25,17 @@
 - Previous files saved with float64 input must be loaded with the correct precision
 - Solution: Auto-detection when loading from files (tries float32, then float64)
 
-#### 2. Advanced Precision Control
+#### 2. Advanced Precision Control (C++ Level)
 - **Adaptive epsilon**: Automatically scales epsilon based on bounding box sizes
 - **Configurable epsilon**: Set relative and absolute epsilon for edge cases
 - **Subnormal detection**: Correctly handles denormalized floating-point numbers
-- **Methods added**:
-  ```python
-  tree.set_adaptive_epsilon(bool)
-  tree.set_relative_epsilon(float)
-  tree.set_absolute_epsilon(float)
-  tree.set_subnormal_detection(bool)
-  tree.get_adaptive_epsilon() -> bool
-  tree.get_relative_epsilon() -> float
-  tree.get_absolute_epsilon() -> float
-  tree.get_subnormal_detection() -> bool
-  ```
+- **C++ API methods added** (not exposed in Python API):
+  - `set_adaptive_epsilon(bool)` / `get_adaptive_epsilon()`
+  - `set_relative_epsilon(float)` / `get_relative_epsilon()`
+  - `set_absolute_epsilon(float)` / `get_absolute_epsilon()`
+  - `set_subnormal_detection(bool)` / `get_subnormal_detection()`
+- **Note**: These methods are used internally by the Python wrapper to preserve
+  precision settings but are not exposed as public Python API methods
 
 #### 3. Query Precision Fixes
 - **Issue**: Query methods (`find_one`, `find_all`) used hardcoded `float` type
